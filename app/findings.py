@@ -118,7 +118,7 @@ def extract(t: Trace) -> Evidence:
     else:
         sig.append("No steps were ever planned — the run died before decomposition.")
 
-    if t.steps and not t.completed:
+    if any(s.status == "done" for s in t.steps) and not t.completed:
         sig.append(
             "completedSteps is empty even though steps are marked done — the "
             "run's own ledger disagrees with its board."

@@ -1,34 +1,24 @@
-"""Self-check: the taxonomy has to survive contact with the real corpus.
+"""Self-check: the taxonomy has to survive contact with a frozen corpus.
 
 Run: python3 test_corpus.py [path-to-held-runs]
 """
-import json, sys, glob, os, collections, time
+import json, sys, glob, os, collections
 from app.traces import load
 from app.findings import extract, CAUSES
-from app.watch import is_presumed_dead
 
-SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
-    "~/Documents/Agentonomy-Files/system/held-runs")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "demo-traces")
 
 
 def main() -> int:
     files = sorted(glob.glob(os.path.join(SRC, "*.json")))
-    assert files, f"no traces found in {SRC}"
-
-    # A graveyard directory can contain a run that is still alive — this corpus
-    # is a live one, and a run that is still moving has no cause of death to
-    # attribute. Use the same test the watcher uses.
-    now = time.time()
-    alive = [f for f in files if not is_presumed_dead(json.load(open(f)), now)]
-    files = [f for f in files if f not in alive]
-    if alive:
-        print(f"skipping {len(alive)} run(s) still alive\n")
+    if not files:
+        print(f"ERROR — zero traces selected from {SRC}", file=sys.stderr)
+        return 1
 
     dist = collections.Counter()
     silent = 0
     stalled_progress = []
-    progress_all = []
-
     for f in files:
         raw = json.load(open(f))
         t = load(raw, run_id=os.path.basename(f)[:-5])
@@ -40,7 +30,6 @@ def main() -> int:
         assert ev.signals, f"{f}: extracted no signals at all"
 
         dist[ev.prior_cause] += 1
-        progress_all.append(t.progress)
         if ev.silent:
             silent += 1
         if ev.prior_cause != "USER_ABORT":
@@ -75,11 +64,6 @@ def main() -> int:
             if not os.path.exists(original):
                 continue
             original_raw = json.load(open(original))
-            # The private corpus is live: a previously published corpse can be
-            # resumed later. Apply the same alive-run exclusion used above so
-            # that changing runtime state is not mistaken for anonymization drift.
-            if not is_presumed_dead(original_raw, now):
-                continue
             a = load(original_raw, run_id="x")
             b = load(json.load(open(f)), run_id="x")
             name = os.path.basename(f)[:8]
