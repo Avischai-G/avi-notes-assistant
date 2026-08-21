@@ -291,6 +291,38 @@ def sample():
     return json.loads(d.read_text())
 
 
+# Three real dead runs, picked for contrast: one died 85% finished, one never
+# started, one died mid-step. Keyed by run id — the file is named after the
+# chat it came from, which is not the same thing. An allowlist, not a lookup:
+# nothing a caller sends reaches the filesystem.
+SAMPLES = [
+    ("3f8c6a0e-e3c5-4b89-9669-15081c113762", "e5f226c3-77e5-4711-b519-ec2a6037baaa",
+     "28 steps done, then it stopped dead"),
+    ("02266df1-6d2e-42be-8239-c243bd0896de", "e5feac8f-a837-4780-a127-8887ab68d04d",
+     "All six steps waiting on a human"),
+    ("ccf2c535-44fa-40cf-8b10-19cbeb5385ba", "752b90f2-2b14-4117-856b-0439cb5d3ec0",
+     "Killed mid-step by an orchestrator restart"),
+]
+TRACE_FILE = {run_id: chat_id for run_id, chat_id, _ in SAMPLES}
+
+
+@api.get("/api/samples")
+def samples():
+    return [{"run_id": r, "label": lab} for r, _, lab in SAMPLES]
+
+
+@api.get("/api/samples/{run_id}")
+def sample_trace(run_id: str):
+    """The raw trace behind one sample button, ready to POST straight back."""
+    chat_id = TRACE_FILE.get(run_id)
+    if not chat_id:
+        raise HTTPException(404, f"{run_id} is not one of the sample runs")
+    p = DATA / "demo-traces" / f"{chat_id}.json"
+    if not p.exists():
+        raise HTTPException(404, f"no trace shipped for {run_id}")
+    return json.loads(p.read_text())
+
+
 @api.get("/")
 def index():
     return FileResponse(WEB / "index.html")

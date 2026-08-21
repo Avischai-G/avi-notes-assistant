@@ -60,9 +60,10 @@ certificate together.
 
 ## 1:28–2:18 · One autopsy, live and unedited
 
-**Screen:** New autopsy → **Load a real dead run** → **Begin autopsy**. Let all six pipeline nodes
-complete in real time. Do not cut, speed up, or replace the result. Keep the `.run.app` address and
-the browser's Network stream visible enough to establish that this is the deployed service.
+**Screen:** the landing page → click sample **2, All six steps waiting on a human**. Let all six
+stages complete in the live view in real time — three of them visibly running at once. Do not cut,
+speed up, or replace the result. Keep the `.run.app` address and the browser's Network stream
+visible enough to establish that this is the deployed service.
 
 > Here is one complete autopsy, unedited. Triage proposes two or three causes while keeping the
 > deterministic prior visible. Then the sequence investigator hunts for the earliest divergence.

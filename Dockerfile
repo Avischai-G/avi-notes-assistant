@@ -10,6 +10,8 @@ COPY app ./app
 COPY prompts ./prompts
 COPY web ./web
 COPY data/fleet.json data/sample-trace.json ./data/
+# The three sample buttons post real traces back at the service.
+COPY data/demo-traces ./data/demo-traces
 COPY server.py cli.py stub_orchestrator.py ./
 
 # Cloud Run sets $PORT. One worker: the work is IO-bound on Vertex, and the
