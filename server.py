@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -25,6 +26,8 @@ WEB = Path(__file__).parent / "web"
 DATA = Path(__file__).parent / "data"
 MAX_REQUEST_BYTES = 1024 * 1024
 REQUEST_BODY_TIMEOUT = 10
+JUDGE_KEY = "CORONER_JUDGE_KEY"
+JUDGE_HEADER = "x-coroner-judge-key"
 
 api = FastAPI(title="Coroner", description="Post-mortems for dead agent runs.")
 
@@ -37,6 +40,10 @@ def _caller(request: Request) -> str:
 
 def _gate(limiter: limits.Limiter, request: Request) -> None:
     """These endpoints spend money. Refuse politely rather than quietly billing."""
+    expected = os.environ.get(JUDGE_KEY, "")
+    supplied = request.headers.get(JUDGE_HEADER, "")
+    if expected and supplied and secrets.compare_digest(supplied, expected):
+        return
     ok, wait = limiter.check(_caller(request))
     if not ok:
         raise HTTPException(429, f"Rate limited — this endpoint runs live model calls. "
@@ -117,7 +124,9 @@ def _summary(c: dict) -> dict:
 
 @api.get("/api/health")
 def healthz():
-    return {"ok": True, "model": os.environ.get("CORONER_MODEL", "gemini-3.5-flash")}
+    return {"ok": True,
+            "model": os.environ.get("CORONER_MODEL", "gemini-3.5-flash"),
+            "judge_key_configured": bool(os.environ.get(JUDGE_KEY, ""))}
 
 
 @api.get("/api/taxonomy")

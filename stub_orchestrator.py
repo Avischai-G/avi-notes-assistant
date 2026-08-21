@@ -86,14 +86,12 @@ async def resume(request: Request):
 
 
 @api.get("/queue")
-def queue(request: Request):
-    _authorize(request)
+def queue():
     return _rows()
 
 
 @api.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    _authorize(request)
+def index():
     rows = _rows()
     items = "".join(
         f"<li><b>{_escape(r.get('title') or r.get('run_id') or '?')}</b>"

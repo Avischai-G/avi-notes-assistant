@@ -159,6 +159,49 @@ def check_http_rejections() -> None:
         server._gate = old_gate
 
 
+def check_judge_bypass() -> None:
+    class Request:
+        client = None
+
+        def __init__(self, key: str = ""):
+            self.headers = {server.JUDGE_HEADER: key} if key else {}
+
+    class DenyLimiter:
+        def __init__(self):
+            self.checks = 0
+
+        def check(self, _caller):
+            self.checks += 1
+            return False, 60
+
+    old_key = os.environ.pop(server.JUDGE_KEY, None)
+    limiter = DenyLimiter()
+
+    def refused(request):
+        try:
+            server._gate(limiter, request)
+        except HTTPException as exc:
+            assert exc.status_code == 429, exc
+        else:
+            raise AssertionError("request unexpectedly bypassed the limiter")
+
+    try:
+        refused(Request("present-but-not-configured"))
+        assert server.healthz()["judge_key_configured"] is False
+        os.environ[server.JUDGE_KEY] = "correct-key"
+        refused(Request())
+        refused(Request("wrong-key"))
+        assert server.healthz()["judge_key_configured"] is True
+        checks = limiter.checks
+        server._gate(limiter, Request("correct-key"))
+        assert limiter.checks == checks, "correct judge key must skip the limiter entirely"
+    finally:
+        if old_key is None:
+            os.environ.pop(server.JUDGE_KEY, None)
+        else:
+            os.environ[server.JUDGE_KEY] = old_key
+
+
 def check_unbounded_stream_guards() -> None:
     class FakeRequest:
         headers = {}
@@ -289,8 +332,8 @@ def check_resume_receiver() -> None:
             "salvage": "<unsafe>",
         }
         assert stub.post("/resume", json=malicious).status_code == 401
-        assert stub.get("/queue").status_code == 401
-        assert stub.get("/").status_code == 401
+        assert stub.get("/queue").status_code == 200
+        assert stub.get("/").status_code == 200
         assert stub.post(
             "/resume", json={**malicious, "unexpected": True}, headers=auth
         ).status_code == 400
@@ -298,12 +341,16 @@ def check_resume_receiver() -> None:
             "/resume", content="not-json", headers=auth
         ).status_code == 400
         assert stub.post("/resume", json=malicious, headers=auth).status_code == 200
-        assert stub.get("/queue", headers=auth).status_code == 200
-        page = stub.get("/", headers=auth)
+        assert stub.get("/queue").status_code == 200
+        page = stub.get("/")
         assert page.status_code == 200
         assert "<script>alert(1)</script>" not in page.text
         assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page.text
+        assert "<b>cause</b>" not in page.text
+        assert "&lt;b&gt;cause&lt;/b&gt;" in page.text
         assert "&lt;img src=x onerror=alert(1)&gt;" in page.text
+        assert "<script>alert(2)</script>" not in page.text
+        assert "&lt;script&gt;alert(2)&lt;/script&gt;" in page.text
 
         case = {
             "run_id": "e2e-run",
@@ -371,6 +418,7 @@ def check_prompt_boundary() -> None:
 def main() -> int:
     check_direct_rejections()
     check_http_rejections()
+    check_judge_bypass()
     check_unbounded_stream_guards()
     check_safe_missing_values()
     check_completed_ledger_signal()
