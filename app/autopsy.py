@@ -1,4 +1,4 @@
-"""The autopsy: five agents over one dead run, wired with Google ADK.
+"""The autopsy: six agents over one dead run, wired with Google ADK.
 
     triage        proposes candidate causes, including ones the rules missed
     investigation three investigators in parallel, each with a different lens,
@@ -11,13 +11,20 @@ The middle stage is deliberately adversarial and deliberately diverse. The
 failure mode of an LLM reading a broken run is to agree with the first
 plausible story; three identical skeptics agree with each other. Three
 different lenses do not.
+
+Every agent's instruction lives in prompts/<agent>.md and is read from there at
+import, so the text served by GET /api/agents is the same object that was sent
+to Gemini and cannot drift away from it.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import os
+import re
+import time
 from dataclasses import dataclass, asdict
+from pathlib import Path
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 from google.adk.runners import Runner
@@ -32,6 +39,42 @@ MODEL = os.environ.get("CORONER_MODEL", "gemini-3.5-flash")
 APP = "coroner"
 
 _VOCAB = "\n".join(f"  {k}: {v[1]}" for k, v in CAUSES.items())
+
+# Three lenses, not three copies. Redundant skeptics agree with each other;
+# skeptics looking for different things do not.
+_LENSES = ("sequence", "counterfactual", "alternative")
+IDS = ("triage", *(f"investigator_{lens}" for lens in _LENSES), "certify", "revive")
+
+
+# --- the prompts, which are files ----------------------------------------
+PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts"
+# ponytail: the frontmatter carries one key, so one regex beats a YAML dependency.
+_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.S)
+
+
+@dataclass(frozen=True)
+class Prompt:
+    id: str
+    description: str
+    markdown: str        # the file, verbatim
+    instruction: str     # everything under the frontmatter — what Gemini is sent
+
+
+def load_prompt(agent_id: str) -> Prompt:
+    md = (PROMPT_DIR / f"{agent_id}.md").read_text()
+    m = _FRONTMATTER.match(md)
+    if not m:
+        raise ValueError(f"prompts/{agent_id}.md is missing its frontmatter")
+    description = next((line.split(":", 1)[1].strip()
+                        for line in m.group(1).splitlines()
+                        if line.startswith("description:")), "")
+    return Prompt(agent_id, description, md, md[m.end():].strip())
+
+
+# Read once, at import. Handing back the same object that was sent to the model
+# is the whole point: a file edited under a running server must not make the
+# displayed prompt disagree with the executed one.
+PROMPTS = {i: load_prompt(i) for i in IDS}
 
 
 # --- what each stage must return -----------------------------------------
@@ -144,11 +187,11 @@ KNOWN CAUSES OF DEATH
 """ + _VOCAB + "\n"
 
 
-def _agent(name: str, schema, key: str, instruction: str) -> LlmAgent:
+def _agent(name: str, schema, key: str) -> LlmAgent:
     return LlmAgent(
         name=name,
         model=MODEL,
-        instruction=_CASE + instruction,
+        instruction=_CASE + "\n" + PROMPTS[name].instruction,
         output_schema=schema,
         output_key=key,
         disallow_transfer_to_parent=True,
@@ -157,104 +200,15 @@ def _agent(name: str, schema, key: str, instruction: str) -> LlmAgent:
     )
 
 
-triage = _agent("triage", Triage, "triage", """
-YOUR JOB
-Propose 2-3 candidate causes of death, most likely first.
+triage = _agent("triage", Triage, "triage")
 
-The rule-based guess matches on the stop-reason string, so it is fooled
-whenever the recorded reason describes the symptom rather than the cause. A run
-that says it is "waiting for the user" may really have died because something
-upstream forced it to ask. Treat the guess as one hypothesis among others.
+investigators = [_agent(f"investigator_{lens}", Investigation, f"verdicts_{lens}")
+                 for lens in _LENSES]
 
-If the recorded stop reason looks like the proximate symptom of something
-earlier in the run, say so and propose the earlier cause as well.
-""")
+certify = _agent("certify", Certificate, "certificate")
 
+revive = _agent("revive", ResumePlan, "resume_plan")
 
-# Three lenses, not three copies. Redundant skeptics agree with each other;
-# skeptics looking for different things do not.
-_LENSES = {
-    "sequence": """
-YOUR LENS: the timeline.
-For each hypothesis, ask whether the order of events actually supports it. Find
-the earliest point where this run diverged from a healthy one. If a hypothesis
-names something that happened AFTER that divergence, it is a symptom, not the
-cause, and it does not survive.""",
-    "counterfactual": """
-YOUR LENS: the counterfactual.
-For each hypothesis, ask: if this cause were removed and nothing else changed,
-would the run have finished? If the answer is no — if it would have stalled
-somewhere else anyway — then this is not the cause of death and it does not
-survive.""",
-    "alternative": """
-YOUR LENS: the competing explanation.
-For each hypothesis, actively construct a different explanation that fits every
-observation at least as well. If you can build one, the hypothesis does not
-survive. Consider mundane explanations before exotic ones, and consider that
-the run may have behaved correctly and the surrounding system failed it.""",
-}
-
-investigators = [
-    _agent(f"investigator_{lens}", Investigation, f"verdicts_{lens}", f"""
-CANDIDATE CAUSES PROPOSED AT TRIAGE
-{{triage}}
-{prompt}
-
-Return one verdict per candidate cause above. Your job is to DESTROY them, not
-to confirm them. Only mark a hypothesis as surviving if you genuinely could not
-break it through your lens. Cite specific steps or observations; never restate
-a hypothesis back as evidence for itself. If the trace is too thin to decide,
-that is a failure to survive — say so.""")
-    for lens, prompt in _LENSES.items()
-]
-
-certify = _agent("certify", Certificate, "certificate", """
-CANDIDATE CAUSES PROPOSED AT TRIAGE
-{triage}
-
-Each candidate was handed to three investigators with different lenses, all
-instructed to destroy it.
-
-  timeline lens:        {verdicts_sequence}
-  counterfactual lens:  {verdicts_counterfactual}
-  competing-explanation lens: {verdicts_alternative}
-
-YOUR JOB
-Issue the death certificate.
-
-- A cause survives only if it survived a MAJORITY of the three lenses.
-- If several survived, choose the earliest one in the causal chain. The others
-  are its symptoms; list them as contributing factors.
-- If none survived, the cause is UNDETERMINED and confidence is low. Do not
-  invent a cause to avoid saying so.
-- 'plain_english' is addressed to the engineer who owns this system. No
-  hedging, and do not recite the taxonomy definition back at them.
-- 'wasted_effort' states how much of the planned work was thrown away.
-- 'prevention' is one concrete change to the orchestrator. Not advice, not a
-  principle — a change someone could make on Monday.
-""")
-
-revive = _agent("revive", ResumePlan, "resume_plan", """
-CAUSE OF DEATH AS CERTIFIED
-{certificate}
-
-YOUR JOB
-Write the resume plan. This run's remaining work is not automatically lost —
-decide what can still be salvaged and how to restart it.
-
-- 'revivable' is false only if the run genuinely completed, was aborted on
-  purpose by a human, or its request no longer makes sense. Being stuck is not
-  a reason to declare it unrevivable.
-- 'skip' lists the step ids already banked so the restart does not redo them.
-- 'unblock' is the single condition that must hold before restarting. If the
-  run died waiting on a human, do NOT write "the user must answer" — that is
-  what already failed. Write the assumption the orchestrator should proceed
-  under instead, chosen so that being wrong is cheap and visible.
-- 'restart_prompt' is handed verbatim to the orchestrator. Never assert
-  anything that has not happened — in particular never claim the human
-  answered. State the assumption openly, instruct the orchestrator to proceed
-  on it and to flag it in its output, and carry forward what is already done.
-""")
 
 coroner = SequentialAgent(
     name="coroner",
@@ -350,3 +304,81 @@ STAGES = [
     ("certify", "Certification", "issues the death certificate"),
     ("revive", "Revival", "writes the resume plan"),
 ]
+
+LABEL = {agent: label for agent, label, _ in STAGES}
+
+
+def agent_cards() -> list[dict]:
+    """The six agents in execution order, each with the file loaded into it."""
+    return [{"id": i, "label": LABEL[i], "description": PROMPTS[i].description,
+             "model": MODEL, "markdown": PROMPTS[i].markdown} for i in IDS]
+
+
+# --- watching one autopsy happen -----------------------------------------
+# Which stages begin together. The three investigators are one wave sharing one
+# group id, because the point of the stream is seeing them overlap.
+GROUP = "investigation"
+WAVES = [("triage",), tuple(f"investigator_{lens}" for lens in _LENSES),
+         ("certify",), ("revive",)]
+OUTPUT_KEY = {"triage": "triage", "certify": "certificate", "revive": "resume_plan",
+              **{f"investigator_{lens}": f"verdicts_{lens}" for lens in _LENSES}}
+
+
+def _stage_event(stage: str, state: str, result=None) -> tuple[str, dict]:
+    return "stage", {"stage": stage, "label": LABEL[stage], "state": state,
+                     "at": time.time(),
+                     "group": GROUP if stage in WAVES[1] else None,
+                     "result": result}
+
+
+async def watch_autopsy(t: Trace, ev: Evidence, run=None):
+    """Yield ("stage" | "done" | "error", payload) for one autopsy, live.
+
+    A SequentialAgent starts its next stage the instant the previous one lands,
+    so each wave is announced from the event that completed the wave before it
+    rather than from ADK's internals. That is also what guarantees all three
+    investigators are reported as started before any of them reports back.
+
+    `run` is the stage runner and defaults to the real one; test_stream.py
+    hands in a fake so the ordering can be checked without six model calls.
+    """
+    q: asyncio.Queue = asyncio.Queue()
+
+    async def work():
+        try:
+            r = await (run or perform_async)(t, ev, q.put)
+            await q.put({"report": r.as_dict()})
+        except Exception as e:                     # the client must hear about it
+            await q.put({"error": f"{type(e).__name__}: {e}"})
+        finally:
+            await q.put(None)
+
+    task = asyncio.create_task(work())
+    try:
+        wave, pending = 0, set(WAVES[0])
+        for stage in WAVES[0]:
+            yield _stage_event(stage, "start")
+
+        while (e := await q.get()) is not None:
+            if "error" in e:
+                yield "error", {"detail": e["error"]}
+                return
+            if "report" in e:
+                yield "done", {"case": e["report"]}
+                return
+
+            stage = e.get("agent")
+            result = (e.get("produced") or {}).get(OUTPUT_KEY.get(stage, ""))
+            if stage not in pending or not result:
+                continue                  # chatter, or output not written yet
+            pending.discard(stage)
+            yield _stage_event(stage, "done", result)
+
+            if not pending:
+                wave += 1
+                if wave < len(WAVES):
+                    pending = set(WAVES[wave])
+                    for stage in WAVES[wave]:
+                        yield _stage_event(stage, "start")
+    finally:
+        task.cancel()

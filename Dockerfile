@@ -7,6 +7,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY app ./app
+COPY prompts ./prompts
 COPY web ./web
 COPY data/fleet.json data/sample-trace.json ./data/
 COPY server.py cli.py stub_orchestrator.py ./

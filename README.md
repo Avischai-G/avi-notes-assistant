@@ -175,9 +175,9 @@ traffic is therefore bounded:
 - Sweep traffic has separate in-memory buckets: eight per caller and 12 per process instance per
   hour. The deployed Cloud Run service allows up to three instances.
 - Refusals return `429` with `Retry-After`.
-- **Nothing a visitor posts is stored.** `/api/autopsy` streams the report back and forgets it. It
-  never enters the shared graveyard, so pointing the live demo at your own trace does not publish it
-  to the next person who visits.
+- **Nothing a visitor posts is stored.** `/api/autopsy` and `/api/autopsy/stream` hand the report
+  back and forget it. It never enters the shared graveyard, so pointing the live demo at your own
+  trace does not publish it to the next person who visits.
 
 Judges receive a separate key in the Devpost testing instructions. Send it as the
 `X-Coroner-Judge-Key` request header; a correctly configured key bypasses the public rate gate.
@@ -186,8 +186,8 @@ The key value is never committed to this repository or written into these instru
 ## Privacy: exact boundary
 
 The private source corpus stays private; the repository contains its fictional structural twin.
-For a trace submitted to `/api/autopsy`, `app/redact.py` pattern-masks these recognized forms before
-the first Vertex AI call:
+For a trace submitted to either autopsy endpoint, `app/redact.py` pattern-masks these recognized
+forms before the first Vertex AI call:
 
 - POSIX, Windows drive-letter, and UNC paths;
 - HTTP(S) URLs and domain/path URLs without a scheme;

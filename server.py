@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import fleet, limits, resume, store, watch
-from app.autopsy import STAGES, perform_async
+from app.autopsy import STAGES, agent_cards, perform_async, watch_autopsy
 from app.findings import CAUSES, extract
 from app.redact import redact
 from app.traces import load
@@ -105,6 +105,18 @@ async def _trace_json(request: Request):
         raise HTTPException(400, f"body must be valid JSON: {exc}") from exc
 
 
+async def _posted_trace(request: Request):
+    """The trace a caller posted, redacted, with its rule-based evidence."""
+    raw = await _trace_json(request)
+    try:
+        t = load(raw)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if os.environ.get("CORONER_REDACT", "1") != "0":
+        t = redact(t)
+    return t, extract(t)
+
+
 def _summary(c: dict) -> dict:
     cert, ev = c.get("certificate") or {}, c.get("evidence") or {}
     return {
@@ -137,6 +149,13 @@ def taxonomy():
 @api.get("/api/stages")
 def stages():
     return [{"agent": a, "label": l, "does": d} for a, l, d in STAGES]
+
+
+@api.get("/api/agents")
+def agents():
+    """The six agents in execution order, each with the markdown file that was
+    loaded into it. Same object the model was sent — see app/autopsy.py."""
+    return agent_cards()
 
 
 @api.get("/api/cases")
@@ -176,14 +195,7 @@ def fleet_recompute(request: Request):
 async def autopsy(request: Request):
     """Stream an autopsy of a trace posted as JSON. Server-sent events."""
     _gate(limits.autopsy, request)
-    raw = await _trace_json(request)
-    try:
-        t = load(raw)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    if os.environ.get("CORONER_REDACT", "1") != "0":
-        t = redact(t)
-    ev = extract(t)
+    t, ev = await _posted_trace(request)
 
     q: asyncio.Queue = asyncio.Queue()
 
@@ -210,6 +222,30 @@ async def autopsy(request: Request):
                 yield f"data: {json.dumps(e)}\n\n"
         finally:
             task.cancel()
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
+
+
+@api.post("/api/autopsy/stream")
+async def autopsy_stream(request: Request):
+    """The same autopsy as /api/autopsy, reported stage by stage while it runs.
+
+    Named server-sent events: `stage` per agent as it starts and finishes, then
+    one `done` carrying the finished case, or `error`. The three investigators
+    all report `start` before any reports `done` and share one `group`, because
+    a viewer has to be able to see that three things are running at once.
+
+    Deliberately not stored, exactly like /api/autopsy: whatever a visitor
+    posts is streamed back to them and forgotten.
+    """
+    _gate(limits.autopsy, request)
+    t, ev = await _posted_trace(request)
+
+    async def stream():
+        async for name, data in watch_autopsy(t, ev):
+            yield f"event: {name}\ndata: {json.dumps(data)}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
