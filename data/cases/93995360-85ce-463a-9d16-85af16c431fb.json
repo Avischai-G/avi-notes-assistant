@@ -1,0 +1,145 @@
+{
+  "run_id": "93995360-85ce-463a-9d16-85af16c431fb",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "6 steps planned; banked 0 (0%). Step states: doing=1, todo=5",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": "c69f91bf-f890-4644-b2c3-9fa18933ee97 \u2014 Set up database schema for inventory items with expiry tracking",
+    "silent": true,
+    "steps_planned": 6,
+    "retries": 0,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run's recorded stop reason is 'Recovered unfinished work from an older orchestrator run.' It was restored to the board with one step marked as 'doing' and others as 'todo', but no actual progress or worker activity occurred post-recovery, leaving the run permanently stalled in a 'held' state.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "An infrastructure crash or orchestrator restart during the original execution of step c69f91bf abruptly terminated the run. The recovery mechanism successfully saved the state and labeled it as recovered, but failed to spin up a new worker to resume the active step.",
+      "confidence": 0.7
+    },
+    {
+      "cause": "UNDETERMINED",
+      "reasoning": "While the recovery label is clear, the underlying reason why the orchestrator did not resume execution of the 'doing' step (e.g., database lock, scheduler failure, or queue misconfiguration) cannot be fully verified without the orchestrator's system logs.",
+      "confidence": 0.2
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. The board shows one step in 'doing' and five in 'todo', but completedSteps is empty and there is no record of any worker activity or progress in this run. This matches the exact definition of a zombie recovery where state is restored but never executed.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely terminated the *original* run from which this work was recovered, it is not the cause of death for *this* run. This run (93995360-85ce-463a-9d16-85af16c431fb) was initialized specifically as a recovery placeholder in a 'held' state and never actually began execution, meaning it did not die mid-flight due to a restart.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of death is not undetermined. The system explicitly flagged the run with the stop reason 'Recovered unfinished work from an older orchestrator run' and placed it in a 'held' state. This is a known orchestrator behavior for imported/recovered runs that are not automatically resumed.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and its recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run.' The board shows one step in 'doing' and five in 'todo', but no actual progress or worker execution occurred after this recovery. If the zombie recovery state had been successfully transitioned to an active execution state by the orchestrator, the run would have proceeded to execute the database schema setup and subsequent steps. Thus, the failure to resume the recovered run (ZOMBIE_RECOVERY) is the direct cause of the stall.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "step c69f91bf [doing] attempts=1",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely occurred in the original run (prompting the recovery mechanism to run), an infra restart alone does not explain why this recovered run stalled. If the recovery mechanism had successfully resumed execution after the restart, the run would have completed. The failure is specifically that the recovered run was left in a 'held' state without being kicked off, which is a zombie recovery failure rather than an unrecoverable infrastructure crash.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The trace is not too thin to make a determination. The combination of the 'held' state, the explicit stop reason pointing to recovered work, and the lack of any post-recovery worker activity provides a clear and classic signature of a zombie recovery stall.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run.' This matches the exact signature of a zombie recovery, where a run is imported from a previous session's database state but is not actively scheduled or executed in the new session, leaving it frozen with its previous 'doing' step intact.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely terminated the *original* run from which this work was recovered, it does not explain the state of *this* run. This run was initialized directly into a 'held' state as a recovery artifact. It did not crash mid-execution during this session because it never actually began executing.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause is not undetermined. The system explicitly flagged this run with the stop reason 'Recovered unfinished work from an older orchestrator run' and placed it in a 'held' state. This is a well-defined administrative state for recovered runs awaiting manual intervention or rescheduling, rather than an unexplained failure.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held"
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was restored from an older orchestrator session but was placed in a 'held' state without any active worker being scheduled to resume execution. As a result, the run remained frozen with its first step marked as 'doing' but with no actual progress made.",
+    "killing_step": "c69f91bf-f890-4644-b2c3-9fa18933ee97",
+    "contributing": [],
+    "wasted_effort": "0% of the planned work was completed in this run, as it stalled immediately upon recovery before any steps could be executed.",
+    "prevention": "Modify the orchestrator's recovery handler to automatically transition recovered runs from 'held' to 'queued' or 'running' state, or trigger a worker dispatch event immediately upon importing a run."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "c69f91bf",
+    "skip": [],
+    "unblock": "The orchestrator must transition the run state from 'held' to 'running' and dispatch an active worker to execute the first step.",
+    "restart_prompt": "Please resume execution of the stock rotation dashboard project. Start by executing step c69f91bf ('Set up database schema for inventory items with expiry tracking') to define the PostgreSQL schema, and then proceed through the remaining planned steps on the board.",
+    "salvage": "The entire planned task list, including the database schema design, FIFO logic, alert system, validation endpoint, and visualization widgets, is fully intact and ready to be executed."
+  }
+}

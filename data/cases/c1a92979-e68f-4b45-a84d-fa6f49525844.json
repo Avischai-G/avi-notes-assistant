@@ -1,0 +1,127 @@
+{
+  "run_id": "c1a92979-e68f-4b45-a84d-fa6f49525844",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "11 steps planned; banked 10 (91%). Step states: doing=1, done=10",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "2 retry/retries across the plan; worst was step fe9df028 at 3 attempts \u2014 it fought before it died."
+    ],
+    "progress": 0.9090909090909091,
+    "killing_step": "fe9df028-da1d-4ef7-bf40-50a345002464 \u2014 Transcription Validation System",
+    "silent": true,
+    "steps_planned": 11,
+    "retries": 2,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The recorded stop reason explicitly states 'Recovered unfinished work from an older orchestrator run.' The run was restored into a 'held' state, but no further progress was made. Additionally, the ledger of completed steps is empty despite the board showing 10 completed steps, which is a classic symptom of a state-restoration mismatch where the visual board state was recovered but the execution engine did not resume the active step (fe9df028).",
+      "confidence": 0.9
+    },
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "The recovery of unfinished work from an older run implies that the previous orchestrator run crashed or was terminated abruptly (e.g., due to an infrastructure restart or host migration). The work did not survive the transition cleanly, leading to the 'held' state and the mismatched step ledger.",
+      "confidence": 0.6
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the stop reason is explicitly recorded as 'Recovered unfinished work from an older orchestrator run.' The board shows 10 completed steps and 1 in-progress step, yet the run's own completedSteps ledger is completely empty. This mismatch confirms that the run was restored into a placeholder state from a previous session but never actually executed or progressed any steps in this run instance, which is the definition of a zombie recovery.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done on the board"
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely terminated the *original* run from which this work was recovered, it is not the cause of death for *this* specific run. This run was initialized directly into a 'held' state as a recovery container and did not experience an active mid-run crash or orchestrator restart itself.",
+        "evidence": [
+          "final state: held",
+          "stop reason: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run.' The board shows 10 completed steps, but the completed steps ledger is entirely empty, which is a definitive signature of a state-restoration mismatch where the visual board was populated from a database but no actual execution occurred in this run instance. If this run had not been a zombie recovery, it would not have been initialized into a 'held' state with an empty execution ledger.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely terminated the original run that preceded this one, it is not the cause of death for this specific run record. This run was successfully created/restored and cleanly placed into a 'held' state by the orchestrator's recovery system. If an infrastructure restart had killed this specific run, it would have terminated abruptly without a clean 'held' state or the specific 'Recovered unfinished work' stop reason.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "This run is a textbook zombie recovery. The run was imported from a previous session, as indicated by the title 'Recovered work' and the explicit stop reason 'Recovered unfinished work from an older orchestrator run.' It was placed directly into a 'held' state upon creation. Because it never actually executed any steps in this session, the 'completedSteps' ledger remains empty, even though the visual board displays the 10 completed steps inherited from the prior run.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart is the highly probable cause of death for the *original* run that preceded this one, it does not explain the termination of *this* specific run (c1a92979-e68f-4b45-a84d-fa6f49525844). This run did not crash mid-execution; instead, it was cleanly initialized and paused in a 'held' state by the orchestrator's recovery mechanism. A mid-run infrastructure failure on this run would have resulted in an abrupt termination or loss of state, rather than a clean 'held' status with a recorded recovery stop reason.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was initialized as a recovery container for an older, unfinished orchestrator run but was immediately placed into a 'held' state. While the visual board inherited 10 completed steps from the database, the execution engine never actually resumed or scheduled the active step, leaving the run's internal completed steps ledger entirely empty.",
+    "killing_step": "fe9df028-da1d-4ef7-bf40-50a345002464",
+    "contributing": [
+      "INFRA_RESTART"
+    ],
+    "wasted_effort": "No new execution effort was wasted in this specific run instance because it never progressed past initialization. However, the single in-progress step (fe9df028) from the original run remains stalled after 3 attempts.",
+    "prevention": "Modify the orchestrator's recovery routine to automatically queue and resume any 'doing' steps (such as fe9df028) immediately upon state restoration, rather than leaving the recovered run in a passive 'held' state with an empty execution ledger."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "fe9df028",
+    "skip": [
+      "9422d866",
+      "65f1c138",
+      "0be805b9",
+      "50029fc7",
+      "8ecc93b1",
+      "8448b2ef",
+      "7bfbf789",
+      "a404a846",
+      "36c85629",
+      "6eb93247"
+    ],
+    "unblock": "The orchestrator must resume execution of the remaining in-progress step 'fe9df028' (Transcription Validation System) using the state and code inherited from the previous run.",
+    "restart_prompt": "Resume the pipeline execution. Step 'fe9df028' (Transcription Validation System) is currently in-progress (Attempt 3). Please complete this step by rewriting the validation parser to handle null fields and pressure drops during historical storms, while ensuring that high-wind velocity scales and missing data fields are correctly handled. The other 10 steps (9422d866, 65f1c138, 0be805b9, 50029fc7, 8ecc93b1, 8448b2ef, 7bfbf789, a404a846, 36c85629, 6eb93247) are already completed and should be skipped.",
+    "salvage": "The 10 completed steps representing the database schema, OCR training, ingestion pipeline, vectorization, standardization, metadata association, normalization, export API, interpolation, and final QA audit are fully preserved and do not need to be re-executed."
+  }
+}

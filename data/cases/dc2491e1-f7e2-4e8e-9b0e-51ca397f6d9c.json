@@ -1,0 +1,117 @@
+{
+  "run_id": "dc2491e1-f7e2-4e8e-9b0e-51ca397f6d9c",
+  "title": "Climbing-Gym Route-Setting Tracker",
+  "prior_cause": "VERIFICATION_DEADLOCK",
+  "evidence": {
+    "signals": [
+      "5 steps planned; banked 0 (0%). Step states: blocked=5",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "5 step(s) sitting in 'blocked' with no unblocking action recorded."
+    ],
+    "progress": 0.0,
+    "killing_step": "fe05cd36-6533-4b06-b984-bae01cef4b51 \u2014 Route Setting: Sector A Medium Slab",
+    "silent": true,
+    "steps_planned": 5,
+    "retries": 0,
+    "stop_reason": "Steps 1, 3, 2, 4, 5 remain blocked after verification.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "VERIFICATION_DEADLOCK",
+      "reasoning": "All 5 planned route-setting steps are blocked by external physical dependencies (delayed bolts, crash pad maintenance, truss inspections, missing volumes, and damaged holds). The orchestrator's verification step identified these blocks and halted progress because no actionable steps remained, resulting in a deadlock.",
+      "confidence": 0.85
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "The run's final state is 'held', which often indicates it is waiting for human intervention to resolve the real-world blockers (such as updating the hold inventory or confirming safety inspections) before it can proceed.",
+      "confidence": 0.15
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run stopped because all 5 planned steps were verified as blocked due to external physical dependencies (such as delayed bolts, maintenance, and damaged holds). The orchestrator's verification process confirmed that no steps could proceed, resulting in a complete deadlock with zero active steps remaining.",
+        "evidence": [
+          "Stop reason: Steps 1, 3, 2, 4, 5 remain blocked after verification.",
+          "Step fe05cd36, 3f316234, 15f28799, 88d1ea76, and f9c121d0 are all in a 'blocked' state."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "Although the final state of the run is 'held', there is no evidence that the run parked on an open question or was waiting for a user response. The 'held' state is a consequence of the orchestrator pausing the run because all steps were verified as blocked, rather than a polite wait for user input.",
+        "evidence": [
+          "Stop reason: Steps 1, 3, 2, 4, 5 remain blocked after verification.",
+          "No question or prompt to the user is recorded in the step descriptions or stop reasons."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run is completely deadlocked because all five planned steps are in a 'blocked' state with no active or unblocked steps available to resolve them. The orchestrator's verification process correctly identified that no progress could be made and halted the run with the message 'Steps 1, 3, 2, 4, 5 remain blocked after verification.' Without resolving these external physical dependencies, the run could never proceed.",
+        "evidence": [
+          "stop reason as recorded: Steps 1, 3, 2, 4, 5 remain blocked after verification.",
+          "step fe05cd36 [blocked] attempts=1",
+          "step 3f316234 [blocked] attempts=1",
+          "step 15f28799 [blocked] attempts=1",
+          "step 88d1ea76 [blocked] attempts=1",
+          "step f9c121d0 [blocked] attempts=1"
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the run's final state is marked as 'held', this is an automated status assigned by the orchestrator when it detects a verification deadlock, rather than a state of waiting for a pending user prompt or question. There is no evidence of an active question or input request in the trace; the run was stopped programmatically because all steps were blocked.",
+        "evidence": [
+          "stop reason as recorded: Steps 1, 3, 2, 4, 5 remain blocked after verification."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run was explicitly halted by the orchestrator with the stop reason 'Steps 1, 3, 2, 4, 5 remain blocked after verification.' Every single planned step is in a 'blocked' state due to external physical dependencies (missing bolts, crash pad maintenance, structural inspections, missing volumes, and damaged holds). Because there are no unblocked steps available to execute and no automated actions can resolve these real-world blockers, the run entered a verification deadlock and could not proceed.",
+        "evidence": [
+          "stop reason as recorded: Steps 1, 3, 2, 4, 5 remain blocked after verification.",
+          "step fe05cd36 [blocked] attempts=1",
+          "step 3f316234 [blocked] attempts=1",
+          "step 15f28799 [blocked] attempts=1",
+          "step 88d1ea76 [blocked] attempts=1",
+          "step f9c121d0 [blocked] attempts=1"
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "Although the run's final state is marked as 'held', there is no evidence of an active, unanswered question or prompt directed to the user. The run did not pause to wait for user input; rather, it was stopped by the orchestrator's verification logic because all planned tasks were blocked by external physical constraints. 'Held' in this context represents a system-level block rather than a polite wait for a user response.",
+        "evidence": [
+          "stop reason as recorded: Steps 1, 3, 2, 4, 5 remain blocked after verification."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "VERIFICATION_DEADLOCK",
+    "confidence": 0.95,
+    "plain_english": "The run was halted because all five planned route-setting steps were verified as blocked by external physical dependencies, such as missing bolts, maintenance, and damaged holds. Since no unblocked steps remained and no automated actions could resolve these real-world blockers, the orchestrator deadlocked and paused the run.",
+    "killing_step": "fe05cd36-6533-4b06-b984-bae01cef4b51",
+    "contributing": [],
+    "wasted_effort": "All 5 planned steps (100% of the run) were blocked from the start, resulting in zero completed steps and 5 stalled tasks.",
+    "prevention": "Add a validation rule to the orchestrator's planning phase that prevents launching a run if all initial steps are marked as blocked by external dependencies, requiring user confirmation or alternative step generation before execution."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "fe05cd36",
+    "skip": [],
+    "unblock": "The physical dependencies (custom bolts, crash pads, truss inspections, volume shipments, and replacement holds) are assumed to be resolved or alternative workarounds have been prepared.",
+    "restart_prompt": "All physical blockers for the route-setting sectors have been resolved: the custom bolts have arrived, crash pads are back from maintenance, the Sector C truss inspection is complete, the trapezoidal wooden volumes have been delivered, and backup holds are available for Sector E. Please proceed with setting, grading, and safety-testing all five sectors (A, B, C, D, and E) as originally planned. Flag any remaining issues in your output.",
+    "salvage": "The initial route-setting plans, sector assignments, and target grades (V4 to V9) are fully preserved and ready to be executed."
+  }
+}

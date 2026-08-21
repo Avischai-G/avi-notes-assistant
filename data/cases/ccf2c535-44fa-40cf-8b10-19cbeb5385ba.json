@@ -1,0 +1,111 @@
+{
+  "run_id": "ccf2c535-44fa-40cf-8b10-19cbeb5385ba",
+  "title": "Museum Audio-Guide Builder",
+  "prior_cause": "INFRA_RESTART",
+  "evidence": {
+    "signals": [
+      "4 steps planned; banked 0 (0%). Step states: doing=1, todo=3",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": "9f2ff9c5-b28f-4d68-8f54-ac66d965c332 \u2014 Configure Backend Audio Synthesis Module",
+    "silent": true,
+    "steps_planned": 4,
+    "retries": 0,
+    "stop_reason": "The orchestrator restarted before this run finished.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "The recorded stop reason explicitly states that the orchestrator restarted before the run finished. This is consistent with the run being left in a 'held' state with step 9f2ff9c5 still marked as 'doing' and no completed steps or worker failures recorded.",
+      "confidence": 0.95
+    },
+    {
+      "cause": "WORKER_TERMINATED",
+      "reasoning": "While the orchestrator restart is the primary cause, it is possible that the worker agent 'joker-codex' encountered an unhandled exception or hung indefinitely while debugging the chunking and rate-limiting logic for large payloads, which may have triggered an infrastructure-level restart or timeout.",
+      "confidence": 0.25
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The run's recorded stop reason explicitly states that the orchestrator restarted before the run finished. The run was left in a 'held' state with one step ('9f2ff9c5') still marked as 'doing' and no completed steps or worker failures recorded. This is the classic signature of an infrastructure restart interrupting an active run.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "final state: held",
+          "step 9f2ff9c5 [doing] attempts=1"
+        ]
+      },
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": false,
+        "argument": "There is no evidence that the worker agent 'joker-codex' terminated prematurely or crashed. The agent successfully reported its progress, stating it was actively debugging rate-limiting and chunking logic. The run was interrupted by the orchestrator restarting, not by a worker process failure.",
+        "evidence": [
+          "reported back: Agent joker-codex (Attempt 1, Medium difficulty, Status: Doing): I have established the core connection to the synthesis API and configured S3 upload handlers. I am currently debugging rate-limiting and chunking logic..."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The run was in its very first step (9f2ff9c5) with three other steps remaining in 'todo'. The worker 'joker-codex' was actively reporting progress on debugging chunking logic and S3 uploads. The recorded stop reason explicitly states that the orchestrator restarted before the run finished, leaving the run in a 'held' state. Had this infrastructure restart not occurred, the run would have continued processing the active step and subsequent tasks.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "final state: held",
+          "reported back: Agent joker-codex (Attempt 1, Medium difficulty, Status: Doing): I have established the core connection to the synthesis API and configured S3 upload handlers..."
+        ]
+      },
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": false,
+        "argument": "There is no evidence that the worker crashed, hung, or terminated prematurely on its own. The worker's status update indicates active progress on debugging. Even if the worker had encountered an issue, the orchestrator's restart is a system-level event that would have terminated the run regardless of the worker's individual state. Therefore, this hypothesis does not survive the counterfactual test.",
+        "evidence": [
+          "reported back: Agent joker-codex (Attempt 1, Medium difficulty, Status: Doing): I am currently debugging rate-limiting and chunking logic..."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly states 'The orchestrator restarted before this run finished' and the run was left in a 'held' state. This is the definitive signature of an infrastructure restart where the orchestrator process was terminated and restarted, leaving the active step '9f2ff9c5' in a perpetual 'doing' state without any opportunity to save progress or fail gracefully.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "final state: held",
+          "step 9f2ff9c5 [doing] attempts=1"
+        ]
+      },
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": false,
+        "argument": "There is no evidence that a worker termination or crash triggered the orchestrator restart. If the worker agent 'joker-codex' had crashed or hung, the orchestrator would typically remain active and eventually time out the step or report a worker failure. Instead, the entire orchestrator process restarted, which points to an external infrastructure event rather than an isolated worker failure.",
+        "evidence": [
+          "reported back: Agent joker-codex (Attempt 1, Medium difficulty, Status: Doing)...",
+          "Stopped with zero reported worker failures"
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "INFRA_RESTART",
+    "confidence": 0.98,
+    "plain_english": "The orchestrator process restarted while the first step was actively running. This left the run in a 'held' state with the active step marked as 'doing' and no way to resume automatically.",
+    "killing_step": "9f2ff9c5-b28f-4d68-8f54-ac66d965c332",
+    "contributing": [],
+    "wasted_effort": "The work done on the first step (Configure Backend Audio Synthesis Module) by agent joker-codex was lost, representing 1 out of 4 planned steps (25% of the total plan) in progress.",
+    "prevention": "Implement a startup recovery routine in the orchestrator that scans for runs in a 'held' or 'doing' state from before the restart and automatically re-queues or resumes their active steps."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "9f2ff9c5",
+    "skip": [],
+    "unblock": "The orchestrator and worker environments are fully operational and ready to resume execution.",
+    "restart_prompt": "The run was interrupted by an infrastructure restart while executing step 9f2ff9c5 (Configure Backend Audio Synthesis Module). Please resume execution from this step. The previous worker (joker-codex) had already established the core connection to the synthesis API, configured S3 upload handlers, and verified S3 asset generation for smaller payloads. Please pick up from there, focusing on completing the debugging of rate-limiting, chunking logic for descriptions exceeding 3000 characters, and standard error handling for API timeouts, then proceed with the remaining steps on the board.",
+    "salvage": "The initial integration code for the synthesis API and S3 upload handlers developed by joker-codex during the first attempt of step 9f2ff9c5."
+  }
+}

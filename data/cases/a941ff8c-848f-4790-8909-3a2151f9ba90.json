@@ -1,0 +1,107 @@
+{
+  "run_id": "a941ff8c-848f-4790-8909-3a2151f9ba90",
+  "title": "Recovered work",
+  "prior_cause": "INFRA_RESTART",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": true,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "The orchestrator restarted before this run finished.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "The recorded stop reason explicitly states that the orchestrator restarted before the run finished. Since no steps were ever planned or executed, the infrastructure restart likely occurred immediately after the run was initialized, preventing any progress from being made.",
+      "confidence": 0.95
+    },
+    {
+      "cause": "UNDETERMINED",
+      "reasoning": "Without a recorded user request or initial logs, we cannot completely rule out an initial validation failure or an immediate system-level crash that triggered the orchestrator restart.",
+      "confidence": 0.05
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly states that the orchestrator restarted before the run finished. The timeline shows that the run was initialized but never managed to plan or execute any steps, which is completely consistent with a sudden infrastructure restart occurring immediately after the run was created, wiping out the orchestrator's state before it could persist any progress.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "We have a highly specific and explicit stop reason recorded by the system ('The orchestrator restarted before this run finished'). This direct evidence, combined with the empty board state, makes INFRA_RESTART the definitive cause of death, leaving no need to classify the cause as undetermined.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly states that the orchestrator restarted before the run finished. If this infrastructure restart had not occurred, the orchestrator would have been able to process the run, plan steps, and proceed to execution. There is no evidence of any pre-existing failure, validation error, or deadlock that would have prevented the run from progressing had the infrastructure remained stable.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "the board as it was left: (no steps were ever planned)",
+          "observations already extracted from the trace: Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "We have a highly specific, explicitly recorded stop reason stating that the orchestrator restarted. This direct evidence points clearly to an infrastructure restart rather than an unknown or unidentifiable failure mode, making the 'undetermined' classification unnecessary.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The stop reason is explicitly recorded by the platform as 'The orchestrator restarted before this run finished.' This direct system log confirms that an infrastructure restart occurred. The lack of any planned steps or activity on the board is perfectly consistent with the run being interrupted by a system restart immediately upon initialization or during its recovery phase.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "This hypothesis does not survive because the cause of death is not ambiguous. The platform explicitly recorded that the orchestrator restarted before the run finished, which provides a clear and sufficient explanation for the sudden halt without progress.",
+        "evidence": [
+          "stop reason as recorded: The orchestrator restarted before this run finished."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "INFRA_RESTART",
+    "confidence": 0.98,
+    "plain_english": "The orchestrator process restarted immediately after the run was initialized, before any steps could be planned or executed. Because the orchestrator's state was not persisted or recovered, the run was left in an empty, unstarted state.",
+    "killing_step": "initialization",
+    "contributing": [],
+    "wasted_effort": "None. The run was interrupted before any planning or execution steps could begin.",
+    "prevention": "Implement a persistent state store for the orchestrator that saves the run initialization event immediately, allowing a restarted orchestrator to resume planning from the initial request."
+  },
+  "resume_plan": {
+    "revivable": false,
+    "resume_at": "",
+    "skip": [],
+    "unblock": "The original user request must be re-submitted because it was not recorded and cannot be recovered from the trace.",
+    "restart_prompt": "This run cannot be resumed because the original user request was not recorded before the orchestrator restarted. Please ask the user to submit a new run with their request.",
+    "salvage": "None. No steps were planned or executed, and the original request is lost."
+  }
+}

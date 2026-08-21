@@ -1,0 +1,114 @@
+{
+  "run_id": "a4d12cf2-796c-4ea5-8ce9-ecd96f75c4dd",
+  "title": "Lighthouse Beacon Rotation Assembly Maintenance",
+  "prior_cause": "VERIFICATION_DEADLOCK",
+  "evidence": {
+    "signals": [
+      "1 step(s) planned; banked 0 (0%). Step states: blocked=1",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "1 step(s) sitting in 'blocked' with no unblocking action recorded.",
+      "1 retry/retries across the plan; worst was step 37a6301e at 2 attempts \u2014 it fought before it died."
+    ],
+    "progress": 0.0,
+    "killing_step": "37a6301e-343f-430e-81ef-3e35f925ffad \u2014 Inspect and lubricate lower bearing track (Attempt 2 - BLOCKED)",
+    "silent": true,
+    "steps_planned": 1,
+    "retries": 1,
+    "stop_reason": "Steps 1 remain blocked after verification.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "VERIFICATION_DEADLOCK",
+      "reasoning": "The run has only one step, which is blocked after two attempts. The stop reason explicitly states 'Steps 1 remain blocked after verification.' The step failed verification because of a physical impediment (seized access hatch bolts) that the agent could not resolve, leaving the run with no viable path forward and no further actions planned to unblock itself.",
+      "confidence": 0.85
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "The run's final state is 'held', which often indicates the orchestrator has paused the run to wait for human intervention, such as a manual override or instructions on how to handle the seized bolts, rather than failing outright.",
+      "confidence": 0.45
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run's sole step (37a6301e) failed verification on its second attempt because the access hatch could not be opened (due to seized bolts), which was a strict verification requirement. The orchestrator explicitly stopped with the reason 'Steps 1 remain blocked after verification' and had no further actions or steps planned to resolve the blockage, resulting in a deadlock.",
+        "evidence": [
+          "stop reason as recorded: Steps 1 remain blocked after verification.",
+          "step 37a6301e [blocked] attempts=2",
+          "1 step(s) sitting in 'blocked' with no unblocking action recorded."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the run's final state is listed as 'held', there is no record of an active, unanswered question or prompt directed to the user. The run did not pause to wait for input; it stopped because the verification process blocked the only executable step, leaving the orchestrator with no valid moves.",
+        "evidence": [
+          "stop reason as recorded: Steps 1 remain blocked after verification."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run stopped with the explicit reason 'Steps 1 remain blocked after verification.' The single planned step (37a6301e) is blocked after its second attempt because the verification criteria (opening the access hatch, which has seized bolts) could not be met, and the orchestrator has no planned actions or path to unblock it. This perfectly matches the definition of a verification deadlock where verification refuses the work and leaves the plan blocked with no path forward.",
+        "evidence": [
+          "stop reason as recorded: Steps 1 remain blocked after verification.",
+          "step 37a6301e [blocked] attempts=2",
+          "1 step(s) sitting in 'blocked' with no unblocking action recorded."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "Although the final state is marked as 'held', there is no evidence of an active, unanswered question or prompt directed to a human user that stalled the run. The run halted automatically because the orchestrator detected that the remaining step was blocked after verification, leaving no valid moves. If we 'answered' a non-existent user prompt, the run would still remain blocked because the underlying verification issue (seized bolts) is unresolved and no unblocking task exists.",
+        "evidence": [
+          "stop reason as recorded: Steps 1 remain blocked after verification.",
+          "1 step(s) sitting in 'blocked' with no unblocking action recorded."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": true,
+        "argument": "The run's stop reason is explicitly recorded as 'Steps 1 remain blocked after verification.' The only planned step (37a6301e) is in a blocked state after two attempts due to a physical impediment (seized access hatch bolts) that failed verification. Because there are no other steps in the plan and no unblocking actions have been scheduled, the orchestrator has reached a state where it cannot progress, which perfectly matches a verification deadlock.",
+        "evidence": [
+          "Stop reason: 'Steps 1 remain blocked after verification.'",
+          "Step 37a6301e is marked as blocked with 2 attempts.",
+          "1 steps planned; banked 0 (0%). Step states: blocked=1"
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "Although the final state of the run is 'held', there is no evidence in the trace of an active, unanswered question or prompt directed to the user. The stop reason 'Steps 1 remain blocked after verification' points to an automated halt due to structural blockages in the dependency graph rather than a polite pause waiting for user input. The 'held' state is a consequence of the deadlock requiring administrative resolution, not an active stall on a user query.",
+        "evidence": [
+          "Stop reason: 'Steps 1 remain blocked after verification.'",
+          "No recorded user questions or pending input prompts in the trace observations."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "VERIFICATION_DEADLOCK",
+    "confidence": 0.95,
+    "plain_english": "The run was aborted because its only step failed verification twice due to seized access hatch bolts. Since the verification criteria strictly required opening the hatch and no fallback or unblocking steps were planned, the orchestrator entered a deadlock state and halted.",
+    "killing_step": "37a6301e-343f-430e-81ef-3e35f925ffad",
+    "contributing": [],
+    "wasted_effort": "100% of the planned work (1 out of 1 steps) was lost, as the only planned step was blocked and never completed.",
+    "prevention": "Modify the orchestrator to automatically generate a recovery or bypass step (such as applying penetrating oil or requesting a tool change) when a physical block is encountered during verification, rather than repeatedly retrying the same blocked step."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "37a6301e",
+    "skip": [],
+    "unblock": "The seized access hatch bolts have been treated with penetrating oil and are now ready to be loosened.",
+    "restart_prompt": "Please resume the maintenance run. We are proceeding under the assumption that the seized access hatch bolts have been treated with penetrating oil and can now be successfully removed. Prioritize opening the access hatch, then proceed to clean the old grease from the lower bearing track, inspect the rollers for flat spots, and apply the high-viscosity marine lubricant as originally planned.",
+    "salvage": "No steps were successfully completed, but the diagnostic discovery of the seized access hatch bolts has been documented to guide the physical intervention."
+  }
+}

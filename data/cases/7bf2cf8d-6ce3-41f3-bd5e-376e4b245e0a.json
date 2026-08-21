@@ -1,0 +1,139 @@
+{
+  "run_id": "7bf2cf8d-6ce3-41f3-bd5e-376e4b245e0a",
+  "title": "Recovered work",
+  "prior_cause": "USER_ABORT",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": true,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "The user stopped this run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "USER_ABORT",
+      "reasoning": "The recorded stop reason explicitly states 'The user stopped this run.' Since there were no steps planned or in flight, it is highly likely the user aborted the run shortly after creation or recovery before any decomposition could occur.",
+      "confidence": 0.85
+    },
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run is titled 'Recovered work' and has zero planned steps. This suggests it may have been restored from a previous session but failed to resume active execution or planning, remaining in a dormant state until it was manually terminated.",
+      "confidence": 0.6
+    },
+    {
+      "cause": "UNDETERMINED",
+      "reasoning": "With no steps planned, no steps in flight, and no worker failures, there is extremely limited trace data to definitively distinguish between a clean user-initiated abort and an orchestrator-level failure during the initial recovery phase.",
+      "confidence": 0.3
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "USER_ABORT",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'The user stopped this run' and its final state is 'held'. This indicates a clean, user-initiated termination. The lack of planned steps is consistent with a user aborting a newly created or newly recovered run before the orchestrator began decomposition.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run.",
+          "final state: held",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "While the run is titled 'Recovered work', ZOMBIE_RECOVERY implies the run was restored and failed to progress despite being active. In this case, no steps were ever planned at all, and the run was explicitly stopped by the user. The lack of progress is a direct consequence of the user aborting the run, rather than an internal failure of the recovery mechanism itself.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of death is not undetermined because we have an explicit, unambiguous stop reason recorded in the trace ('The user stopped this run') which matches the 'held' state. This provides a clear attribution of the run's termination.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run.",
+          "final state: held"
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "USER_ABORT",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly states 'The user stopped this run.' If the user had not intervened to stop the run, it would not have terminated with this status. While we cannot guarantee it would have completed successfully without further issues, the immediate and definitive cause of this run's termination was the user's abort action.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run."
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "Zombie recovery typically describes a run that was restored and re-planned but where no steps ever moved. In this case, no steps were ever planned to begin with. If the user abort had not occurred, the run might have proceeded to the planning phase. We cannot assume it was a zombie simply because of the title 'Recovered work' when it was aborted before planning could even start.",
+        "evidence": [
+          "the board as it was left: (no steps were ever planned)",
+          "stop reason as recorded: The user stopped this run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of death is not undetermined. The system explicitly recorded that the user stopped the run, and there are no signs of infrastructure failure, worker crashes, or orchestrator deadlocks that would contradict this recorded reason.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run.",
+          "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "USER_ABORT",
+        "survives": true,
+        "argument": "The platform explicitly recorded the stop reason as 'The user stopped this run.' There are no signs of orchestrator errors, worker failures, or timeouts. The lack of planned steps is fully consistent with a user aborting a run immediately after creation or recovery before the orchestrator could begin decomposition.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "While the run is titled 'Recovered work', a zombie recovery implies the run was stuck in an active-looking state due to a system failure and made no progress. Here, the run was explicitly stopped by a user action ('The user stopped this run') rather than lingering indefinitely or failing to respond to orchestrator commands. The lack of steps is explained by the immediate user abort, not a system-level recovery failure.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "We do not need to resort to an undetermined cause. The platform's recorded stop reason is highly specific ('The user stopped this run') and perfectly explains the state of the board (no steps planned) without requiring any assumptions of hidden orchestrator or infrastructure failures.",
+        "evidence": [
+          "stop reason as recorded: The user stopped this run."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "USER_ABORT",
+    "confidence": 0.95,
+    "plain_english": "The run was manually stopped by the user before the orchestrator could plan or execute any steps. This represents a clean, intentional user abort rather than an internal system failure.",
+    "killing_step": "none",
+    "contributing": [],
+    "wasted_effort": "None, as no steps were ever planned or executed before the run was stopped.",
+    "prevention": "Add a confirmation prompt in the user interface when a user attempts to stop a run that has just been recovered or created, to prevent accidental aborts before planning begins."
+  },
+  "resume_plan": {
+    "revivable": false,
+    "resume_at": "",
+    "skip": [],
+    "unblock": "A new run must be initiated by the user, as this run was intentionally aborted before any planning occurred.",
+    "restart_prompt": "This run was aborted by the user before any steps were planned or executed and cannot be resumed.",
+    "salvage": "None, as no steps were ever planned or executed before the run was stopped."
+  }
+}

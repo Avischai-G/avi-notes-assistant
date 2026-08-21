@@ -1,0 +1,142 @@
+{
+  "run_id": "08cdc72a-6a8d-4c11-b7ce-197b50b6aaf6",
+  "title": "Recovered work",
+  "prior_cause": "WORKER_TERMINATED",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": true,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "The agent's interactive CLI was stopped.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "WORKER_TERMINATED",
+      "reasoning": "The recorded stop reason indicates that the agent's interactive CLI was stopped before any steps could be planned or executed. This suggests the process running the agent was abruptly terminated or killed.",
+      "confidence": 0.7
+    },
+    {
+      "cause": "USER_ABORT",
+      "reasoning": "The interactive CLI stopping could be the direct result of a human user closing the terminal, interrupting the process (e.g., via Ctrl+C), or explicitly canceling the run.",
+      "confidence": 0.25
+    },
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "An underlying infrastructure event, such as a container restart or host failure, may have abruptly terminated the CLI process mid-initialization.",
+      "confidence": 0.05
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": true,
+        "argument": "The run stopped before any steps were planned, and the recorded stop reason is 'The agent's interactive CLI was stopped.' This indicates that the CLI process running the agent terminated, preventing any progress from being made.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: The agent's interactive CLI was stopped.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      },
+      {
+        "cause": "USER_ABORT",
+        "survives": true,
+        "argument": "An interactive CLI stopping is frequently the result of a direct user action, such as pressing Ctrl+C, closing the terminal window, or sending a SIGINT. Since the system successfully recorded the stop reason 'The agent's interactive CLI was stopped', the process exited gracefully enough to log this state, which is highly consistent with a user-initiated abort of an interactive session.",
+        "evidence": [
+          "stop reason as recorded: The agent's interactive CLI was stopped.",
+          "final state: held"
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "If an infrastructure restart occurred, the orchestrator process would typically terminate abruptly without being able to cleanly write a specific stop reason like 'The agent's interactive CLI was stopped' to the run state, or the run would have been left in an active/stuck state rather than 'held'. The presence of this specific stop reason indicates a termination signal was caught and handled by the CLI process itself, rather than an ungraceful infrastructure crash or host restart.",
+        "evidence": [
+          "stop reason as recorded: The agent's interactive CLI was stopped.",
+          "final state: held"
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": true,
+        "argument": "If the agent's interactive CLI had not been stopped, the run would have proceeded to plan and execute steps. Since no other blocking issues (such as verification deadlocks or turn ceilings) were present or active at this early stage, the termination of the CLI process is the direct blocker that prevented any progress.",
+        "evidence": [
+          "stop reason as recorded: The agent's interactive CLI was stopped.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "USER_ABORT",
+        "survives": true,
+        "argument": "If the user had not aborted the run (e.g., by closing the terminal or sending an interrupt signal), the interactive CLI would have remained active, allowing the agent to begin planning and executing the run. There is no evidence of an independent system failure prior to the CLI stopping.",
+        "evidence": [
+          "stop reason as recorded: The agent's interactive CLI was stopped."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart could theoretically kill a process, the specific stop reason 'The agent's interactive CLI was stopped' typically denotes a clean termination signal or user-initiated exit from the CLI interface rather than an abrupt VM/container crash or orchestrator restart, which usually leaves the run in an orphaned or timed-out state rather than cleanly recording a CLI stop event.",
+        "evidence": [
+          "stop reason as recorded: The agent's interactive CLI was stopped."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": false,
+        "argument": "A competing explanation is USER_ABORT. A user starting an interactive CLI session and immediately canceling it (e.g., via Ctrl+C or closing the terminal window) before any steps are planned fits the recorded stop reason ('The agent's interactive CLI was stopped') and the empty board state perfectly. Because the trace is too thin to distinguish a process crash from an intentional user cancellation, this hypothesis does not uniquely survive.",
+        "evidence": [
+          "The agent's interactive CLI was stopped.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      },
+      {
+        "cause": "USER_ABORT",
+        "survives": false,
+        "argument": "A competing explanation is WORKER_TERMINATED. The CLI process could have crashed during initialization (e.g., due to a segmentation fault, dependency error, or out-of-memory event) before it could plan any steps. Since there is no recorded user action or confirmation of manual termination in the trace, we cannot rule out a technical failure of the CLI process.",
+        "evidence": [
+          "The agent's interactive CLI was stopped.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "A competing explanation is USER_ABORT. An interactive CLI is typically run in a user-managed terminal, where a manual exit or cancellation is far more common and mundane than an unexpected infrastructure-level container restart or host failure during the brief initialization window.",
+        "evidence": [
+          "The agent's interactive CLI was stopped.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "USER_ABORT",
+    "confidence": 0.75,
+    "plain_english": "The run was stopped because the interactive CLI session was terminated, likely by a user aborting the process (e.g., via Ctrl+C or closing the terminal) before any steps could be planned. The orchestrator cleanly caught this termination and held the run.",
+    "killing_step": "none",
+    "contributing": [
+      "WORKER_TERMINATED"
+    ],
+    "wasted_effort": "none",
+    "prevention": "Implement a signal handler in the CLI that prompts the user for confirmation before exiting on SIGINT/Ctrl+C, or log a specific exit code to distinguish manual user aborts from unexpected process terminations."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "init",
+    "skip": [],
+    "unblock": "The interactive CLI session must be successfully restarted and the user's input must be available.",
+    "restart_prompt": "The run was interrupted during initialization before any steps were planned. Please restart the interactive CLI session, retrieve the user's original request from the environment or prompt the user to re-enter it, and begin the planning phase.",
+    "salvage": "No steps were planned or executed, so there is no progress to salvage. The run must start fresh."
+  }
+}

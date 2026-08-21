@@ -1,0 +1,123 @@
+{
+  "run_id": "f6528034-5381-4250-afe1-409b35836c75",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "9 steps planned; banked 6 (67%). Step states: blocked=3, done=6",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "3 step(s) sitting in 'blocked' with no unblocking action recorded."
+    ],
+    "progress": 0.6666666666666666,
+    "killing_step": "6375228c-641e-46be-a3ab-72fe304451f0 \u2014 Integrate third-party routing API",
+    "silent": true,
+    "steps_planned": 9,
+    "retries": 0,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run's recorded stop reason is 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. The run was restored from a previous session but did not make any further progress, leaving the board with 6 completed steps and 3 blocked steps exactly as they were in the previous run.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "All remaining uncompleted steps (6375228c, ed7b27f5, and 679d6705) are blocked by external environmental issues\u2014specifically firewall restrictions blocking outgoing HTTP traffic and port conflicts with a legacy monitoring process. The run cannot proceed without manual intervention from a system administrator or user to resolve these infrastructure blocks.",
+      "confidence": 0.7
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. The discrepancy where the board shows 6 completed steps but the run's ledger 'completedSteps' is empty confirms that no execution actually took place during this run; the state was simply restored from a previous session and immediately held.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done on the board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the steps themselves are blocked by environmental issues (firewall and port conflicts) that require human intervention, this run instance never actually executed or waited for a user. The blocks occurred in the previous run from which this work was recovered. This run was immediately put into a 'held' state upon recovery without taking any active turns or waiting on user input.",
+        "evidence": [
+          "final state: held",
+          "stop reason: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run was restored from an older session in a 'held' state with the explicit stop reason 'Recovered unfinished work from an older orchestrator run'. The fact that the board shows 6 completed steps but the current run's ledger ('completedSteps') is empty confirms that no execution took place in this run instance. It was imported and immediately halted, making it a classic zombie recovery.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the previous run that this work was recovered from was indeed blocked by environmental issues (firewall and port conflicts), this specific run instance never actually executed or entered a state of waiting for user input. It was loaded directly into a 'held' state and terminated. Even if the user had resolved the firewall and port issues, this recovered run would not have progressed because the orchestrator did not initiate execution after recovery.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. The fact that completedSteps is empty in the ledger despite 6 steps being marked as 'done' on the board confirms that the state was restored from a database snapshot of a previous run, but no active execution or re-evaluation of steps occurred in this orchestrator session before it was held.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the previous run originally became blocked due to environmental issues (firewall and port conflicts) requiring administrative intervention, this specific run instance did not stall or park on an active user prompt. Instead, it was loaded from a previous session and immediately placed into a 'held' state by the recovery orchestrator without ever running or waiting for user input in this session.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was restored from an older session in a 'held' state and immediately terminated without executing any steps. While the original run was blocked by environmental issues (firewall and port conflicts), this orchestrator instance never actually ran or attempted to resolve them.",
+    "killing_step": "6375228c-641e-46be-a3ab-72fe304451f0",
+    "contributing": [
+      "STALLED_ON_USER"
+    ],
+    "wasted_effort": "0% of work was executed in this run, but 3 out of 9 planned steps (33%) remain blocked and unresolved from the recovered state.",
+    "prevention": "Modify the recovery orchestrator to automatically queue a re-evaluation turn or prompt the operator for environment clearance instead of importing the run directly into a terminal 'held' state."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "6375228c",
+    "skip": [
+      "f71047b5",
+      "17ed7184",
+      "813a5dfb",
+      "c8b6fdb8",
+      "b6e19dfd",
+      "ed3d0f11"
+    ],
+    "unblock": "The firewall restrictions blocking outgoing HTTP traffic are lifted, and port 8085 is cleared (or an alternative port is designated) for the WebSocket gateway.",
+    "restart_prompt": "We are resuming the run. Assume that the firewall restrictions blocking outgoing HTTP traffic to the external routing API have been resolved, and port 8085 is now available (or you may configure the WebSocket gateway to use an alternative port like 8086 if conflicts persist). Please proceed with Step 6375228c (Integrate third-party routing API) and Step ed7b27f5 (Configure WebSocket Gateway). Leverage the already completed database schema, mock fallback routing, and validation work to complete the remaining dispatch assignment state machine integration in Step 679d6705.",
+    "salvage": "The relational database schema, performance verification, fallback mock routing module, and initial state machine validation with mock routing are fully completed and preserved."
+  }
+}

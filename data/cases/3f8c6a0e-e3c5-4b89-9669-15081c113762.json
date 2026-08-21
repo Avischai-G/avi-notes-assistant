@@ -1,0 +1,148 @@
+{
+  "run_id": "3f8c6a0e-e3c5-4b89-9669-15081c113762",
+  "title": "Brass Band Rehearsal Scheduler Development Task Board",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "33 steps planned; banked 28 (85%). Step states: blocked=1, done=28, user=4",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "1 step(s) sitting in 'blocked' with no unblocking action recorded.",
+      "4 step(s) handed back to the human and never returned.",
+      "4 retry/retries across the plan; worst was step 3509c08a at 2 attempts \u2014 it fought before it died."
+    ],
+    "progress": 0.8484848484848485,
+    "killing_step": "db909440-79ca-4ae0-8cd1-0d4c403a7981 \u2014 Clarify conflict resolution rules for instrument double-booking",
+    "silent": true,
+    "steps_planned": 33,
+    "retries": 4,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The recorded stop reason is 'Recovered unfinished work from an older orchestrator run' and the final state is 'held'. This indicates the run was restored from a previous inactive session but never actually resumed execution or progressed any further.",
+      "confidence": 0.8
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "There are 4 separate steps marked as 'user' (such as db909440, 02c69c60, a8e807c0, and 116381d9) where the system was waiting for human clarification. The run likely sat idle waiting for these inputs until it timed out or was archived, leading to its eventual zombie state.",
+      "confidence": 0.6
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. The completedSteps ledger is completely empty despite the board showing 28 completed steps, which is a hallmark of a run state that was reconstructed from database history but never actually executed or progressed in the current orchestrator session.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While there are indeed 4 user steps on the board, the run did not actively stall on them during this session. The run was imported from an older session and immediately put into a 'held' state due to the recovery process, meaning it never actually ran or waited for user input in this execution instance. The user steps are a legacy of the previous run's state, not the cause of this run's termination.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held"
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. This confirms that the run was restored from a previous inactive session and immediately paused/held without any new steps being executed. The recovery process itself is the direct reason this run exists in this state.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held"
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While there are 4 user steps awaiting clarification, the run would not have finished even if the user had answered them. Step d272ae20 ('Integrate calendar sync (iCal format)') is explicitly marked as 'blocked' due to a severe environment issue (missing timezone compilation dependencies preventing server launch). Because this technical block remains unresolved, the run would have remained stuck regardless of user input.",
+        "evidence": [
+          "step d272ae20 [blocked] attempts=1",
+          "reported back: Blocked due to external library compatibility. The server environment is missing timezone compilation dependencies required by the ics-generation package, preventing the server from launching when imported."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the stop reason is explicitly recorded as 'Recovered unfinished work from an older orchestrator run.' This is further supported by the critical observation that 'completedSteps' is completely empty despite 28 steps being marked as 'done' on the board. This discrepancy is a classic signature of a database-restored run where the board state was recovered but the active execution ledger was never populated or executed, confirming the run died due to a zombie recovery event.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While there are 4 user steps on the board, a standard user stall would leave the run in an active or waiting state. The transition of this run to a 'held' state with an explicit recovery stop reason indicates that the system intervened due to an orchestrator restart or session recovery. The empty 'completedSteps' ledger proves that this specific run instance never actually executed or waited for user input; it was restored as a static snapshot from a previous session. Therefore, the recovery process itself, rather than a passive user stall, is the direct cause of the run's current state.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was restored from an older database session but was immediately placed in a 'held' state without resuming execution. Because the active execution ledger was empty despite the board showing completed tasks, the run remained a non-functional zombie.",
+    "killing_step": "db909440",
+    "contributing": [
+      "STALLED_ON_USER",
+      "VERIFICATION_DEADLOCK"
+    ],
+    "wasted_effort": "0% of the current session's effort was wasted as no steps were executed, though 5 out of 33 planned steps from the original run remain incomplete.",
+    "prevention": "Update the orchestrator recovery logic to automatically resume execution or transition to 'waiting_on_user' if the recovered run contains pending user steps, instead of defaulting to a 'held' state."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "db909440",
+    "skip": [
+      "1038a14c",
+      "3509c08a",
+      "d01fff9e",
+      "c8f612da",
+      "3d951745",
+      "10c0431a",
+      "99a12907",
+      "56b4df08",
+      "59c06249",
+      "c7c13d14",
+      "8d4cfb41",
+      "b2c2a0bb",
+      "a5ba9240",
+      "10b9dd9d",
+      "482a777a",
+      "74c3f916",
+      "4f13a2aa",
+      "b8647fa8",
+      "595add88",
+      "19893f20",
+      "5102aa40",
+      "2c8c6a30",
+      "5592dd50",
+      "b689b320",
+      "2913b456",
+      "bf50f2c7",
+      "5f1e75a9",
+      "b5e3d6c0"
+    ],
+    "unblock": "We assume that multi-instrument scheduling conflicts are blocked, automated reminders run 24 hours prior, performance reports use standard HTML/Markdown, and iCal generation is implemented using a pure-JS string builder to bypass native timezone compilation dependencies.",
+    "restart_prompt": "Resume the brass band rehearsal scheduler development. We will proceed with the following assumptions to resolve the pending user queries and technical blocks:\n1. For instrument double-booking (db909440): Block multi-instrument scheduling conflicts for overlapping sectionals.\n2. For calendar export (02c69c60 / d272ae20): Implement the iCal export using a lightweight, pure-JavaScript/TypeScript iCal generation approach (e.g., manually constructing the ICS string) to avoid native timezone compilation dependencies that cause server launch failures.\n3. For automated reminders (a8e807c0): Send automated reminders 24 hours before each scheduled rehearsal.\n4. For performance report formatting (116381d9): Use standard HTML/Markdown formatting for the automated email reports.\n\nPlease apply these decisions, resolve the blocked iCal sync step (d272ae20), and complete any remaining tasks on the board.",
+    "salvage": "The 28 completed steps covering the core database schema, CRUD operations, scheduling logic, attendance tracking, notifications, repertoire management, CSV export, cron reminders, dashboard statistics, and inventory integration."
+  }
+}

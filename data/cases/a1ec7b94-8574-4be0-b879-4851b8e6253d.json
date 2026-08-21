@@ -1,0 +1,107 @@
+{
+  "run_id": "a1ec7b94-8574-4be0-b879-4851b8e6253d",
+  "title": "Recovered work",
+  "prior_cause": "INFRA_RESTART",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": true,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "The researcher CLI stopped during an orchestrator restart.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "The recorded stop reason explicitly states that the researcher CLI stopped during an orchestrator restart, and the run died before any steps could be planned or executed.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run is titled 'Recovered work' and has zero planned steps on the board, suggesting it was restored from a previous session but never successfully resumed or scheduled any new tasks before it was halted.",
+      "confidence": 0.6
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly states that the researcher CLI stopped during an orchestrator restart. The timeline shows the run stopped before any steps could be planned or executed, which is consistent with an infrastructure restart interrupting the run at its very inception.",
+        "evidence": [
+          "stop reason as recorded: The researcher CLI stopped during an orchestrator restart.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "By definition, ZOMBIE_RECOVERY applies when a run is carried over and re-planned, but no steps move, leaving them looking 'alive' on the board. In this case, no steps were ever planned on the board at all, and the explicit cause of death was an orchestrator restart rather than a failure to resume a carried-over plan.",
+        "evidence": [
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly attributes the failure to the researcher CLI stopping during an orchestrator restart. If this infrastructure restart had not occurred, the orchestrator and CLI would have remained active, allowing the run to proceed to the decomposition and planning phase. Since no other blocking issues or worker failures were recorded prior to this event, the run would have been able to make progress.",
+        "evidence": [
+          "stop reason as recorded: The researcher CLI stopped during an orchestrator restart.",
+          "observations already extracted from the trace: Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "While the run is titled 'Recovered work', the counterfactual analysis shows that even if the run were a fresh, non-recovered session, it still would have been terminated by the orchestrator restart. Furthermore, the definition of ZOMBIE_RECOVERY requires that the run was re-planned but no steps moved; here, no steps were ever planned on the board to begin with, indicating the run was cut off by the infrastructure event before it could even initialize its plan.",
+        "evidence": [
+          "the board as it was left: (no steps were ever planned)",
+          "stop reason as recorded: The researcher CLI stopped during an orchestrator restart."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The recorded stop reason explicitly attributes the termination to the researcher CLI stopping during an orchestrator restart. Since the run was in a state with no planned steps and no progress, an orchestrator restart mid-run that kills the CLI process perfectly matches this cause of death.",
+        "evidence": [
+          "Stop reason as recorded: The researcher CLI stopped during an orchestrator restart."
+        ]
+      },
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "While the title 'Recovered work' suggests this run was restored from a previous session, ZOMBIE_RECOVERY implies the run was left in an active-looking state but was actually dead and never moved. Here, the run was explicitly halted and marked 'held' due to an external infrastructure event (the orchestrator restart), meaning its termination was caused by the infrastructure failure rather than silently stalling as a zombie.",
+        "evidence": [
+          "Stop reason as recorded: The researcher CLI stopped during an orchestrator restart.",
+          "Final state: held"
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "INFRA_RESTART",
+    "confidence": 0.95,
+    "plain_english": "The run was terminated because the orchestrator process restarted mid-run, which killed the researcher CLI process. Because this occurred at the very beginning of the run, no steps were ever planned or executed.",
+    "killing_step": "None (interrupted during initialization before planning)",
+    "contributing": [],
+    "wasted_effort": "None, as no steps had been planned or executed yet.",
+    "prevention": "Implement a persistent state store that allows the orchestrator to automatically resume and re-initialize pending or interrupted runs after a process restart."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "",
+    "skip": [],
+    "unblock": "The orchestrator process and researcher CLI must be restarted and initialized.",
+    "restart_prompt": "The previous run was interrupted by an orchestrator restart before any steps could be planned. Please re-initialize the run, decompose the original request, plan the necessary steps, and proceed with execution from the beginning.",
+    "salvage": "No steps were planned or executed, so there is no intermediate work to salvage. The original request remains fully intact and needs to be run from scratch."
+  }
+}

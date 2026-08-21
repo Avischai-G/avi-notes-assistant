@@ -1,0 +1,142 @@
+{
+  "run_id": "14e70568-b3b3-49ec-a1a9-201b23f2e3d8",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "5 steps planned; banked 0 (0%). Step states: doing=1, todo=4",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": "43f05fad-f749-4583-a107-ae89768192dc \u2014 Integrate NOAA tide API data source",
+    "silent": true,
+    "steps_planned": 5,
+    "retries": 0,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run's recorded stop reason explicitly states it 'Recovered unfinished work from an older orchestrator run' and its state is 'held'. No steps progressed or completed after this recovery, indicating the run was restored as a zombie and never successfully resumed execution.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "The need to recover unfinished work from an older run suggests the previous orchestrator session suffered an abrupt infrastructure termination or crash mid-run, leaving step 43f05fad in an orphaned 'doing' state.",
+      "confidence": 0.6
+    },
+    {
+      "cause": "UNDETERMINED",
+      "reasoning": "Without active worker logs or orchestrator event traces after the recovery event, we cannot definitively rule out whether the recovery process itself failed or if it was intentionally paused by an external administrative action.",
+      "confidence": 0.2
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's metadata explicitly states that it was created to hold recovered unfinished work from an older orchestrator run, and its final state is 'held'. The timeline shows no execution steps were ever processed or attempted within this run instance itself; it was initialized directly into this state as a placeholder for the recovered work.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "title: Recovered work"
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While the *original* run that was recovered might have suffered an infrastructure restart, this specific run (14e70568-b3b3-49ec-a1a9-201b23f2e3d8) did not crash or restart mid-run. It was intentionally created as a 'held' recovery run and never began active execution.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of this run's state is fully determined. The orchestrator explicitly flagged the run as 'Recovered work' and set its state to 'held' with a clear stop reason, leaving no ambiguity about why it is not progressing.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run'. If this recovery/holding mechanism had not been triggered, the run would not have been frozen in this state and could have proceeded with the active step '43f05fad'. The zombie recovery process is the direct and sufficient cause of this run being held.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While an infrastructure restart or crash likely affected the *ancestor* run, this specific run (14e70568-b3b3-49ec-a1a9-201b23f2e3d8) did not suffer an active infrastructure crash mid-execution. It was created directly in a 'held' state as a result of the recovery. Removing an infra restart during this run's lifetime would not have changed its state, as it was already born frozen.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of the run's stoppage is not undetermined. The orchestrator's ledger explicitly records the state as 'held' and provides a clear, standard stop reason indicating a recovery event. There is no ambiguity or lack of trace data regarding why this run is not making progress.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": false,
+        "argument": "A zombie recovery occurs when a run is restored to an active state but fails to progress due to lost context or broken loops, while appearing active. However, this run's final state is explicitly recorded as 'held'. 'Held' is a deliberate, inactive administrative state. The step '43f05fad' is marked 'doing' because that was its historical state at the time of the crash of the previous run, but the current orchestrator run is not actively trying to execute it while in a 'held' state. This is a controlled pause, not a zombie stall.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "While the original run (from which this work was recovered) likely suffered an infrastructure failure or abrupt termination, this specific run (14e70568-b3b3-49ec-a1a9-201b23f2e3d8) did not. This run was successfully created to hold the recovered state and was cleanly placed into the 'held' state. It did not die mid-execution due to an infrastructure crash.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The state of the run is not undetermined. The stop reason ('Recovered unfinished work from an older orchestrator run') and the final state ('held') perfectly explain the situation. The run was recovered and immediately placed in a 'held' state by the orchestrator's recovery policy to await human review. This is a well-defined, deterministic system behavior.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.85,
+    "plain_english": "This run was created to recover unfinished work from a previous orchestrator session but was immediately placed into a 'held' state. Consequently, the active step 'Integrate NOAA tide API data source' remained orphaned in a 'doing' state without any actual worker execution ever starting.",
+    "killing_step": "43f05fad-f749-4583-a107-ae89768192dc",
+    "contributing": [],
+    "wasted_effort": "0% of the work in this run was wasted because no steps were executed, though the active step from the previous run remains unfinished.",
+    "prevention": "Implement an automatic timeout or alert for runs in the 'held' state that have steps marked as 'doing' to prevent them from remaining stalled indefinitely."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "43f05fad",
+    "skip": [],
+    "unblock": "The run must be released from its 'held' state to allow the orchestrator to assign the active step to a worker.",
+    "restart_prompt": "We are resuming the recovered work for the high-performance surf dashboard. Please begin by executing step 43f05fad ('Integrate NOAA tide API data source') to implement the service layer for fetching and parsing astronomical tide height predictions and hourly water level observations from the NOAA CO-OPS API. Ensure the parsed data conforms to a standardized internal JSON schema with 100% test coverage, then proceed to the remaining tasks on the board.",
+    "salvage": "The planned task list and the initial step definition for the NOAA tide API integration are fully intact and ready to be executed."
+  }
+}

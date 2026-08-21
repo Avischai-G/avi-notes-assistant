@@ -1,0 +1,109 @@
+{
+  "run_id": "62085a68-72d2-4f6c-a2e7-0946941678ef",
+  "title": "Recovered work",
+  "prior_cause": "TURN_CEILING",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": true,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "The Fast Main Orchestrator reached the per-run turn ceiling.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "TURN_CEILING",
+      "reasoning": "The run recorded that the Fast Main Orchestrator reached its per-run turn ceiling. Since no steps were ever planned or executed, the orchestrator likely got stuck in an infinite loop during the initial decomposition or planning phase, consuming all available turns without making any progress.",
+      "confidence": 0.85
+    },
+    {
+      "cause": "UNDETERMINED",
+      "reasoning": "It is possible that an underlying API failure or model error repeatedly occurred during the planning phase, causing the orchestrator to retry indefinitely until it hit the turn ceiling, without raising a fatal error.",
+      "confidence": 0.15
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "TURN_CEILING",
+        "survives": true,
+        "argument": "The run explicitly recorded its stop reason as 'The Fast Main Orchestrator reached the per-run turn ceiling.' Combined with the observation that no steps were ever planned on the board, this confirms that the orchestrator consumed its entire turn budget during the initial planning or decomposition loop without successfully progressing to step execution.",
+        "evidence": [
+          "stop reason as recorded: The Fast Main Orchestrator reached the per-run turn ceiling.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "The cause of death is not undetermined. The system explicitly recorded that the orchestrator reached its per-run turn ceiling, and the state of the board (zero planned steps) perfectly aligns with an orchestrator stuck in an early planning loop. We have sufficient evidence to attribute the failure to TURN_CEILING.",
+        "evidence": [
+          "stop reason as recorded: The Fast Main Orchestrator reached the per-run turn ceiling."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "TURN_CEILING",
+        "survives": true,
+        "argument": "The run explicitly recorded that the Fast Main Orchestrator reached its per-run turn ceiling. Since no steps were ever planned or executed, the orchestrator spent all its turns in the planning/decomposition phase without converging. This matches the definition of TURN_CEILING where the orchestrator keeps taking turns without making progress.",
+        "evidence": [
+          "stop reason as recorded: The Fast Main Orchestrator reached the per-run turn ceiling.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "We have a clear, recorded stop reason from the orchestrator indicating it hit the turn ceiling. There is no need to classify this as UNDETERMINED when the system state and stop reason point directly to a known cause of death (TURN_CEILING).",
+        "evidence": [
+          "stop reason as recorded: The Fast Main Orchestrator reached the per-run turn ceiling."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "TURN_CEILING",
+        "survives": false,
+        "argument": "The run's title is explicitly recorded as 'Recovered work', which strongly indicates it was resurrected or carried over from a previous session. In zombie recovery scenarios, runs often inherit stale state, including accumulated turn counters, or get stuck in initialization loops during the recovery phase. If the turn counter was carried over without being reset, the orchestrator would immediately trip the turn ceiling upon boot. This perfectly explains why absolutely zero steps were planned or executed, making ZOMBIE_RECOVERY a much more precise and fitting explanation than a standard orchestrator infinite loop during normal planning.",
+        "evidence": [
+          "title: Recovered work",
+          "final state: held",
+          "stop reason as recorded: The Fast Main Orchestrator reached the per-run turn ceiling.",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      },
+      {
+        "cause": "UNDETERMINED",
+        "survives": false,
+        "argument": "We have specific, highly suggestive clues: the title 'Recovered work', the stop reason 'turn ceiling', and the fact that 0 steps were planned. This combination points directly to a failed recovery process (ZOMBIE_RECOVERY) where the orchestrator either inherited a depleted turn budget or got stuck in a recovery loop. Because we can construct a highly plausible, specific explanation based on these facts, we do not need to resort to UNDETERMINED.",
+        "evidence": [
+          "title: Recovered work",
+          "the board as it was left: (no steps were ever planned)"
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "TURN_CEILING",
+    "confidence": 0.8,
+    "plain_english": "The orchestrator reached its maximum turn limit during the initial planning phase before any steps were ever scheduled or executed. This suggests it was caught in an infinite loop or failed to converge on a task decomposition.",
+    "killing_step": "initial planning",
+    "contributing": [],
+    "wasted_effort": "None, as no steps were ever planned or executed.",
+    "prevention": "Add a dedicated turn limit specifically for the initial planning and decomposition phase to fail fast before consuming the entire run's turn budget."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "initial planning",
+    "skip": [],
+    "unblock": "The orchestrator's turn counter must be reset to 0, and a fresh turn budget must be allocated.",
+    "restart_prompt": "The previous run hit the turn ceiling during the initial planning phase without scheduling any steps. Please restart the planning process with a fresh turn budget. Decompose the original request into a simple, linear sequence of actionable steps. Avoid complex nested planning or infinite loops. If this is a recovered run, assume a clean initial state and proceed directly to planning the first step.",
+    "salvage": "None, as no steps were ever planned or executed."
+  }
+}

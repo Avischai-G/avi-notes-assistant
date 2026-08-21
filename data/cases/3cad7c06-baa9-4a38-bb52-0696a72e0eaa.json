@@ -1,0 +1,158 @@
+{
+  "run_id": "3cad7c06-baa9-4a38-bb52-0696a72e0eaa",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "14 steps planned; banked 12 (86%). Step states: blocked=2, done=12",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "2 step(s) sitting in 'blocked' with no unblocking action recorded."
+    ],
+    "progress": 0.8571428571428571,
+    "killing_step": "cdb09116-b3df-4915-8887-4bbbb607c0f7 \u2014 Core Scheduler Framework Implementation",
+    "silent": true,
+    "steps_planned": 14,
+    "retries": 0,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run's recorded stop reason is 'Recovered unfinished work from an older orchestrator run' and its state is 'held'. This indicates the run was restored from a previous session but did not resume active execution, leaving the board in its historical state with blocked steps and no new progress.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "The two remaining unfinished steps are blocked on external dependencies: 'cdb09116' is blocked by missing LDAP SSL certificate configurations, and 'b303c1db' is blocked by pending SMS gateway organizational registration. The system cannot proceed without human intervention to provide these credentials and configurations.",
+      "confidence": 0.7
+    },
+    {
+      "cause": "VERIFICATION_DEADLOCK",
+      "reasoning": "The run has completed 12 out of 14 steps, but the final two core integration steps are blocked by infrastructure/external requirements. If the orchestrator cannot bypass or mock these steps, it enters a deadlock state where no further steps can be scheduled or completed.",
+      "confidence": 0.4
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its final state is 'held'. Additionally, the observation that 'completedSteps is empty even though steps are marked done' confirms that no execution actually occurred in this orchestrator session. The board state was simply imported from a previous run and immediately put on hold without any new steps being scheduled or executed.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "There is no evidence of an active user prompt or question that the orchestrator is waiting on. While the steps themselves are blocked by external dependencies (LDAP SSL and SMS gateway registration), the run did not pause to ask the user for input; rather, it was recovered from an older session and immediately held.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": false,
+        "argument": "Verification deadlock occurs when a verification step fails and blocks subsequent progress. In this case, the steps were blocked during their initial execution attempts due to external infrastructure issues (LDAP SSL and SMS gateway registration), not because a verification task rejected the work. Furthermore, the run stopped because it was a recovered zombie run, not because it hit an active deadlock during execution.",
+        "evidence": [
+          "step cdb09116 reported back: Blocked. Attempted to connect to the staging LDAP directory for membership validation, but connection failed due to missing SSL certificate configurations on the target server.",
+          "step b303c1db reported back: Blocked. The SMS gateway provider requires verified organizational registration documents and a dedicated sender number approval, which are still pending."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's final state is 'held' and the recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run'. The run was restored from a previous session's database but was never actively executed or resumed in this session, leaving the board exactly as it was found.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "Although the underlying steps (cdb09116 and b303c1db) were blocked by external dependencies (LDAP SSL configuration and SMS gateway registration), this specific run did not park on an active user prompt or stall during execution. It was loaded directly into a 'held' state due to the recovery mechanism. Even if the user credentials had been provided, this run instance would not have proceeded because it was stopped immediately upon recovery.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held"
+        ]
+      },
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": false,
+        "argument": "The steps were blocked during their initial execution attempts due to external infrastructure issues (missing SSL certificates and pending SMS gateway registration), not because a verification step rejected completed work and locked the board. There is no evidence of a verification loop or deadlock.",
+        "evidence": [
+          "step cdb09116 [blocked] attempts=1 ... failed due to missing SSL certificate configurations",
+          "step b303c1db [blocked] attempts=1 ... SMS gateway provider requires verified organizational registration documents"
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The stop reason is explicitly recorded as 'Recovered unfinished work from an older orchestrator run' and the final state is 'held'. Additionally, the observation that 'completedSteps is empty even though steps are marked done' is a classic signature of a run state being restored from DB records without actual execution history being re-run or active in the current session. The run was loaded and immediately held without any new steps being executed.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done"
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the underlying steps are blocked on external configurations (LDAP SSL and SMS gateway registration), the run did not stall because it was actively waiting for a user response to a prompt. Instead, the run was halted by the orchestrator's recovery mechanism and placed in a 'held' state. There is no evidence of an active user prompt or interaction block in this specific run's lifecycle.",
+        "evidence": [
+          "final state: held",
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "VERIFICATION_DEADLOCK",
+        "survives": false,
+        "argument": "Verification deadlock occurs when a verification step repeatedly rejects work and blocks progress. Here, the steps were marked blocked during their initial execution attempts due to external infrastructure dependencies (LDAP SSL and SMS gateway), not because a verification agent rejected completed work. Furthermore, the run's termination was triggered by the recovery manager holding the run, not by an orchestrator loop failing to resolve blocked steps.",
+        "evidence": [
+          "reported back: Blocked. Attempted to connect to the staging LDAP directory...",
+          "reported back: Blocked. The SMS gateway provider requires verified organizational registration..."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was restored from an older orchestrator session but was immediately placed in a 'held' state without executing any new steps. The board state and blocked steps are historical artifacts imported from the database, which explains why the completed steps ledger is empty despite the board showing completed tasks.",
+    "killing_step": "cdb09116-b3df-4915-8887-4bbbb607c0f7",
+    "contributing": [],
+    "wasted_effort": "0 steps in this session, though 12 completed steps from the recovered run remain inactive.",
+    "prevention": "Modify the recovery manager to automatically transition recovered runs into an active evaluation state to re-verify blocked steps, rather than immediately marking them as held."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "cdb09116",
+    "skip": [
+      "5be200f9",
+      "1f81564b",
+      "1e226081",
+      "c5829e7f",
+      "2f59a776",
+      "8d1358cf",
+      "534d511e",
+      "58347c7d",
+      "91932a7b",
+      "71bd9402",
+      "e42cc2b0",
+      "4ca71d9d"
+    ],
+    "unblock": "The orchestrator must proceed using mock/fallback configurations for both the LDAP authentication and the SMS gateway integration to bypass the missing external credentials and SSL configurations.",
+    "restart_prompt": "Please resume the run. For step cdb09116 (Core Scheduler Framework Implementation), implement a local mock LDAP authentication backend or fall back to Django's standard authentication with pre-seeded mock band members to bypass the SSL certificate issue. For step b303c1db (SMS Notification Service Integration), implement a mock SMS gateway provider that logs outgoing SMS alerts to the console or a local file instead of attempting to connect to the live gateway. Proceed with completing these two remaining steps and verifying the final integration.",
+    "salvage": "All 12 completed steps, including the database schema, venue conflict detection logic, sheet music archive architecture, email fallback notifications, and the Band Master Schedule Override Dashboard UI, are fully functional and should be preserved."
+  }
+}

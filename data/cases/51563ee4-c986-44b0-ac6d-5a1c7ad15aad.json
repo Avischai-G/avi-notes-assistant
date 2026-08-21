@@ -1,0 +1,112 @@
+{
+  "run_id": "51563ee4-c986-44b0-ac6d-5a1c7ad15aad",
+  "title": "Recovered work",
+  "prior_cause": "TIMEOUT",
+  "evidence": {
+    "signals": [
+      "No steps were ever planned \u2014 the run died before decomposition.",
+      "1 worker CLI failure(s) recorded."
+    ],
+    "progress": 0.0,
+    "killing_step": null,
+    "silent": false,
+    "steps_planned": 0,
+    "retries": 0,
+    "stop_reason": "Main Orchestrator did not finish within 7200 seconds.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "WORKER_TERMINATED",
+      "reasoning": "The run records 1 worker CLI failure and notes that no steps were ever planned before decomposition. This strongly suggests that the initial agent or orchestrator process crashed or failed to start up properly, halting all progress immediately.",
+      "confidence": 0.8
+    },
+    {
+      "cause": "TIMEOUT",
+      "reasoning": "The recorded stop reason is that the Main Orchestrator did not finish within 7200 seconds. While this is the proximate symptom, it is likely a consequence of the orchestrator hanging or remaining in a broken state after the initial worker CLI failure.",
+      "confidence": 0.6
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": true,
+        "argument": "The run diverged immediately at startup. No steps were ever planned, and a worker CLI failure was recorded. This indicates that the orchestrator or initial worker process crashed or failed to initialize, preventing any progress from being made from the very beginning.",
+        "evidence": [
+          "No steps were ever planned \u2014 the run died before decomposition.",
+          "1 worker CLI failure(s) recorded."
+        ]
+      },
+      {
+        "cause": "TIMEOUT",
+        "survives": false,
+        "argument": "The 7200-second timeout is a downstream symptom of the run being completely stalled. Because the worker CLI failed at the very beginning and no steps were ever planned, the run sat idle until the system-level timeout reaper terminated it. The root cause of the failure occurred at startup, not at the 7200-second mark.",
+        "evidence": [
+          "No steps were ever planned \u2014 the run died before decomposition.",
+          "1 worker CLI failure(s) recorded.",
+          "stop reason as recorded: Main Orchestrator did not finish within 7200 seconds."
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": true,
+        "argument": "If the worker CLI failure had not occurred, the orchestrator would have been able to initialize, plan steps, and begin decomposition. The failure of the worker CLI at the very start of the run completely halted all progress before any steps could be planned, making this the root cause of the run's failure.",
+        "evidence": [
+          "1 worker CLI failure(s) recorded.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      },
+      {
+        "cause": "TIMEOUT",
+        "survives": false,
+        "argument": "If the 7200-second timeout limit were removed, the run still would not have finished. Because the worker CLI had already failed and no steps were planned, the run was in a completely stalled state and would have remained hung indefinitely.",
+        "evidence": [
+          "No steps were ever planned \u2014 the run died before decomposition.",
+          "1 worker CLI failure(s) recorded."
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "WORKER_TERMINATED",
+        "survives": true,
+        "argument": "The presence of exactly 1 worker CLI failure combined with the fact that no steps were ever planned strongly supports this hypothesis. In a multi-agent setup, if the primary orchestrator or the initial planning agent's CLI process crashes or fails to start up, the run cannot progress to planning any steps. This matches the definition of WORKER_TERMINATED where the agent's CLI stops before reporting back.",
+        "evidence": [
+          "1 worker CLI failure(s) recorded.",
+          "No steps were ever planned \u2014 the run died before decomposition."
+        ]
+      },
+      {
+        "cause": "TIMEOUT",
+        "survives": false,
+        "argument": "While the run officially stopped due to a 7200-second timeout, this is a secondary symptom of the system reaping a dead run. Because a worker CLI failure occurred before any steps were planned, the run was already functionally dead or stuck in an unrecoverable state. The timeout was merely the system-level ceiling that eventually terminated the idle session, not the root cause of the failure.",
+        "evidence": [
+          "1 worker CLI failure(s) recorded.",
+          "stop reason as recorded: Main Orchestrator did not finish within 7200 seconds."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "WORKER_TERMINATED",
+    "confidence": 0.95,
+    "plain_english": "The run failed immediately at startup because the initial worker CLI process crashed or failed to initialize. Since this happened before any steps could be planned, the orchestrator sat completely idle until it was eventually reaped by the 7200-second system timeout.",
+    "killing_step": "Initial worker CLI startup",
+    "contributing": [
+      "TIMEOUT"
+    ],
+    "wasted_effort": "None, as the run failed before any steps were planned or executed.",
+    "prevention": "Implement an immediate fail-fast check in the main orchestrator that aborts the entire run and raises an alert if the initial planning agent or worker CLI fails to start, rather than waiting for the 7200-second timeout."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "start",
+    "skip": [],
+    "unblock": "The worker CLI environment and dependencies must be verified as fully functional.",
+    "restart_prompt": "The previous run failed immediately at startup due to a worker CLI crash before any steps could be planned. Please initialize the environment, verify that the worker CLI is fully functional, and proceed to decompose and execute the original request from the beginning.",
+    "salvage": "None, as the run failed before any steps were planned or executed."
+  }
+}

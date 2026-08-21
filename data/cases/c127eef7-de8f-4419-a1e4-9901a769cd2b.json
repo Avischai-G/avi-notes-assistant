@@ -1,0 +1,151 @@
+{
+  "run_id": "c127eef7-de8f-4419-a1e4-9901a769cd2b",
+  "title": "Recovered work",
+  "prior_cause": "ZOMBIE_RECOVERY",
+  "evidence": {
+    "signals": [
+      "6 steps planned; banked 5 (83%). Step states: blocked=1, done=5",
+      "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+      "Stopped with zero reported worker failures: this run never announced a problem, it simply stopped making progress.",
+      "1 step(s) sitting in 'blocked' with no unblocking action recorded.",
+      "4 retry/retries across the plan; worst was step 88379ea5 at 3 attempts \u2014 it fought before it died."
+    ],
+    "progress": 0.8333333333333334,
+    "killing_step": "ea94338c-a58b-4704-b48d-ed2ef55e6a17 \u2014 Integrate Public Seed Variety Image API",
+    "silent": true,
+    "steps_planned": 6,
+    "retries": 4,
+    "stop_reason": "Recovered unfinished work from an older orchestrator run.",
+    "final_state": "held"
+  },
+  "hypotheses": [
+    {
+      "cause": "ZOMBIE_RECOVERY",
+      "reasoning": "The run's recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run' and its state is 'held'. The discrepancy where the board shows completed steps but the run's ledger is empty indicates that the state was restored from a database snapshot, but the run was never actively resumed or progressed in the new session.",
+      "confidence": 0.9
+    },
+    {
+      "cause": "STALLED_ON_USER",
+      "reasoning": "The only remaining incomplete step (ea94338c) is blocked due to an external API returning 503 errors, with the worker noting a need for an alternative image source or fallback placeholders. The run may have been placed in a 'held' state to wait for user intervention or configuration changes regarding this external dependency.",
+      "confidence": 0.6
+    },
+    {
+      "cause": "INFRA_RESTART",
+      "reasoning": "An unexpected infrastructure restart or orchestrator crash may have interrupted the active run. Upon system reboot, the recovery mechanism detected the unfinished run, marked it as 'held' with the recovery log message, but did not automatically kick off execution again.",
+      "confidence": 0.4
+    }
+  ],
+  "verdicts": {
+    "sequence": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The timeline shows that this run was initialized directly into a 'held' state with the stop reason 'Recovered unfinished work from an older orchestrator run'. The fact that the board shows completed steps but the run's ledger is empty confirms that no execution occurred in this session; the state was simply restored from a database snapshot of a previous run and immediately paused.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done on the board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While the predecessor run had a blocked step (ea94338c) due to an external API failure, this run never actually executed or reached a point of active waiting or prompting the user. The 'held' state was applied automatically by the recovery system upon loading, rather than as a result of an interactive stall during this run's timeline.",
+        "evidence": [
+          "stop reason: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "An infrastructure restart is what likely terminated the *previous* run, but it is not what stopped this run. This run was successfully created by the recovery manager and placed in a 'held' state. It did not crash or restart mid-execution because it never began executing in the first place.",
+        "evidence": [
+          "final state: held",
+          "completedSteps is empty"
+        ]
+      }
+    ],
+    "counterfactual": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's state is 'held' and its recorded stop reason is explicitly 'Recovered unfinished work from an older orchestrator run'. The board shows 5 completed steps and 1 blocked step, but the run's own ledger (completedSteps) is completely empty, indicating that no execution occurred in this session. The run was restored from a database snapshot of a previous run and immediately placed into a held state without any new steps being executed, which is the definition of a zombie recovery.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While step ea94338c was blocked due to an external API returning 503 errors and noted a need for fallbacks, there is no evidence that the orchestrator ever presented a question to the user or entered a state waiting for user input. The run was held immediately upon recovery due to its status as a recovered unfinished run, not because it was actively waiting for a human response to a prompt.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": false,
+        "argument": "An infrastructure restart would imply that the run was actively executing and then abruptly terminated mid-step. However, the trace shows that this specific run never executed any steps (the ledger is empty) and was immediately marked as 'held' upon creation/recovery. The recovery itself is the reason the run is in this state, rather than an active crash during this run's lifecycle.",
+        "evidence": [
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board.",
+          "final state: held"
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "cause": "ZOMBIE_RECOVERY",
+        "survives": true,
+        "argument": "The run's state is 'held' and the stop reason is explicitly recorded as 'Recovered unfinished work from an older orchestrator run'. The fact that the board shows 5 completed steps while the current run's ledger of completed steps is entirely empty confirms that these steps were imported from a database snapshot of a previous session, and no actual execution or progress occurred in this session.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "completedSteps is empty even though steps are marked done \u2014 the run's own ledger disagrees with its board."
+        ]
+      },
+      {
+        "cause": "STALLED_ON_USER",
+        "survives": false,
+        "argument": "While step ea94338c was indeed blocked due to an external API failure, the run did not enter the 'held' state because it was actively waiting for a user response to a prompt. Instead, it was placed in 'held' automatically by the orchestrator's recovery mechanism upon startup. The block occurred in the previous session before the crash/restart.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run.",
+          "final state: held"
+        ]
+      },
+      {
+        "cause": "INFRA_RESTART",
+        "survives": true,
+        "argument": "The stop reason 'Recovered unfinished work from an older orchestrator run' is the system's explicit signature for an unclean orchestrator shutdown or infrastructure restart. The orchestrator died mid-run in the previous session, and upon reboot, the recovery process flagged the unfinished run and marked it as 'held' rather than resuming it.",
+        "evidence": [
+          "stop reason as recorded: Recovered unfinished work from an older orchestrator run."
+        ]
+      }
+    ]
+  },
+  "certificate": {
+    "cause": "ZOMBIE_RECOVERY",
+    "confidence": 0.95,
+    "plain_english": "This run was restored from a database snapshot of a previous session that was interrupted. Upon recovery, the orchestrator initialized the run directly into a 'held' state without executing any new steps, leaving the board populated with completed steps while the current run's execution ledger remained empty.",
+    "killing_step": "ea94338c-a58b-4704-b48d-ed2ef55e6a17",
+    "contributing": [
+      "INFRA_RESTART"
+    ],
+    "wasted_effort": "No work was wasted in this specific run because no steps were executed during this session; however, the blocked step from the previous session remains unresolved.",
+    "prevention": "Modify the orchestrator's recovery manager to automatically resume execution of recovered runs in a pending state rather than immediately parking them in a 'held' state, or prompt the user for explicit confirmation to resume."
+  },
+  "resume_plan": {
+    "revivable": true,
+    "resume_at": "ea94338c",
+    "skip": [
+      "6092a86e",
+      "b98dc47b",
+      "12459c65",
+      "88379ea5",
+      "d12114ec"
+    ],
+    "unblock": "The orchestrator must assume a fallback strategy for the image API, such as using local placeholder images or a reliable public mock service, rather than waiting for the deprecated external API to recover.",
+    "restart_prompt": "The run was recovered from an older session and is currently held. We need to resume execution. Step ea94338c ('Integrate Public Seed Variety Image API') is currently blocked because the target open-source botanical image API is returning 503 Service Unavailable errors. Please resume the run by implementing a robust fallback mechanism (e.g., using local placeholder images or a reliable mock service) when the external API is unavailable, so that the step can complete successfully. Do not attempt to re-run the completed steps: 6092a86e, b98dc47b, 12459c65, 88379ea5, and d12114ec.",
+    "salvage": "The completed database schema (6092a86e), transaction API (b98dc47b), USDA hardiness zone mapping utility (12459c65), data validation scripts (88379ea5), and CSV/PDF export utility (d12114ec) are all fully functional and should be preserved."
+  }
+}
