@@ -2,9 +2,10 @@
 
 Run: python3 test_corpus.py [path-to-held-runs]
 """
-import json, sys, glob, os, collections
+import json, sys, glob, os, collections, time
 from app.traces import load
 from app.findings import extract, CAUSES
+from app.watch import is_presumed_dead
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
     "~/Documents/Agentonomy-Files/system/held-runs")
@@ -13,6 +14,15 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
 def main() -> int:
     files = sorted(glob.glob(os.path.join(SRC, "*.json")))
     assert files, f"no traces found in {SRC}"
+
+    # A graveyard directory can contain a run that is still alive — this corpus
+    # is a live one, and a run that is still moving has no cause of death to
+    # attribute. Use the same test the watcher uses.
+    now = time.time()
+    alive = [f for f in files if not is_presumed_dead(json.load(open(f)), now)]
+    files = [f for f in files if f not in alive]
+    if alive:
+        print(f"skipping {len(alive)} run(s) still alive\n")
 
     dist = collections.Counter()
     silent = 0
@@ -56,16 +66,26 @@ def main() -> int:
     # names changed: identical structure, none of the content.
     twin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "demo-traces")
     if os.path.isdir(twin) and os.path.abspath(twin) != os.path.abspath(SRC):
-        tdist, tprog = collections.Counter(), []
+        # Compare trace by trace over what the two corpora share. The private
+        # corpus keeps growing; that is not drift, but a twin whose structure
+        # has diverged from its original is.
+        checked = 0
         for f in sorted(glob.glob(os.path.join(twin, "*.json"))):
-            t = load(json.load(open(f)), run_id=os.path.basename(f)[:-5])
-            tdist[extract(t).prior_cause] += 1
-            tprog.append(round(t.progress, 4))
-        if tdist:
-            assert tdist == dist, f"published corpus drifted: {tdist} != {dist}"
-            assert tprog == [round(p, 4) for p in progress_all], "published corpus progress drifted"
-            print(f"     published twin in data/demo-traces matches on structure "
-                  f"({sum(tdist.values())} traces)")
+            original = os.path.join(SRC, os.path.basename(f))
+            if not os.path.exists(original):
+                continue
+            a = load(json.load(open(original)), run_id="x")
+            b = load(json.load(open(f)), run_id="x")
+            name = os.path.basename(f)[:8]
+            assert extract(a).prior_cause == extract(b).prior_cause, f"{name}: cause drifted"
+            assert round(a.progress, 6) == round(b.progress, 6), f"{name}: progress drifted"
+            assert [s.status for s in a.steps] == [s.status for s in b.steps], f"{name}: statuses drifted"
+            assert [s.depends_on for s in a.steps] == [s.depends_on for s in b.steps], f"{name}: graph drifted"
+            assert [s.attempts for s in a.steps] == [s.attempts for s in b.steps], f"{name}: retries drifted"
+            checked += 1
+        assert checked, "a published twin exists but shares no traces with the private corpus"
+        print(f"     published twin matches the original on cause, progress, statuses, "
+              f"dependency graph and retries ({checked} traces)")
     return 0
 
 

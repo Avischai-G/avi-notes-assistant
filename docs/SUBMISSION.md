@@ -69,17 +69,17 @@ separate preventions into the ranked list of changes that would have saved the m
 
 > **12 of 39 runs** would have been saved by one change to the recovery manager.
 
+Then it hands the restart back. Set a webhook and Coroner POSTs the resume plan straight to your
+orchestrator; a stand-in receiver is deployed next to the demo so you can watch a dead run land in a
+restart queue rather than take my word for it. If delivery fails, it says so — a restart you believe
+happened and did not is worse than none.
+
+And because 92% of dead runs never announce themselves, Coroner does not wait to be asked. A Cloud
+Scheduler job sweeps every fifteen minutes; any run still in a non-terminal state that has not moved
+for thirty minutes is presumed dead and autopsied unprompted.
+
 Put together: a run dies quietly, the sweep notices, six agents work out what killed it, and the
 restart is queued on the orchestrator — with nobody asked at any point in that chain.
-
-Then it hands the restart back. Set a webhook and Coroner POSTs the resume plan straight to your
-orchestrator; a stand-in receiver is deployed next to the demo so you can watch a dead run arrive in
-a restart queue rather than take my word for it. If delivery fails, it says so — a restart you
-believe happened and did not is worse than none.
-
-And because 92% of dead runs never announce themselves, Coroner does not wait to be asked. A
-Cloud Scheduler job sweeps every fifteen minutes; any run that is still in a non-terminal state and
-has not moved for thirty minutes is presumed dead and autopsied unprompted.
 
 ### How I built it
 
