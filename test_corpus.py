@@ -74,7 +74,13 @@ def main() -> int:
             original = os.path.join(SRC, os.path.basename(f))
             if not os.path.exists(original):
                 continue
-            a = load(json.load(open(original)), run_id="x")
+            original_raw = json.load(open(original))
+            # The private corpus is live: a previously published corpse can be
+            # resumed later. Apply the same alive-run exclusion used above so
+            # that changing runtime state is not mistaken for anonymization drift.
+            if not is_presumed_dead(original_raw, now):
+                continue
+            a = load(original_raw, run_id="x")
             b = load(json.load(open(f)), run_id="x")
             name = os.path.basename(f)[:8]
             assert extract(a).prior_cause == extract(b).prior_cause, f"{name}: cause drifted"

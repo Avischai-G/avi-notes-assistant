@@ -23,6 +23,8 @@ from app.traces import load
 
 WEB = Path(__file__).parent / "web"
 DATA = Path(__file__).parent / "data"
+MAX_REQUEST_BYTES = 1024 * 1024
+REQUEST_BODY_TIMEOUT = 10
 
 api = FastAPI(title="Coroner", description="Post-mortems for dead agent runs.")
 
@@ -40,6 +42,60 @@ def _gate(limiter: limits.Limiter, request: Request) -> None:
         raise HTTPException(429, f"Rate limited — this endpoint runs live model calls. "
                                  f"Try again in {wait}s.",
                             headers={"Retry-After": str(wait)})
+
+
+async def _trace_json(request: Request):
+    """Read one bounded JSON body, including when Content-Length is absent."""
+    declared = request.headers.get("content-length")
+    if declared:
+        try:
+            declared_size = int(declared)
+        except ValueError as exc:
+            raise HTTPException(400, "Content-Length must be an integer") from exc
+        if declared_size < 0:
+            raise HTTPException(400, "Content-Length must not be negative")
+        if declared_size > MAX_REQUEST_BYTES:
+            raise HTTPException(
+                413, f"request body exceeds the {MAX_REQUEST_BYTES}-byte maximum"
+            )
+
+    async def read() -> bytes:
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_REQUEST_BYTES:
+                raise HTTPException(
+                    413, f"request body exceeds the {MAX_REQUEST_BYTES}-byte maximum"
+                )
+            body.extend(chunk)
+        return bytes(body)
+
+    try:
+        async with asyncio.timeout(REQUEST_BODY_TIMEOUT):
+            body = await read()
+    except HTTPException:
+        raise
+    except TimeoutError as exc:
+        raise HTTPException(
+            408, f"request body was not received within {REQUEST_BODY_TIMEOUT} seconds"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(400, "could not read request body") from exc
+
+    def reject_constant(value: str):
+        raise ValueError(f"non-finite number {value}")
+
+    try:
+        return json.loads(body, parse_constant=reject_constant)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            400, f"body must be valid JSON (line {exc.lineno}, column {exc.colno})"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise HTTPException(400, "body must be valid UTF-encoded JSON") from exc
+    except RecursionError as exc:
+        raise HTTPException(400, "JSON nesting is too deep") from exc
+    except ValueError as exc:
+        raise HTTPException(400, f"body must be valid JSON: {exc}") from exc
 
 
 def _summary(c: dict) -> dict:
@@ -112,10 +168,7 @@ def fleet_recompute(request: Request):
 async def autopsy(request: Request):
     """Stream an autopsy of a trace posted as JSON. Server-sent events."""
     _gate(limits.autopsy, request)
-    try:
-        raw = await request.json()
-    except Exception:
-        raise HTTPException(400, "body must be a trace in JSON")
+    raw = await _trace_json(request)
     try:
         t = load(raw)
     except ValueError as e:

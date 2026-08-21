@@ -23,33 +23,36 @@ async function graveyard() {
     get('/api/cases'), get('/api/fleet').catch(() => null), get('/api/sweep').catch(() => null)]);
   const a = fleet?.aggregate;
 
-  const groups = {};
-  for (const c of cases) (groups[c.cause] ||= []).push(c);
+  const groups = Object.create(null);
+  for (const c of cases) {
+    const cause = String(c.cause ?? 'UNDETERMINED');
+    (groups[cause] ||= []).push(c);
+  }
   const order = Object.keys(groups).sort((x, y) => groups[y].length - groups[x].length);
 
   view.innerHTML = `
     ${a ? `<div class="slab">
       <h2>${esc(fleet.headline || '')}</h2>
       <div class="figures">
-        <div class="fig warn"><strong>${a.runs}</strong><span>runs autopsied</span></div>
-        <div class="fig bad"><strong>${pct(a.silent_rate)}</strong><span>died without a word</span></div>
-        <div class="fig bad"><strong>${a.steps_abandoned}</strong><span>steps abandoned</span></div>
-        <div class="fig"><strong>${pct(a.mean_progress)}</strong><span>work banked before death</span></div>
-        <div class="fig good"><strong>${a.revivable}</strong><span>still revivable</span></div>
+        <div class="fig warn"><strong>${esc(a.runs)}</strong><span>runs autopsied</span></div>
+        <div class="fig bad"><strong>${esc(pct(a.silent_rate))}</strong><span>died without a word</span></div>
+        <div class="fig bad"><strong>${esc(a.steps_abandoned)}</strong><span>steps abandoned</span></div>
+        <div class="fig"><strong>${esc(pct(a.mean_progress))}</strong><span>work banked before death</span></div>
+        <div class="fig good"><strong>${esc(a.revivable)}</strong><span>still revivable</span></div>
       </div>
       ${sw ? `<div class="watch">
         <span class="dot"></span>
-        Watching ${sw.watched} run${sw.watched === 1 ? '' : 's'} · last swept ${esc(ago(sw.at))} ·
-        ${(sw.autopsied || []).length} autopsied unprompted${(sw.errors || []).length ? ` · ${sw.errors.length} error(s)` : ''}
+        Watching ${esc(sw.watched)} run${sw.watched === 1 ? '' : 's'} · last swept ${esc(ago(sw.at))} ·
+        ${esc((sw.autopsied || []).length)} autopsied unprompted${(sw.errors || []).length ? ` · ${esc(sw.errors.length)} error(s)` : ''}
       </div>` : ''}
     </div>` : ''}
     ${order.map(k => {
-      const t = TAX[k] || {};
+      const t = Object.hasOwn(TAX, k) ? TAX[k] : {};
       return `<section class="cause-group">
         <div class="cause-head">
           <div class="line">
             <h3>${esc(t.label || k)}</h3><code>${esc(k)}</code>
-            <span class="n">${groups[k].length}</span>
+            <span class="n">${esc(groups[k].length)}</span>
           </div>
           <p>${esc(t.meaning || '')}</p>
         </div>
@@ -59,13 +62,13 @@ async function graveyard() {
 }
 
 const toe = (c) => `
-  <a class="toe" href="#/case/${encodeURIComponent(c.run_id)}">
+  <a class="toe" href="#/case/${esc(encodeURIComponent(c.run_id))}">
     <div class="t">${esc(c.title || c.run_id)}
       <span class="rid">${esc((c.run_id || '').slice(0, 8))}</span></div>
     ${c.one_liner ? `<p class="why">${esc(c.one_liner)}</p>` : ''}
     <div class="meta">
-      <span>${pct(c.progress)}</span>
-      <span class="bar"><i style="width:${pct(c.progress)}"></i></span>
+      <span>${esc(pct(c.progress))}</span>
+      <span class="bar"><i style="width:${esc(pct(c.progress))}"></i></span>
       ${c.overruled ? '<span class="pill overruled">OVERRULED</span>' : ''}
       ${c.silent ? '<span class="pill silent">SILENT</span>' : ''}
       ${c.revivable ? '<span class="pill revivable">REVIVABLE</span>' : ''}
@@ -78,7 +81,8 @@ async function caseFile(id) {
   // so it is rendered from what the stream handed back.
   const c = id === 'live' && LIVE ? LIVE : await get(`/api/case/${encodeURIComponent(id)}`);
   const cert = c.certificate || {}, ev = c.evidence || {}, plan = c.resume_plan || {};
-  const t = TAX[cert.cause] || {};
+  const cause = String(cert.cause ?? '');
+  const t = Object.hasOwn(TAX, cause) ? TAX[cause] : {};
 
   view.innerHTML = `
     <a class="back" href="#/${id === 'live' ? 'autopsy' : 'graveyard'}">&larr; ${
@@ -89,7 +93,7 @@ async function caseFile(id) {
       <div class="who">Certificate of death · run ${esc((c.run_id || '').slice(0, 8))}</div>
       <h2>${esc(c.title || 'untitled run')}</h2>
       <div class="cause">${esc(cert.cause || '?')} — ${esc(t.label || '')}
-        · confidence ${cert.confidence ?? '?'}</div>
+        · confidence ${esc(cert.confidence ?? '?')}</div>
       <p class="say">${esc(cert.plain_english || '')}</p>
       <div class="rows">
         <div class="row"><b>Recorded reason</b><div>${esc(ev.stop_reason || '(none recorded)')}</div></div>
@@ -107,7 +111,7 @@ async function caseFile(id) {
 
     <h3 class="sec">Hypotheses at triage</h3>
     ${(c.hypotheses || []).map(h => `<div class="hyp">
-      <span class="c">${esc(h.cause)}</span><span class="conf">${h.confidence}</span>
+      <span class="c">${esc(h.cause)}</span><span class="conf">${esc(h.confidence)}</span>
       <span class="why">${esc(h.reasoning)}</span></div>`).join('')}
 
     <h3 class="sec">Three investigators, each told to destroy them</h3>
@@ -128,7 +132,7 @@ async function caseFile(id) {
       ${plan.revivable ? `
         <div class="rows" style="margin-top:0">
           <div class="row"><b>Restart at</b><div>${esc(plan.resume_at || '—')}</div></div>
-          <div class="row"><b>Do not redo</b><div>${(plan.skip || []).length} step(s) already banked</div></div>
+          <div class="row"><b>Do not redo</b><div>${esc((plan.skip || []).length)} step(s) already banked</div></div>
           <div class="row"><b>Proceed under</b><div>${esc(plan.unblock || '—')}</div></div>
           <div class="row"><b>Still worth keeping</b><div>${esc(plan.salvage || '—')}</div></div>
         </div>
@@ -178,18 +182,18 @@ async function fleetReport() {
       <p>Every certificate proposed a fix for its own run. Collapsed and ranked by how many
          deaths each one would actually have prevented.</p>
       <div class="figures">
-        <div class="fig warn"><strong>${a.runs}</strong><span>runs</span></div>
-        <div class="fig"><strong>${a.steps_planned}</strong><span>steps planned</span></div>
-        <div class="fig good"><strong>${a.steps_banked}</strong><span>banked</span></div>
-        <div class="fig bad"><strong>${a.steps_abandoned}</strong><span>abandoned</span></div>
+        <div class="fig warn"><strong>${esc(a.runs)}</strong><span>runs</span></div>
+        <div class="fig"><strong>${esc(a.steps_planned)}</strong><span>steps planned</span></div>
+        <div class="fig good"><strong>${esc(a.steps_banked)}</strong><span>banked</span></div>
+        <div class="fig bad"><strong>${esc(a.steps_abandoned)}</strong><span>abandoned</span></div>
       </div>
     </div>
     ${(f.prescriptions || []).map(p => `<div class="rx">
-      <div class="count"><strong>${p.deaths_prevented}</strong><span>runs saved</span></div>
+      <div class="count"><strong>${esc(p.deaths_prevented)}</strong><span>runs saved</span></div>
       <div>
         <h4>${esc(p.change)}</h4>
         <p>${esc(p.rationale)}</p>
-        <div class="ids">effort: ${esc(p.effort)} · ${(p.run_ids || []).join(' ')}</div>
+        <div class="ids">effort: ${esc(p.effort)} · ${(p.run_ids || []).map(esc).join(' ')}</div>
       </div>
     </div>`).join('')}`;
 }
@@ -228,7 +232,7 @@ function autopsyView() {
 }
 
 function drawPipe(state = {}) {
-  const node = (s) => `<div class="node ${state[s.agent] || ''}"><span class="dot"></span>
+  const node = (s) => `<div class="node ${esc(state[s.agent] || '')}"><span class="dot"></span>
     <div><b>${esc(s.label)}</b><small>${esc(s.does)}</small></div></div>`;
   const mid = STAGES.filter(s => s.agent.startsWith('investigator_'));
   const rest = STAGES.filter(s => !s.agent.startsWith('investigator_'));
