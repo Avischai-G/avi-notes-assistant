@@ -8,16 +8,16 @@
   "completedSteps": [],
   "resumeMessages": [
     {
-      "content": "now i need you to search the chats for a maestro installation prompt.",
+      "content": "We need to resolve the hold shipment delay so joker-codex can resume the setting of the medium and hard routes. Please update the inventory as soon as the delivery arrives.",
       "attachments": []
     }
   ],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497815,
-  "title": "Climbing Gym Route-Setting Tracker",
-  "originalRequest": "Audit and establish the weekly route-setting cycle for the main bouldering area, including volume preparation, layout drafting, physical setting, and forerunner testing.",
-  "latestMessage": "Audit and establish the weekly route-setting cycle for the main bouldering area, including volume preparation, layout drafting, physical setting, and forerunner testing.",
+  "updatedAt": 1787286928406,
+  "title": "Climbing-Gym Route-Setting Tracker",
+  "originalRequest": "Track and log the route-setting progress, hold inventory updates, and safety grading for the upcoming seasonal boulder reset.",
+  "latestMessage": "Track and log the route-setting progress, hold inventory updates, and safety grading for the upcoming seasonal boulder reset.",
   "steps": [
     {
       "step": 1,
@@ -27,9 +27,9 @@
       "taskId": "fe05cd36-6533-4b06-b984-bae01cef4b51",
       "status": "blocked",
       "attempts": 1,
-      "title": "Verify Zone A hold inventory and structural hardware",
-      "instruction": "Inspect the physical inventory of high-friction dual-texture holds and M10 bolts required for the upcoming medium-difficulty V4 sets in Zone A, currently on hold due to delayed shipment.",
-      "acceptance": "All required structural volumes and bolts are accounted for and cleared for safety."
+      "title": "Route Setting: Sector A Medium Slab",
+      "instruction": "Design and set a V4 technical slab route using the new dual-texture pinch holds. Currently blocked due to delayed shipment of the custom bolts required for the volumes.",
+      "acceptance": "Route is fully set, graded V4 by at least two setters, and safety-tested."
     },
     {
       "step": 2,
@@ -39,9 +39,9 @@
       "taskId": "3f316234-8e77-4030-bbc9-eda2efcb733b",
       "status": "blocked",
       "attempts": 1,
-      "title": "Draft setting schematic for Zone B technical slab",
-      "instruction": "Draft the layout blueprint for a technical slab route using small crimps and volume-dependent foot placement, targeted at a V5 grade, currently paused pending wall surface cleaning.",
-      "acceptance": "Slab route blueprint is drafted and verified against wall T-nut layout guidelines."
+      "title": "Route Setting: Sector B Medium Overhang",
+      "instruction": "Draft a V5 dynamic coordinate route on the 45-degree wall. Blocked because the required crash pads for the fall zone are currently undergoing maintenance and unavailable.",
+      "acceptance": "Dynamic sequence is set, safety zone cleared, and test-climbed successfully."
     },
     {
       "step": 3,
@@ -51,9 +51,9 @@
       "taskId": "15f28799-6f8c-4805-867a-ffd9f6266b49",
       "status": "blocked",
       "attempts": 1,
-      "title": "Install physical holds for Wave Wall V8 project",
-      "instruction": "Secure the primary start, finish, and tracking holds for the new high-angle V8 overhang route on the Wave Wall, currently blocked by scissor lift maintenance.",
-      "acceptance": "All holds are torqued to spec and safety-tested under load."
+      "title": "Route Setting: Sector C Hard Roof",
+      "instruction": "Set a V7 roof climb using small crimps. Blocked due to structural truss inspection currently scheduled on Sector C ceiling, preventing high-altitude work.",
+      "acceptance": "Crimpy roof sequence established, anchors verified, and grade consensus achieved."
     },
     {
       "step": 4,
@@ -63,9 +63,9 @@
       "taskId": "88d1ea76-b4ff-4425-abd3-a5845e34b262",
       "status": "blocked",
       "attempts": 1,
-      "title": "Perform forerunner grading assessment on the V8 overhang",
-      "instruction": "Execute multiple test runs by at least three qualified setters to confirm movement flow and establish grade consensus, currently blocked by incomplete hold installation.",
-      "acceptance": "Forerunning feedback forms completed and average grade determined to be within the V8 range."
+      "title": "Route Setting: Sector D Hard Comp Wall",
+      "instruction": "Create a V8 competition-style coordination run-and-jump sequence. Blocked due to lack of standard volume inventory; awaiting shipment of trapezoidal wooden volumes.",
+      "acceptance": "Setting completed, volumes securely anchored, run-and-jump sequence successfully demoed."
     },
     {
       "step": 5,
@@ -75,9 +75,9 @@
       "taskId": "f9c121d0-452b-4ca1-bc7f-074f843cf741",
       "status": "blocked",
       "attempts": 1,
-      "title": "Publish updated wall layout and grades to gym member portal",
-      "instruction": "Publish the completed routes, grades, and setter notes to the digital tracking board, currently blocked because the forerunner assessments are incomplete.",
-      "acceptance": "Web portal reflects the updated route distribution and setter assignments for the Wave Wall."
+      "title": "Route Setting: Sector E Hard Arete",
+      "instruction": "Establish a V9 compression route on the sharp arete. Blocked because the specialized fiberglass macro holds scheduled for this route were damaged during unboxing.",
+      "acceptance": "Compression arete set, backup holds utilized if necessary, and graded V9 with stable anchor placement."
     }
   ]
 }

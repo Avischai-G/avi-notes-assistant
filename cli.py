@@ -5,6 +5,8 @@
     python cli.py autopsy-all [dir]       autopsy every trace, store the case files
     python cli.py fleet                   prescriptions across the stored case files
     python cli.py seed                    push local case files into the configured store
+    python cli.py seed-traces [dir]       push raw traces in for the watcher to sweep
+    python cli.py sweep [seconds]         autopsy every run that has gone quiet
 
 Traces are redacted before they reach the model unless CORONER_REDACT=0.
 """
@@ -17,7 +19,7 @@ import os
 import sys
 import time
 
-from app import fleet, store
+from app import fleet, store, watch
 from app.autopsy import perform_async
 from app.findings import extract
 from app.redact import redact
@@ -96,6 +98,21 @@ def main(argv: list[str]) -> int:
             n += 1
         print(f"seeded {n} case files into "
               f"{'firestore' if os.environ.get('CORONER_STORE') == 'firestore' else src}")
+        return 0
+
+    if cmd == "seed-traces":
+        src = rest[0] if rest else "data/demo-traces"
+        n = 0
+        for f in sorted(glob.glob(os.path.join(src, "*.json"))):
+            raw = json.load(open(f))
+            store.put_trace(raw.get("runId") or os.path.basename(f)[:-5], raw)
+            n += 1
+        print(f"seeded {n} traces for the watcher")
+        return 0
+
+    if cmd == "sweep":
+        r = asyncio.run(watch.sweep(after=int(rest[0]) if rest else watch.SILENT_AFTER))
+        print(json.dumps(r.as_dict(), indent=2))
         return 0
 
     if cmd == "fleet":

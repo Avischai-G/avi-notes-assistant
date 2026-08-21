@@ -3,16 +3,16 @@
   "runId": "2a7dfa6d-9af4-48fb-a046-88f09b3761ea",
   "chatId": "7b217387-ad76-429b-92d1-e47d31103b81",
   "status": "held",
-  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "reason": "Recovered unfinished work from an older orchestrator run.",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": true,
-  "updatedAt": 1787285497865,
+  "updatedAt": 1787286928459,
   "title": "Recovered work",
-  "originalRequest": "Develop a scheduling system specifically tailored for a brass band, allowing conductors to schedule rehearsals, track section-by-section attendance, check venue availability, and select repertoire.",
-  "latestMessage": "Develop a scheduling system specifically tailored for a brass band, allowing conductors to schedule rehearsals, track section-by-section attendance, check venue availability, and select repertoire.",
+  "originalRequest": "Develop a scheduling application to manage weekly rehearsals, sectionals, venue bookings, and instrument allocation for a regional brass band.",
+  "latestMessage": "Develop a scheduling application to manage weekly rehearsals, sectionals, venue bookings, and instrument allocation for a regional brass band.",
   "steps": [
     {
       "taskId": "727908a4-6b3c-480d-85cd-b90e62df3525",
@@ -22,9 +22,9 @@
       "dependsOn": [],
       "status": "doing",
       "attempts": 1,
-      "title": "Integrate calendar API for venue booking availability",
-      "instruction": "Connect the scheduling backend to the shared venue Google Calendar to read existing bookings and prevent conflicts.",
-      "acceptance": "System can fetch calendar events and flag overlapping time slots in the scheduler."
+      "title": "Define Database Schema",
+      "instruction": "Create the database migrations for band members, instrument inventory, venues, and rehearsal events, including tables for sections (e.g., Cornet, Horn, Trombone, Euphonium, Tuba, Percussion).",
+      "acceptance": "Database migrations run successfully on the local development environment and generate the correct tables and foreign keys."
     },
     {
       "taskId": "618b20a2-720e-4de9-af94-ed740e972547",
@@ -34,9 +34,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Add instrumentation requirements to rehearsal events",
-      "instruction": "Implement a feature allowing conductors to specify which instrument sections (e.g., Trombones and Tubas only) are required for a particular rehearsal slot.",
-      "acceptance": "Conductors can select specific sections when creating a rehearsal, and notifications are only sent to those players."
+      "title": "Build Section Lead Notification Trigger",
+      "instruction": "Set up a background worker or cron trigger that sends notifications to relevant section leaders when a sectional rehearsal is scheduled or modified.",
+      "acceptance": "System sends simulated notifications to configured section leaders' endpoints when a matching database record is created."
     },
     {
       "taskId": "8679683d-a07c-440d-9622-81138bea55c0",
@@ -46,10 +46,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Design database schema for band member attendance tracking",
-      "instruction": "Create a database schema to track player attendance (Attending, Absent, Late) for scheduled rehearsals, linking players to their instrument sections.",
-      "acceptance": "Schema supports querying attendance by rehearsal, by player, or by section. Migration script runs successfully on development database.",
-      "result": "Database migration file 003_attendance_tracking.sql successfully generated and executed on the development database. Verified table structure for attendance and members with correct foreign key constraints. Queries for section-wise attendance are performing under 10ms."
+      "title": "Configure Venue Conflict Check Utility",
+      "instruction": "Write a utility class that queries existing rehearsal records for overlapping time slots and returns a list of conflicts when scheduling a new event.",
+      "acceptance": "Unit tests confirm that scheduling an event at the exact same venue and time slot throws a validation error, while adjacent slots succeed.",
+      "result": "Developed the VenueConflictChecker utility. Added unit test cases covering complete overlap, partial overlap, adjacent times, and different venues. All unit tests pass with zero regressions."
     },
     {
       "taskId": "410b8a70-c4c5-4660-9800-b9928c3941fd",
@@ -59,10 +59,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Create email notification template for rehearsal updates",
-      "instruction": "Design and implement a transactional email template to notify band members of newly scheduled rehearsals or timing changes.",
-      "acceptance": "Template displays date, time, venue, and required repertoire, including RSVP buttons.",
-      "result": "Created HTML and text templates in templates/rehearsal_notification.html. Integrated RSVP endpoints (/api/rsvp/confirm and /api/rsvp/decline) as action buttons. Tested email rendering successfully across major clients."
+      "title": "Create Rehearsal Management API",
+      "instruction": "Implement REST endpoints for creating, retrieving, updating, and deleting rehearsal events under /api/rehearsals.",
+      "acceptance": "All CRUD endpoints are functional, secure, validate payload structures, and return standard HTTP status codes.",
+      "result": "Completed construction of /api/rehearsals controller. Configured JSON schema validators for payload formats. Handled negative cases (e.g., invalid date formats, missing required fields) with 400 Bad Request responses."
     },
     {
       "taskId": "b05ad052-2b61-40bb-8f54-c58895d23be1",
@@ -72,10 +72,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Develop API endpoint for repertoire selection",
-      "instruction": "Build a REST API endpoint (GET /api/repertoire) that lists the active pieces in the band's library to allow scheduling specific pieces for rehearsal slots.",
-      "acceptance": "Endpoint returns a list of pieces filtered by difficulty, composer, or status.",
-      "result": "Implemented GET /api/repertoire controller with query parameter filters. Added unit tests verifying response payloads and pagination logic. Code merged into main branch."
+      "title": "Implement Instrument Allocation Tracking",
+      "instruction": "Integrate instrument tracking into the scheduling database so that shared instruments (e.g., timpani, tubular bells) can be reserved for specific rehearsals.",
+      "acceptance": "The scheduling form rejects rehearsal creation if a requested instrument is already reserved by another rehearsal occurring at the same time.",
+      "result": "Successfully linked the instrument reservation system to the core scheduler. Added relational constraints preventing duplicate resource booking. Verification checks pass."
     },
     {
       "taskId": "ce225dfd-e5a2-407f-9564-b631ce5cef04",
@@ -85,10 +85,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Implement conflict resolution for multi-booked instrument sections",
-      "instruction": "Write validation logic to prevent scheduling a player for two different sectional rehearsals at the same time.",
-      "acceptance": "Scheduler throws a validation error if a player's section is already booked in an overlapping timeframe.",
-      "result": "Added validation middleware checkSectionAvailability in the scheduling route. Tested overlapping scenarios for Cornet and Horn sections; conflict exceptions are correctly raised and returned as structured JSON errors to the client."
+      "title": "Build Calendar UI Dashboard",
+      "instruction": "Construct a basic web frontend dashboard view displaying a calendar of upcoming rehearsal dates, categorized by full band vs. sectionals.",
+      "acceptance": "The frontend calendar UI loads without error, fetches scheduled rehearsals from the API, and color-codes sessions based on event type.",
+      "result": "Created a lightweight frontend interface using HTML and CSS. Successfully integrated it with the rehearsal schedule API. Checked layout responsiveness on standard screen sizes."
     }
   ]
 }

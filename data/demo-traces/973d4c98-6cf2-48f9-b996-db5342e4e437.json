@@ -9,10 +9,10 @@
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497878,
-  "title": "Secondhand Bookshop Stock System",
-  "originalRequest": "Update inventory schema to handle book condition and multiple copies.",
-  "latestMessage": "Update inventory schema to handle book condition and multiple copies.",
+  "updatedAt": 1787286928473,
+  "title": "Secondhand Bookshop Inventory Database Update",
+  "originalRequest": "Add support for tracking physical book conditions in the stock management database.",
+  "latestMessage": "Add support for tracking physical book conditions in the stock management database.",
   "steps": [
     {
       "step": 1,
@@ -22,10 +22,10 @@
       "taskId": "383f4859-1218-4089-ae4d-67cba93f7316",
       "status": "blocked",
       "attempts": 1,
-      "title": "Implement database migration for book condition tracking",
-      "instruction": "Add a 'condition' field (e.g., 'Excellent', 'Good', 'Fair', 'Poor') and an 'acquired_date' column to the 'book_inventory' table schema, then update the backend ORM models accordingly.",
-      "acceptance": "Database schema is updated successfully, ORM models reflect the new fields, and integration tests for CRUD operations pass without errors.",
-      "result": "Attempt 1 failed. The migration script is blocked because the local test database is locking tables during the schema alteration process. It appears there is an active connection pool conflict with the legacy book categorizer daemon that cannot be shut down without admin credentials. I am stuck until the database access permissions are updated."
+      "title": "Database migration for book condition tracking",
+      "instruction": "Develop and apply a database migration script that adds a 'condition_rating' enum column to the inventory table.",
+      "acceptance": "The migration applies to the local PostgreSQL instance successfully, updating the schema to support book conditions without losing existing inventory records.",
+      "result": "The migration script is blocked. During the dry-run, I encountered legacy records in the active inventory table with non-standard status values that cannot be cast to the new 'condition_rating' ENUM type. I am blocked until we establish a clear mapping for these anomalous legacy entries or receive a database cleanup script to run beforehand."
     }
   ]
 }

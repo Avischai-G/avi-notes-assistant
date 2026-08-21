@@ -9,10 +9,10 @@
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497820,
-  "title": "Beekeeping Hive Inspection App Development Board",
-  "originalRequest": "Design and build a mobile application for beekeepers to manage hive inspections, offline logging, and diagnostic metrics.",
-  "latestMessage": "Design and build a mobile application for beekeepers to manage hive inspections, offline logging, and diagnostic metrics.",
+  "updatedAt": 1787286928411,
+  "title": "Hive Inspection Application Task Board",
+  "originalRequest": "Establish a comprehensive tracking system for the beekeeping app development project, covering core inspections, offline telemetry synchronization, and localized testing.",
+  "latestMessage": "Establish a comprehensive tracking system for the beekeeping app development project, covering core inspections, offline telemetry synchronization, and localized testing.",
   "steps": [
     {
       "step": 1,
@@ -22,10 +22,10 @@
       "taskId": "ead71fa1-ef68-496c-ad74-289c4947ffc6",
       "status": "done",
       "attempts": 1,
-      "title": "Database Schema Design for Hive Inspections",
-      "instruction": "Create a local relational database schema to store hive records, including fields for queen status, brood pattern, pest levels, and temperament.",
-      "acceptance": "SQL schema file successfully compiled and integrated with SQLite entity-relationship wrappers.",
-      "result": "Database schema completed in first pass. Implemented tables for hives, apiaries, and inspection logs. Local testing confirms all SQLite foreign key relationships and indices resolve correctly."
+      "title": "Initialize local database schema for inspections",
+      "instruction": "Design and apply the SQLite database schema to store hive ID, inspection timestamp, temper level, queen sighted boolean, brood pattern rating, and honey super status.",
+      "acceptance": "The database initializes without errors and allows CRUD operations on inspection records.",
+      "result": "Database migration script 001_init_inspections.sql created and successfully tested against mock datasets. Read and write operations verified on local emulator."
     },
     {
       "step": 2,
@@ -37,10 +37,10 @@
       "taskId": "6c5a55a2-bb8d-4edc-9fcd-97ddf6c89030",
       "status": "doing",
       "attempts": 1,
-      "title": "Implement Bidirectional Offline Sync Protocol",
-      "instruction": "Develop a background sync queue that buffers inspection logs when offline and reconciles updates with the remote server when a connection is restored.",
-      "acceptance": "System handles network dropouts gracefully and reconciles conflicting updates using a last-write-wins timestamp policy.",
-      "result": "Currently coding the conflicts reconciliation handler. Network loss interception works, and logs are buffered in local storage. Resolving an issue with concurrent batch updates."
+      "title": "Implement offline-first synchronization protocol",
+      "instruction": "Develop a synchronization service that queues hive inspection records locally when there is no network connectivity, and pushes them to the central backend once a connection is detected.",
+      "acceptance": "Inspections taken offline are correctly uploaded sequentially without data loss when network is restored.",
+      "result": "Offline queue mechanics established using local IndexedDB storage. Currently designing the conflict resolution strategy for concurrent updates to the same hive state. Progress is ongoing."
     },
     {
       "step": 3,
@@ -52,10 +52,10 @@
       "taskId": "7eaa98c2-b30e-4686-8158-8222a3a476e3",
       "status": "blocked",
       "attempts": 2,
-      "title": "Hands-Free Voice-to-Text Inspection Notes",
-      "instruction": "Integrate a local speech-to-text library to allow beekeepers to log inspection observations hands-free while wearing heavy gloves.",
-      "acceptance": "High-accuracy transcription of key phrases when processed locally offline.",
-      "result": "Second attempt blocked. The offline models evaluated require too much memory for target lower-spec mobile devices, causing app crashes during transcription. Awaiting decision on whether to use a lightweight cloud API fallback or drop offline speech requirement."
+      "title": "Integrate third-party hive scale weight telemetry",
+      "instruction": "Connect to the API of external Bluetooth-enabled hive scales to pull daily weight trends during an inspection.",
+      "acceptance": "The app parses weight data payloads and populates the inspection log with current hive mass.",
+      "result": "Blocked after two attempts. Attempt 1 failed due to undocumented authentication protocols on the scale manufacturer sandbox. Attempt 2 failed because the sandbox API returned 503 errors repeatedly. Awaiting updated vendor documentation and stable API access keys."
     },
     {
       "step": 4,
@@ -67,10 +67,10 @@
       "taskId": "48c5a15d-8709-4942-b5f6-18b7102113dd",
       "status": "blocked",
       "attempts": 2,
-      "title": "Bluetooth Smart Scale API Integration",
-      "instruction": "Build driver interfaces to fetch real-time hive weight measurements from commercial Bluetooth-enabled scale hardware.",
-      "acceptance": "Continuous weight data read from mock scale via BLE connection and plotted in the telemetry panel.",
-      "result": "Blocked after second attempt. The target scale SDK lacks support for the latest OS versions, resulting in persistent connection dropouts. Contacted vendor for an updated library; progress halted until they respond."
+      "title": "Implement computer vision queen bee detection",
+      "instruction": "Embed a lightweight TensorFlow Lite model to analyze uploaded frame images and highlight the queen bee location.",
+      "acceptance": "Model successfully processes 640x640 images within under 500ms on test devices and outputs bounding boxes.",
+      "result": "Blocked after two attempts. Attempt 1: The pre-compiled model file size exceeded the maximum Android assets package size limit. Attempt 2: Attempted post-training quantization, but accuracy dropped below the acceptable 80 percent threshold. Need guidance on hardware-acceleration requirements or permission to use a cloud-based classification endpoint."
     },
     {
       "step": 5,
@@ -82,10 +82,10 @@
       "taskId": "6a050877-7538-4dfa-a432-fc369e1d40cb",
       "status": "blocked",
       "attempts": 2,
-      "title": "Computer Vision Varroa Mite Count Classifier",
-      "instruction": "Train and deploy a lightweight TensorFlow model within the app to detect and count Varroa mites from camera close-ups of sticky boards.",
-      "acceptance": "Model successfully processes sample images and returns a count within a 15% margin of manual tallies.",
-      "result": "Blocked on second attempt due to low-resolution test datasets causing high false-positive rates. Need the field team to supply higher-resolution, annotated macro images of infested boards before retrying model calibration."
+      "title": "Integrate audio spectrum analysis for swarm forecasting",
+      "instruction": "Process short audio recordings from inside the hive to detect specific acoustic frequencies associated with swarming behavior.",
+      "acceptance": "Fast Fourier Transform runs on the audio recording, outputs frequency spikes, and triggers a warning UI indicator if threshold is breached.",
+      "result": "Blocked after two attempts. Attempt 1: The iOS microphone capture APIs failed to initialize within the background service runner. Attempt 2: High noise interference from wind in mock outdoor audio rendered the thresholding algorithm ineffective. Blocking task pending noise-filtering library implementation."
     },
     {
       "step": 6,
@@ -100,9 +100,9 @@
       "taskId": "b509a625-8317-4dff-a65a-1f5e1e8327be",
       "status": "todo",
       "attempts": 0,
-      "title": "Inspection Schedule Reminders",
-      "instruction": "Create local OS notification alerts to remind users when a hive inspection is due based on custom intervals.",
-      "acceptance": "Local push notifications triggered accurately based on date settings in user preferences."
+      "title": "Generate PDF inspection summary export",
+      "instruction": "Build a report generation service to compile historical hive metrics, treatment logs, and queen sighting notes into a shareable PDF.",
+      "acceptance": "Generates a clean multi-page PDF output matching the design mockups, accessible locally in the device downloads folder."
     },
     {
       "step": 7,
@@ -112,9 +112,9 @@
       "taskId": "bc6c1cb7-523d-4c14-ba77-405cb9efecd8",
       "status": "todo",
       "attempts": 0,
-      "title": "Export PDF Inspection Sheets",
-      "instruction": "Build a report engine to compile historical inspection data into a formatted PDF document suitable for printing or sharing.",
-      "acceptance": "Generated PDFs accurately render tables, notes, and visual health status charts."
+      "title": "Integrate meteorological data service",
+      "instruction": "Query local weather APIs using the hive's GPS coordinates to capture temperature, humidity, and barometric pressure at the exact time of inspection.",
+      "acceptance": "Inspections automatically record wind speed and ambient temperature from the external API without manual input."
     },
     {
       "step": 8,
@@ -124,9 +124,9 @@
       "taskId": "90407805-18e0-468a-a488-4171b2b9a583",
       "status": "todo",
       "attempts": 0,
-      "title": "Automated Weather API Integration",
-      "instruction": "Query localized meteorological data during an inspection to automatically record ambient temperature, wind speed, and barometric pressure.",
-      "acceptance": "Current weather attributes are auto-populated based on the user's GPS coordinates upon creating an inspection log."
+      "title": "Build analytics dashboard for hive telemetry trends",
+      "instruction": "Create time-series visualizations showing weight fluctuations, internal temperature, and humidity levels over weekly and monthly intervals.",
+      "acceptance": "Dashboard renders responsive charts using local storage history, supporting filter by hive ID and date range."
     },
     {
       "step": 9,
@@ -136,9 +136,9 @@
       "taskId": "64490c3b-947b-4daf-a627-013ef207f67b",
       "status": "todo",
       "attempts": 0,
-      "title": "Geospatial Apiary Mapping View",
-      "instruction": "Render a map displaying all registered apiaries, color-coded by current alert status or pending inspections.",
-      "acceptance": "Map correctly displays custom markers and groups hives cluster-style when zoomed out."
+      "title": "Design interactive frame-by-frame colony population estimator",
+      "instruction": "Implement an interface allowing users to tap on a virtual representation of hive frames to quickly record coverage percentages of brood, honey, pollen, and empty space.",
+      "acceptance": "Saves a complete 10-frame grid mapping to the database, ensuring totals do not exceed physical capacity."
     },
     {
       "step": 10,
@@ -148,9 +148,9 @@
       "taskId": "d224e0dd-6eb2-4c74-96b9-fb5cf9e63b22",
       "status": "todo",
       "attempts": 0,
-      "title": "Predictive Honey Yield Algorithm",
-      "instruction": "Analyze historical hive weight changes and seasonal weather records to forecast prospective honey harvest times and estimated yield.",
-      "acceptance": "Yield prediction engine outputs a statistical range with standard error margins based on historic input vectors."
+      "title": "Configure Varroa mite treatment scheduler",
+      "instruction": "Implement a scheduling system that triggers local push notifications when a hive's mite threshold exceeds critical limits, prompt for treatment follow-ups.",
+      "acceptance": "Schedules notification events in the OS daemon based on calculated treatment cycles."
     },
     {
       "step": 11,
@@ -160,9 +160,9 @@
       "taskId": "f918d10c-6232-480b-970b-3c91c4bb9221",
       "status": "todo",
       "attempts": 0,
-      "title": "CSV Import/Export Pipeline",
-      "instruction": "Implement a backup utility allowing users to import legacy spreadsheet data or export full tables to standard CSV format.",
-      "acceptance": "Parsed CSV data merges flawlessly with the existing database without creating duplicate hive entities."
+      "title": "Establish automated integration tests for synchronization",
+      "instruction": "Write end-to-end integration tests mimicking offline-to-online transitions with simulated network packet loss.",
+      "acceptance": "Tests verify that transaction ordering is strictly preserved and duplicate records are safely discarded."
     }
   ]
 }

@@ -3,17 +3,17 @@
   "runId": "863b685a-3d27-410b-a6d4-29fc4442a428",
   "chatId": "708dce61-eceb-4181-a473-04ce5053d8a8",
   "status": "held",
-  "reason": "Waiting for the user: 1. 1. Was ist die wichtigste Entscheidung, die das Tool erm\u00f6glichen soll: Belegung pr\u00fcfen, Umz\u00fcge terminieren, Zusatzfl\u00e4chen rechtfertigen, Mietfl\u00e4chen reduzieren oder alle vier gleichwertig?\n2. 2. Wer arbeitet t\u00e4glich mit der Datei, wer pr\u00fcft sie, und wer entscheidet final? Soll sie von mehreren Personen gleichzeitig genutzt werden?\n3. 3. Welche Excel-Umgebung muss unterst\u00fctzt werden (Microsoft 365 f\u00fcr Windows/Mac, \u00e4ltere Version, SharePoint/Teams)? Sind Makros/VBA, Power Query und PivotTables erlaubt oder soll alles ohne Makros funktionieren?\n4. 4. Welche Jahre soll die Planung abdecken, und soll die Zeitaufl\u00f6sung nur j\u00e4hrlich oder zus\u00e4tzlich nach Monat/Quartal beziehungsweise einem konkreten Einzugs-/Auszugsdatum erfolgen?\n5. 5. Soll eine Planung pro Kalenderjahr den Stand zum Jahresende, den Jahresdurchschnitt oder den jeweils g\u00fcltigen Stand ab einem Datum zeigen?\n6. 6. Welche Hierarchie ist verbindlich: Standort \u2192 Geb\u00e4ude \u2192 Floor? M\u00fcssen zus\u00e4tzlich Hallen, Zonen, R\u00e4ume oder Fl\u00e4chenarten wie Produktion, Lager, Logistik, B\u00fcro und Technik getrennt werden?\n7. 7. Was z\u00e4hlt als verf\u00fcgbare Kapazit\u00e4t eines Floors: gesamte Bruttofl\u00e4che oder nur tats\u00e4chlich belegbare Nettofl\u00e4che? Welche Fl\u00e4chen wie Wege, Technik, Sicherheit, Gemeinschaftsfl\u00e4chen oder Reserven m\u00fcssen abgezogen werden?\n8. 8. Gibt es Mindestreserven, maximale Zielauslastungen oder andere Regeln je Standort, Geb\u00e4ude, Floor oder Fl\u00e4chenart, zum Beispiel h\u00f6chstens 85 Prozent Belegung?\n9. 9. Darf ein Floor mehrere Abteilungen enthalten und darf eine Abteilung gleichzeitig auf mehrere Floors, Geb\u00e4ude, Standorte und Fl\u00e4chenarten verteilt sein?\n10. 10. Soll eine einzelne Planungszeile nur genau eine Abteilung und einen Zielfloor enthalten? Wie sollen Teilfl\u00e4chen, mehrere Teilumz\u00fcge und stufenweise Belegungen erfasst werden?\n11. 11. Was bedeutet \u201eUmzug\u201c fachlich genau: Wird immer die komplette bisherige Fl\u00e4che einer Abteilung frei, nur eine ausw\u00e4hlbare Teilfl\u00e4che oder die konkrete alte Fl\u00e4che eines bestimmten Floors?\n12. 12. Kann eine Umzugszeile mehrere alte Ursprungsfl\u00e4chen ersetzen, und kann dieselbe Ursprungsfl\u00e4che durch mehrere Zielzeilen schrittweise aufgegeben werden? Wie verhindern wir doppelte Freigaben?",
+  "reason": "Waiting for the user: Should the forecasting engine prioritize the primary swell direction exclusively when displaying wave height, or should we display a decomposed split-screen view for secondary and tertiary swell trains if they exceed a certain energy threshold (e.g., >8 seconds period and >0.5 meters height)?",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "tier": "big",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497854,
-  "title": "Tide and Swell Forecast Engine",
-  "originalRequest": "Implement the localized tide and swell forecasting module for the surf portal.",
-  "latestMessage": "Implement the localized tide and swell forecasting module for the surf portal.",
+  "updatedAt": 1787286928449,
+  "title": "Tide and Swell Forecast Engine Setup",
+  "originalRequest": "Implement a tide and swell forecast page for local surf spots, integrating NOAA and Wavewatch III data.",
+  "latestMessage": "Implement a tide and swell forecast page for local surf spots, integrating NOAA and Wavewatch III data.",
   "steps": [
     {
       "taskId": "ee8e7e60-ada9-4368-9af2-e737bd477c92",
@@ -22,9 +22,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Resolve swell direction interpolation methodology",
-      "instruction": "Provide specification on whether the near-shore forecast model should prioritize the primary swell direction based on dominant wave period or calculate a weighted average of multi-directional swell components when processing nested wave watch grids.",
-      "acceptance": "A decision is documented on the interpolation method to be implemented in the swell aggregation service."
+      "title": "Determine swell train classification and filtering thresholds",
+      "instruction": "Define the minimum wave period and wave height thresholds to filter out background noise from the Wavewatch III spectral wave data, ensuring only surfable swell components (primary, secondary, and tertiary trains) are logged.",
+      "acceptance": "The forecast engine correctly categorizes and displays distinct swell directions, periods, and heights on the UI when they meet the target thresholds, based on confirmed user preferences."
     }
   ]
 }

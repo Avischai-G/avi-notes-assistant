@@ -3,17 +3,17 @@
   "runId": "2878b1b1-9b13-45b3-973b-4b164aa83069",
   "chatId": "d0d62ee9-98bd-4bf2-ac14-36abf0f3dbd8",
   "status": "held",
-  "reason": "Waiting for the user: 1. 1. Neue Geb\u00e4ude: Hast du eine Liste der neu angemieteten Standorte/Geb\u00e4ude/Floors mit den verf\u00fcgbaren m\u00b2 pro Floor (und Aufteilung Produktion/Lager/Logistik)? Wenn nein: sollen diese Stammdaten als eigenes Blatt angelegt werden, das du selbst bef\u00fcllst?\n2. 2. Planungshorizont: Welche Jahre sollen die Jahresansichten abdecken (z.B. 2026\u20132030)? Ist das Jahr pro Planungszeile das Einzugsjahr, und bleibt die Fl\u00e4che dann in allen Folgejahren belegt, bis eine neue Zeile sie \u00e4ndert?\n3. 3. Alte Geb\u00e4ude: Welche Geb\u00e4ude werden verlassen, und gibt es fixe Auszugstermine (Mietvertragsende), gegen die die Planung gepr\u00fcft werden soll? Soll der aktuelle Ist-Stand der Abteilungen aus der 'Main Database.xlsx' (Stand 2027?) als Ausgangsbasis importiert werden?\n4. 4. Umzug: Wenn eine Abteilung umzieht \u2014 wird immer ihre GESAMTE bisherige Fl\u00e4che frei, oder kann sie teilweise umziehen (ein Teil bleibt am alten Standort)? Kann eine Abteilung auf mehrere Floors/Geb\u00e4ude verteilt sein?\n5. 5. Fl\u00e4chentypen: Soll pro Floor hinterlegt sein, ob es Produktions-, Lager- oder Logistikfl\u00e4che ist, und soll die Tabelle warnen, wenn z.B. eine Produktionsabteilung auf Lagerfl\u00e4che geplant wird \u2014 oder ist der Typ nur eine Info-Spalte?\n6. 6. 'Planung ist gut' auf einen Blick: Reicht Ampellogik (gr\u00fcn = Platz frei, rot = Floor \u00fcberbucht) plus Restfl\u00e4che in m\u00b2 und %? Willst du zus\u00e4tzlich eine Warnschwelle (z.B. gelb ab 90% Auslastung)?\n7. 7. Technik: Reines Excel mit Formeln/Pivot/bedingter Formatierung (\u00fcberall lauff\u00e4hig), oder sind Makros/VBA erlaubt? Deutsche oder englische Excel-Version, und sollen die Spalten\u00fcberschriften Deutsch oder Englisch (wie in der Main Database) sein?\n8. 8. Zusatzfl\u00e4chen: Bei 'zus\u00e4tzlich' w\u00e4chst die Abteilung einfach \u2014 soll der 'Fl\u00e4chenzuwachs per Abteilung' als Differenz zum heutigen Ist-Stand aus der Main Database berechnet werden, oder gegen ein anderes Basisjahr?\n9. 9. Szenarien: Brauchst du nur EINEN Planungsstand, oder mehrere Varianten nebeneinander (Szenario A/B) zum Vergleichen?\n10. 10. Abteilungsliste: Sollen exakt die Abteilungsnummern/-namen aus der Main Database (110-Punching, 200-Elektromotorenbau, \u2026) als Auswahlliste dienen, oder gibt es neue/umbenannte Abteilungen, die dazukommen?",
+  "reason": "Waiting for the user: Should the audio-guide synchronization API fallback to a default language (e.g., English) when a requested exhibit translation is missing, or should it return a 404/empty track for that specific language?",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "tier": "big",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497921,
-  "title": "Museum Audio-Guide Integration Board",
-  "originalRequest": "Establish baseline proximity-based audio trigger thresholds for gallery exhibits.",
-  "latestMessage": "Establish baseline proximity-based audio trigger thresholds for gallery exhibits.",
+  "updatedAt": 1787286928519,
+  "title": "Museum Audio-Guide Builder Database Schema",
+  "originalRequest": "Create a database schema and API endpoints for managing museum audio guides, supporting multiple languages and offline synchronization.",
+  "latestMessage": "Create a database schema and API endpoints for managing museum audio guides, supporting multiple languages and offline synchronization.",
   "steps": [
     {
       "taskId": "012f4481-3c0b-41cc-bfef-222c82405122",
@@ -22,9 +22,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Define Bluetooth Low Energy beacon calibration parameters for exhibit triggers",
-      "instruction": "Could you provide the structural floor plans and wall material compositions for the main gallery spaces? We require these details to calculate expected signal attenuation and determine the correct RSSI calibration standards for the audio-guide playback triggers.",
-      "acceptance": "Approved list of target RSSI thresholds mapping to specific physical distances (1m, 3m, 5m) across different gallery wall types."
+      "title": "Define Multilingual Audio Exhibit Schema",
+      "instruction": "Draft the database schema for the exhibits, including support for localized text, audio file URLs, and floor plan coordinate mappings.",
+      "acceptance": "A complete SQL schema with tables for 'exhibits', 'audio_tracks', and 'translations', including language fallback logic rules."
     }
   ]
 }

@@ -3,16 +3,16 @@
   "runId": "93995360-85ce-463a-9d16-85af16c431fb",
   "chatId": "b6f4936f-7b54-4563-be42-777b84c0530e",
   "status": "held",
-  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "reason": "Recovered unfinished work from an older orchestrator run.",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": true,
-  "updatedAt": 1787285497896,
+  "updatedAt": 1787286928493,
   "title": "Recovered work",
-  "originalRequest": "Develop a localized tracking dashboard that implements First-Expired, First-Out (FEFO) rules to minimize waste and streamline distribution across active inventory nodes.",
-  "latestMessage": "Develop a localized tracking dashboard that implements First-Expired, First-Out (FEFO) rules to minimize waste and streamline distribution across active inventory nodes.",
+  "originalRequest": "Design and implement a stock rotation dashboard for a local food bank to optimize inventory management, track item expiration dates, and prioritize FIFO distribution.",
+  "latestMessage": "Design and implement a stock rotation dashboard for a local food bank to optimize inventory management, track item expiration dates, and prioritize FIFO distribution.",
   "steps": [
     {
       "taskId": "c69f91bf-f890-4644-b2c3-9fa18933ee97",
@@ -22,9 +22,9 @@
       "dependsOn": [],
       "status": "doing",
       "attempts": 1,
-      "title": "Design and initialize database schema for food stock",
-      "instruction": "Create database schema tracking stock items with fields for item ID, category, batch number, donation timestamp, quantity, location, and explicit expiration date. Set up indices on the expiration date to optimize querying.",
-      "acceptance": "Database migration scripts run successfully on local environments and test suites confirm schema constraints function properly."
+      "title": "Set up database schema for inventory items with expiry tracking",
+      "instruction": "Define the PostgreSQL schema for stock items, including fields for item ID, category, expiration date, storage location (e.g., cold storage, dry shelving), and quantity.",
+      "acceptance": "Schema migration script executes successfully, creating the tables with correct constraints (non-nullable expiry, positive quantities)."
     },
     {
       "taskId": "77d0888f-c2ef-4601-9231-15b265d4967b",
@@ -34,9 +34,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Implement FEFO logic service",
-      "instruction": "Build a core service layer module that queries active stock items and ranks them using a First-Expired, First-Out algorithm, grouping them into priority bands (Immediate, Warning, Safe).",
-      "acceptance": "Unit tests confirm that items expiring within 7 days are prioritized highest, followed by those within 30 days, sorting appropriately across multiple food categories."
+      "title": "Implement First-In, First-Out (FIFO) queue priority logic",
+      "instruction": "Write the backend query helper that fetches available stock items sorted by proximity to expiration date to prioritize distribution of soon-to-expire food.",
+      "acceptance": "Helper function returns items ordered by ascending expiration date, grouping identical barcodes/categories."
     },
     {
       "taskId": "015cc6de-7f8b-42fe-ac5d-4658861faa45",
@@ -46,9 +46,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Develop REST API endpoints for stock intake and dispatch",
-      "instruction": "Expose JSON endpoints to record incoming donations (POST /api/inventory) and log stock distribution or disposal (POST /api/inventory/dispatch) to update database state in real time.",
-      "acceptance": "API endpoints correctly validate payload fields, return appropriate HTTP status codes, and accurately decrement or increment inventory quantities in the database."
+      "title": "Develop stock alert notification system for aging items",
+      "instruction": "Create a background cron job that scans the inventory daily and triggers warning flags/notifications for items within 7 days of expiration.",
+      "acceptance": "Cron job correctly identifies expiring records and updates their alert status flags in the database without performance degradation."
     },
     {
       "taskId": "351b0d70-7042-4e2d-959c-c05ce7232859",
@@ -58,9 +58,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Build inventory summary UI dashboard component",
-      "instruction": "Develop the primary front-end dashboard screen displaying high-level metrics including total active stock, item count near expiration, and a prioritized list of batches requiring immediate rotation.",
-      "acceptance": "Frontend components render dynamic mock data reflecting different priority levels without rendering delays or layout shift."
+      "title": "Create batch intake validation endpoint",
+      "instruction": "Build a REST API endpoint to bulk-insert new donations with validation for acceptable shelf-life buffer times (e.g., rejecting goods already expired).",
+      "acceptance": "POST endpoint returns a 400 Bad Request for any payloads containing expired dates or missing mandatory category labels, and 201 Created on valid batches."
     },
     {
       "taskId": "5536aa50-3668-43e0-a80a-d3f2d4c4f66d",
@@ -70,9 +70,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Add stock adjustment interface elements",
-      "instruction": "Implement UI forms and controls on the dashboard interface allowing volunteers to quickly scan or manually input SKU adjustments when moving or auditing stock physically.",
-      "acceptance": "UI successfully triggers state updates and coordinates payload delivery to backend dispatch endpoints with confirmation toasts on success."
+      "title": "Build stock level visualization widgets",
+      "instruction": "Develop frontend UI components (charts/progress bars) representing aggregate stock capacity by food category (dairy, canned, grains).",
+      "acceptance": "React dashboard correctly displays current volume metrics vs maximum storage capacity limits dynamically fetched from backend API."
     },
     {
       "taskId": "81d5d21b-c208-434e-8fbc-bc3c711d4efc",
@@ -82,9 +82,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Generate and export CSV stock rotation logs",
-      "instruction": "Implement a simple UI button and backend export handler to download a formatted CSV report of current stock levels categorized by urgency of rotation.",
-      "acceptance": "Clicking the export button triggers a clean download of a CSV file containing ID, description, shelf-life level, and recommended distribution timeframe."
+      "title": "Add search and filtering capabilities to the inventory view",
+      "instruction": "Add input fields to filter the dashboard table view by category, expiration range, and donor identifier.",
+      "acceptance": "Users can filter inventory records on the frontend instantly using client-side or server-side filtering without breaking pagination."
     }
   ]
 }

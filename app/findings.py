@@ -73,7 +73,7 @@ _RULES: list[tuple[str, re.Pattern[str]]] = [
     ("VERIFICATION_DEADLOCK",re.compile(r"\bremain blocked after verification\b", re.I)),
     ("TURN_CEILING",         re.compile(r"\bturn ceiling\b", re.I)),
     ("TIMEOUT",              re.compile(r"did not finish within \d+ seconds", re.I)),
-    ("INFRA_RESTART",        re.compile(r"\brestarted before this run finished\b|\bduring an agentonomy restart\b", re.I)),
+    ("INFRA_RESTART",        re.compile(r"\brestarted before this run finished\b|\bduring (?:an?|the) [\w-]+ restart\b", re.I)),
     ("WORKER_TERMINATED",    re.compile(r"\bCLI was stopped\b|\bCLI stopped\b", re.I)),
 ]
 

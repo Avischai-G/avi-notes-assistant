@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import fleet, store
+from app import fleet, store, watch
 from app.autopsy import STAGES, perform_async
 from app.findings import CAUSES, extract
 from app.redact import redact
@@ -40,7 +40,7 @@ def _summary(c: dict) -> dict:
         "steps_planned": ev.get("steps_planned", 0),
         "silent": ev.get("silent", False),
         "revivable": (c.get("resume_plan") or {}).get("revivable", False),
-        "one_liner": cert.get("plain_english", "")[:200],
+        "one_liner": cert.get("plain_english", "")[:240],
     }
 
 
@@ -133,6 +133,20 @@ async def autopsy(request: Request):
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
+
+
+@api.post("/api/sweep")
+async def sweep(after: int = watch.SILENT_AFTER, limit: int = 10):
+    """Look for runs that have gone quiet and autopsy them without being asked.
+
+    Driven by Cloud Scheduler. Safe to call by hand — it skips anything it has
+    already examined."""
+    return (await watch.sweep(after=after, limit=limit)).as_dict()
+
+
+@api.get("/api/sweep")
+def last_sweep():
+    return store.get_meta("sweep") or {"at": None, "watched": 0, "autopsied": []}
 
 
 @api.get("/api/sample")

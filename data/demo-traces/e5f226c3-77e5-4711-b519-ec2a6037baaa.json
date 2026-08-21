@@ -3,33 +3,22 @@
   "runId": "3f8c6a0e-e3c5-4b89-9669-15081c113762",
   "chatId": "e5f226c3-77e5-4711-b519-ec2a6037baaa",
   "status": "held",
-  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "reason": "Recovered unfinished work from an older orchestrator run.",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "tier": "big",
   "completedSteps": [],
   "resumeMessages": [
     {
-      "content": "here i need you to add a remove button to remove scenes",
-      "attachments": [
-        {
-          "id": "16660a2a-15bf-4887-a996-94a5df05a313",
-          "name": "image.png",
-          "url": "http://localhost:3006/api/attachments/16660a2a-15bf-4887-a996-94a5df05a313/image.png",
-          "type": "image/png",
-          "size": 1086411,
-          "previewKind": "image",
-          "storagePath": "/Users/avischaigrau/.agentonomy-v2/attachments/16660a2a-15bf-4887-a996-94a5df05a313-image.png",
-          "uploadedAt": 1786554829002
-        }
-      ]
+      "content": "Please proceed with setting up CSV exports as the fallback strategy so we can keep moving while we resolve the server's dependency issues.",
+      "attachments": []
     }
   ],
   "cliFailures": 0,
   "legacy": true,
-  "updatedAt": 1787285497975,
-  "title": "Brass Band Rehearsal Scheduler Project Board",
-  "originalRequest": "Design and develop a specialized rehearsal scheduler for a brass band, managing instrumentation, section lists, dynamic rescheduling, rehearsal orders, and venue configurations.",
-  "latestMessage": "Design and develop a specialized rehearsal scheduler for a brass band, managing instrumentation, section lists, dynamic rescheduling, rehearsal orders, and venue configurations.",
+  "updatedAt": 1787286928577,
+  "title": "Brass Band Rehearsal Scheduler Development Task Board",
+  "originalRequest": "Create an automated scheduling system for a brass band to manage rehearsals, attendance, venues, piece repertoire, and instrument inventory.",
+  "latestMessage": "Create an automated scheduling system for a brass band to manage rehearsals, attendance, venues, piece repertoire, and instrument inventory.",
   "steps": [
     {
       "taskId": "1038a14c-5730-4b54-acac-6f6e114662b7",
@@ -39,10 +28,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Requirement Mapping and Database Architecture Design",
-      "instruction": "Draft the relational schema detailing the core entities: musicians, brass sections (e.g., cornets, horns, baritones, euphoniums, trombones, tubas, percussion), scheduled rehearsals, repertoire selections, and venue metadata. Define constraints for required sections and minimum instrumentation per section.",
-      "acceptance": "An initial database entity relationship diagram (ERD) defining tables, foreign keys, and indexes for rehearsal schedules.",
-      "result": "Completed the ERD and relational schema design mapping sections, musicians, rehearsal blocks, and library repertoire titles on the first run."
+      "title": "Analyze requirements for the brass band rehearsal scheduler database schema",
+      "instruction": "Define the core entities (Musician, Section, Rehearsal, Attendance, Piece) and their relationships.",
+      "acceptance": "A schema diagram or text specification covering all entities and relational constraints.",
+      "result": "Schema design completed. Defined tables for Musician, Section (e.g., Solo Cornet, Euphonium), Rehearsal (date, time, venue), Attendance (status: attending, absent, late), and Piece (title, composer)."
     },
     {
       "taskId": "3509c08a-1e6f-4d86-ad13-01300cc26878",
@@ -52,10 +41,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 2,
-      "title": "Scaffold Database Migrations",
-      "instruction": "Generate raw SQL or migration scripts establishing the database structure, matching tables, and core constraints for the rehearsal scheduler database tables.",
-      "acceptance": "Database migration scripts successfully execute without errors and produce schema mirroring initial design.",
-      "result": "First migration script failed because of a cyclic dependency in the venue and schedule tables. Resolved constraints and successfully applied migrations on the second attempt."
+      "title": "Initialize the project repository and database migrations",
+      "instruction": "Create the basic project setup using PostgreSQL and apply the initial schema migrations.",
+      "acceptance": "Repository compiled, migrations applied successfully, and schema verified.",
+      "result": "Attempt 1 failed due to driver compatibility issues with our testing pipeline. Attempt 2 succeeded after migrating to node-postgres and applying schema changes to local SQLite environment."
     },
     {
       "taskId": "d01fff9e-753a-48c3-8c2d-c2412d66b81b",
@@ -65,10 +54,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 2,
-      "title": "Database Integrity and Constraints Validation",
-      "instruction": "Verify the newly generated schema constraints, including checks that force every scheduled rehearsal to have a valid venue and prevent orphan section assignments.",
-      "acceptance": "Verify validation triggers fail appropriately when null values or violation parameters are introduced into database tests.",
-      "result": "First test suite run uncovered a null-pointer error on member assignments. Corrected the relational mapping and confirmed verification on second attempt."
+      "title": "Set up automated unit test framework",
+      "instruction": "Integrate a testing library like Jest and write tests for model creation.",
+      "acceptance": "Test suite runs and passes with mock database instances.",
+      "result": "Attempt 1 failed because of database state sharing between parallel worker processes. Attempt 2 resolved the issue by introducing in-memory DB isolation for individual test runner processes."
     },
     {
       "taskId": "c8f612da-a277-4c41-a580-51ee7f872c60",
@@ -78,10 +67,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Evaluate Calendar Libraries for Recurring Events",
-      "instruction": "Research and select a calendar utility library to manage recurrent rehearsals (e.g. weekly rehearsals, sectionals, special events) while avoiding manual calendar entries.",
-      "acceptance": "Detailed report summarizing potential calendar engines with selected implementation tool.",
-      "result": "Completed evaluation. Selected the standard rrule library as the most robust option to handle the complex recurrence requirements for weekly rehearsals."
+      "title": "Implement Musician and Section CRUD operations",
+      "instruction": "Create API endpoints to add, retrieve, update, and delete musicians and sections.",
+      "acceptance": "REST endpoints verified with correct status codes and JSON payloads.",
+      "result": "REST endpoints for /api/musicians and /api/sections completed. Implemented validation to ensure musicians are assigned to valid sections."
     },
     {
       "taskId": "3d951745-676e-4433-ad5d-b165b97ea659",
@@ -91,10 +80,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 2,
-      "title": "Review Synchronization APIs",
-      "instruction": "Analyze synchronization mechanisms with standard shared calendar utilities to allow automated syncing of scheduled band practices.",
-      "acceptance": "Recommended synchronization API architecture based on reliability and ease of integration.",
-      "result": "Initial attempt using raw WebDAV failed performance tests. Successfully transitioned to REST-based sync wrappers during the second evaluation phase."
+      "title": "Implement Rehearsal scheduling logic",
+      "instruction": "Implement the core scheduling algorithm preventing double-booking of venues and overlapping times.",
+      "acceptance": "Error returned if a rehearsal is scheduled at the same venue and overlapping time slot.",
+      "result": "Attempt 1 had a logic error failing to detect overlaps when times shared exact boundary limits. Attempt 2 corrected this by rewriting database interval comparison logic."
     },
     {
       "taskId": "10c0431a-430b-415f-9af9-4f494c0e60b1",
@@ -104,10 +93,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 2,
-      "title": "Investigate Conflict Detection Logic",
-      "instruction": "Evaluate methods to implement real-time schedule conflict resolution for musicians playing in multiple community ensembles or sub-sections.",
-      "acceptance": "Technically viable architecture pattern documented for immediate detection of resource conflicts.",
-      "result": "First version was too slow on nested loops. Rewrote logic to query overlapping ranges via interval trees, verifying high performance in the second attempt."
+      "title": "Create Attendance tracking API",
+      "instruction": "Implement endpoint allowing musicians or section leaders to mark attendance status for a rehearsal.",
+      "acceptance": "Attendance record can be queried and updated per musician per rehearsal.",
+      "result": "Attempt 1 hit concurrency lock issues when section leaders sent rapid updates. Attempt 2 uses database transactions with row-level locks on rehearsal attendance updates."
     },
     {
       "taskId": "99a12907-6bb9-4d2e-81e0-65e0dc781ca8",
@@ -117,10 +106,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Determine Sectional Instrumentation Balancing Rules",
-      "instruction": "Investigate the logical thresholds for section validation (e.g., minimum of 3 solo cornets, 1 euphonium, 2 tubas) needed to deem a rehearsal viable.",
-      "acceptance": "Comprehensive ruleset detailing the mathematical limits for instrumentation validation.",
-      "result": "Documented brass band section balancing rules including required players per part to ensure functional rehearsal quality."
+      "title": "Develop Section-specific rehearsal notification dispatch",
+      "instruction": "Implement a notification system to alert specific sections (e.g., \"Trombones only\") about sectionals.",
+      "acceptance": "Filtering mechanism correctly identifies target musicians and triggers a mock notification event.",
+      "result": "Created notification service. Filtered by Section ID, successfully dispatching mock emails to selected section members."
     },
     {
       "taskId": "56b4df08-6d04-4771-bb3a-fea17864084b",
@@ -130,10 +119,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Evaluate Venue Booking Integration Interfaces",
-      "instruction": "Explore accessible booking APIs of public halls or local venues to synchronize scheduled rehearsals with facility availability.",
-      "acceptance": "Documented mapping guide explaining connectivity with third-party venue scheduling platforms.",
-      "result": "Identified two standard venue booking API patterns and documented their request-response structures for the development team."
+      "title": "Implement Repertoire/Piece management",
+      "instruction": "Integrate Piece table with Rehearsals to indicate which pieces will be rehearsed during a session.",
+      "acceptance": "Many-to-many relationship table 'rehearsal_pieces' with estimated time allocation per piece.",
+      "result": "Repertoire integration complete. Rehearsal creation now accepts an array of piece IDs with associated duration parameters."
     },
     {
       "taskId": "59c06249-e4ae-413e-95e7-006fcaa269fd",
@@ -143,10 +132,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Verify Parsing Dependencies",
-      "instruction": "Test targeted parser dependencies to ensure they parse date formats for rehearsals across multiple system environments.",
-      "acceptance": "Successful parsing tests utilizing dummy ISO data across test node instances.",
-      "result": "Validated date parsing dependency compatibility and proved they function correctly in test environments."
+      "title": "Verify data integrity and cascade deletes",
+      "instruction": "Ensure deleting a rehearsal cascades and cleans up associated attendance and piece mappings.",
+      "acceptance": "Deletion of a rehearsal clears records in attendance and rehearsal_pieces tables.",
+      "result": "Verified cascading foreign keys work as expected. Written tests to confirm orphaned records are avoided."
     },
     {
       "taskId": "db909440-79ca-4ae0-8cd1-0d4c403a7981",
@@ -155,9 +144,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Clarify Section Categorization Scope",
-      "instruction": "Owner: Determine if the scheduling engine needs to distinguish between sub-sections (e.g., Solo Cornet versus Repiano Cornet) or keep them grouped as a general Cornet section.",
-      "acceptance": "Receive explicit client clarification on division of brass band sections."
+      "title": "Clarify conflict resolution rules for instrument double-booking",
+      "instruction": "Ask owner if a musician who plays multiple instruments (e.g., Cornet and Trumpet) can be scheduled for overlapping sectionals.",
+      "acceptance": "User feedback on whether to allow or block multi-instrument scheduling conflicts."
     },
     {
       "taskId": "c7c13d14-138d-4ad1-b686-49b37c57f876",
@@ -167,10 +156,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Rehearsal Scheduling System Architecture Specification",
-      "instruction": "Produce the formal architectural design document for the rehearsal scheduler engine, defining input/output pipelines and APIs.",
-      "acceptance": "Completed document ready for implementation teams to build endpoints.",
-      "result": "Generated comprehensive technical specifications file detailing API request-response structures and scheduling flowcharts."
+      "title": "Refactor schedule conflict algorithm based on feedback",
+      "instruction": "Implement scheduling rules allowing multi-instrument musicians to be scheduled but trigger a soft warning instead of hard block.",
+      "acceptance": "API returns a warning payload when an overlap occurs for a multi-instrumentalist.",
+      "result": "Updated validation logic to return code 209 (Conflict Warning) instead of 400 when the musician has secondary instrument capabilities."
     },
     {
       "taskId": "8d4cfb41-8a31-4f2c-8347-9ce6aaa09145",
@@ -180,10 +169,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Assess Member Authentication Frameworks",
-      "instruction": "Research robust authentication platforms for band members, securing access levels for regular players, section leaders, and conductors.",
-      "acceptance": "Authentication recommendations meeting criteria for simplicity and roles security.",
-      "result": "Recommended NextAuth engine due to robust middleware role-management properties for administrator, conductor, and player tiers."
+      "title": "Implement Venue availability checker",
+      "instruction": "Build an API to query available venues on a given date range.",
+      "acceptance": "Returns list of unoccupied venues based on existing rehearsal reservations.",
+      "result": "Built GET /api/venues/available endpoint. Returns accurate list of free venues filtering out active rehearsal intervals."
     },
     {
       "taskId": "b2c2a0bb-5cb2-45a6-a94f-ec3c04decd5a",
@@ -193,10 +182,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Investigate PDF Repertoire Sheet Export Utilities",
-      "instruction": "Evaluate server-side PDF generation tools to compile printable rehearsal orders and repertoire lists for section folders.",
-      "acceptance": "Evaluation document summarizing top node-compatible PDF libraries.",
-      "result": "Analyzed options and selected PDFKit for high flexibility with page layout margins for music sheets."
+      "title": "Implement User authentication and roles",
+      "instruction": "Set up basic JWT authentication with roles: Conductor, Section Leader, Musician.",
+      "acceptance": "Protected endpoints reject unauthorized access and enforce role limits.",
+      "result": "Auth system established. Conductor role can schedule, Section Leaders can update section attendance, Musicians can view schedule."
     },
     {
       "taskId": "a5ba9240-935d-4086-bfd7-c8e314b1b34a",
@@ -206,10 +195,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Implement Member Mock Authentication Services",
-      "instruction": "Code dummy auth routes and middleware validating member JSON Web Tokens based on their designated section permissions.",
-      "acceptance": "Mock endpoints return authorization tokens and handle basic access validation.",
-      "result": "Created mock endpoints that correctly handle user authentication and parse mock credentials."
+      "title": "Implement rehearsal cancellation and notification dispatch",
+      "instruction": "Create endpoint to cancel a rehearsal and flag all scheduled attendees.",
+      "acceptance": "Rehearsal status updated to 'cancelled' and attendance records adjusted.",
+      "result": "Cancellation API created. Successfully updates state and triggers alerts to assigned musicians."
     },
     {
       "taskId": "d272ae20-b701-4207-a42a-55d153f846ed",
@@ -219,10 +208,10 @@
       "dependsOn": [],
       "status": "blocked",
       "attempts": 1,
-      "title": "Verify Integration with External Calendar Service",
-      "instruction": "Validate interface connectivity with dummy external calendars by importing dummy event structures.",
-      "acceptance": "Mock event payload successfully synced to local scheduling database.",
-      "result": "Verification blocked: The external sandbox service endpoints returned unauthorized errors. Missing OAuth client secrets on testing environment prevent target communication."
+      "title": "Integrate calendar sync (iCal format)",
+      "instruction": "Generate iCal export link for musicians to sync rehearsal schedules to external calendars.",
+      "acceptance": "iCal format generation validated.",
+      "result": "Blocked due to external library compatibility. The server environment is missing timezone compilation dependencies required by the ics-generation package, preventing the server from launching when imported."
     },
     {
       "taskId": "02c69c60-e040-4df5-bf56-d266574d01c7",
@@ -231,9 +220,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Acquire External API Credentials",
-      "instruction": "Owner: Please provide active credentials, client IDs, and webhook secrets for the target testing calendars.",
-      "acceptance": "Valid calendar service API keys in environmental storage files."
+      "title": "Clarify offline/alternative approach for calendar export",
+      "instruction": "Ask owner if we should fall back to basic JSON-to-CSV schedule export until system dependencies are updated.",
+      "acceptance": "Owner confirmation on fallback strategy."
     },
     {
       "taskId": "10b9dd9d-d0b1-4827-bc6e-2026572489e2",
@@ -243,10 +232,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Seed Database with Brass Band Standard Structure",
-      "instruction": "Build and execute a database seeder script defining the standard 28-piece British brass band configuration.",
-      "acceptance": "Seeder scripts execute successfully and populate tables with appropriate section hierarchies.",
-      "result": "Successfully ran seeder scripts populating all core tables with traditional brass band instrumentation and default roles."
+      "title": "Implement CSV Schedule Export",
+      "instruction": "Create an endpoint to download the band's rehearsal schedule as a CSV file.",
+      "acceptance": "CSV download works and contains columns: Date, Time, Venue, Repertoire, Target Sections.",
+      "result": "CSV export endpoint implemented at /api/schedule/export. CSV format structured and validated."
     },
     {
       "taskId": "482a777a-93c8-4640-abc7-7bdca4154b19",
@@ -256,10 +245,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Verify Database Seed Integrity",
-      "instruction": "Write automated validation tests checking if seeded data is accessible and holds correct parent-child relationships.",
-      "acceptance": "Testing checks complete with 100% test success rate.",
-      "result": "Ran test verification suite confirming standard brass band structure has been successfully established in the local environment."
+      "title": "Verify CSV parser and encoding formats",
+      "instruction": "Ensure CSV handles special characters in composer names and rehearsal titles (e.g., French accents).",
+      "acceptance": "CSV export handles UTF-8 characters without corruption.",
+      "result": "Verified CSV encoding is forced to UTF-8 with BOM. Tests confirm diacritics in \"Dukas\" or \"Saint-Sa\u00ebns\" render correctly."
     },
     {
       "taskId": "a8e807c0-7f55-4f3b-87e1-cd0d29794089",
@@ -268,9 +257,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Establish Attendance Quorum Requirements",
-      "instruction": "Owner: Confirm the minimum overall attendance percentage required to automatically mark a rehearsal as confirmed.",
-      "acceptance": "An official threshold input (e.g. 60% of total roster) to write into the scheduling generator constraints."
+      "title": "Inquire about automated reminder schedule",
+      "instruction": "Ask the owner how many hours before a rehearsal the automatic attendance reminder should be sent.",
+      "acceptance": "Timeframe specification received."
     },
     {
       "taskId": "74c3f916-f21d-43c0-ace9-baae493b1cb0",
@@ -280,10 +269,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Examine Notification Template Libraries",
-      "instruction": "Examine template-based text/email delivery services to alert band players of emergency schedule revisions or cancellations.",
-      "acceptance": "A brief selection report detailing the highest scoring templating frameworks.",
-      "result": "Recommended Handlebars templates combined with node-mailer for simple dynamic mail delivery of schedule alerts."
+      "title": "Implement Cron scheduler for attendance reminders",
+      "instruction": "Build a scheduled task to send reminders to musicians who haven't RSVP'd yet.",
+      "acceptance": "Cron job queries unconfirmed attendances and logs mock notifications.",
+      "result": "Scheduled job configured to run daily. Successfully flags and processes unconfirmed attendance lists."
     },
     {
       "taskId": "4f13a2aa-169b-42ab-859b-769b9a4a3030",
@@ -293,10 +282,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Develop Schedule Generation Engine API Endpoints",
-      "instruction": "Develop the POST controller endpoints allowing conductors to generate weekly schedules and check for potential conflicts.",
-      "acceptance": "API accepts date ranges, cross-references conflicts, and returns valid rehearsal schedules.",
-      "result": "Programmed backend endpoints to generate schedules while automatically screening for section availability conflicts."
+      "title": "Add dashboard statistics API",
+      "instruction": "Calculate metrics: attendance rate per section, upcoming rehearsal count, and repertoire coverage.",
+      "acceptance": "Endpoint /api/dashboard/stats returns correct counts and calculations.",
+      "result": "Dashboard API completed. Returns aggregate metrics grouped by section (e.g., Trombones, Horns) accurately."
     },
     {
       "taskId": "b8647fa8-6746-47d7-b368-b42a293a4e83",
@@ -306,10 +295,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Verify Schedule Conflict API Endpoints",
-      "instruction": "Write unit tests to verify conflict engine accurately throws notifications when players are booked for dual rehearsals.",
-      "acceptance": "Unit tests confirm overlapping reservations are caught and flagged by backend validator.",
-      "result": "Successfully verified conflict detection logic across multiple test cases. Verified response payloads return accurate conflict arrays."
+      "title": "Validate statistics computations under heavy load",
+      "instruction": "Write load test simulation checking response times of stats endpoint with 10,000 rehearsal records.",
+      "acceptance": "Response times remain under 200ms with index optimizations.",
+      "result": "Optimized query using indexing on rehearsal_date and attendance_status. Load test confirmed average response time of 85ms."
     },
     {
       "taskId": "116381d9-17f4-45ce-994c-4fe24c5e0237",
@@ -318,9 +307,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Define Default Schedule Durations",
-      "instruction": "Owner: Provide the default rehearsal start times and standard durations (e.g. Monday/Thursday 19:30 to 21:30) for schedule generation.",
-      "acceptance": "Confirmed standard timeframe options to use as configuration defaults."
+      "title": "Ask owner about performance report formatting",
+      "instruction": "Request confirmation on whether the weekly stats report should be emailed directly to the Conductor.",
+      "acceptance": "Feedback on target recipients and report frequency."
     },
     {
       "taskId": "595add88-b875-40c8-b20d-c76200f9d267",
@@ -330,10 +319,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Construct Venue Booking Dashboard UI",
-      "instruction": "Develop frontend calendar panels displaying current venue reservations and available practice rooms.",
-      "acceptance": "Interactive web interface displaying daily schedules with clear room booking states.",
-      "result": "Built and connected the front-end schedule grid view displaying venue occupancies."
+      "title": "Implement automated email reports for Conductors",
+      "instruction": "Code task to compile weekly performance stats and send a mock report to Conductor accounts.",
+      "acceptance": "Scheduler triggers weekly run and compiles statistics successfully.",
+      "result": "Weekly report generation logic implemented. Sends mock emails containing formatted HTML tables to designated conductor addresses."
     },
     {
       "taskId": "19893f20-f711-4dd2-8b40-0cebf6ddd460",
@@ -343,10 +332,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Build Section Leader RSVP Dashboard",
-      "instruction": "Program the dashboard interface allowing section leaders to mark attendance estimates for their specific musicians.",
-      "acceptance": "UI component correctly displays player lists and records RSVP responses.",
-      "result": "Completed responsive RSVP component, integrating dynamic status icons for confirmed, tentative, and absent musicians."
+      "title": "Implement rehearsal feedback system",
+      "instruction": "Allow conductors to add notes/comments to a completed rehearsal regarding sections that need more practice.",
+      "acceptance": "PUT /api/rehearsals/:id/notes updates rehearsal feedback string.",
+      "result": "Notes field added to Rehearsal model and update endpoint verified."
     },
     {
       "taskId": "5102aa40-1934-419e-9c3b-6358ae4e82c7",
@@ -356,10 +345,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Develop Attendance Logging Database Endpoints",
-      "instruction": "Program database write actions to record real-time attendance logs during band rehearsals.",
-      "acceptance": "REST endpoints record attendance data for specific dates and sections.",
-      "result": "Coded the API controllers to capture and log attendance per player for post-rehearsal analysis."
+      "title": "Add section leader override feature",
+      "instruction": "Allow section leaders to edit attendance logs for their section even after a rehearsal is completed.",
+      "acceptance": "Authorization check permits section leaders to override records up to 7 days post-event.",
+      "result": "Override window constraint implemented. API blocks override requests if the rehearsal date is older than 7 days."
     },
     {
       "taskId": "2c8c6a30-516d-4aba-8baf-4af6fb504f0f",
@@ -369,10 +358,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Code Musician Double-Booking Algorithm",
-      "instruction": "Implement the logic preventing double-booking of shared players (such as percussionists or guest conductors) across different sub-sections on identical dates.",
-      "acceptance": "Conflict checking algorithm runs on schedule updates and throws error alerts on overlap.",
-      "result": "Completed double-booking detection logic; integrated checks into reservation updates."
+      "title": "Implement rehearsal duration calculator",
+      "instruction": "Create helper logic to sum up allocated times for pieces to ensure total rehearsal duration is not exceeded.",
+      "acceptance": "Validation flags a warning if combined piece durations exceed the scheduled rehearsal length.",
+      "result": "Added validation to rehearsal pieces association endpoint. Properly alerts when piece times total 130 minutes on a 120-minute slot."
     },
     {
       "taskId": "5592dd50-949b-41a5-beba-a858eaa39b8a",
@@ -382,10 +371,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Develop Repertoire Timing Scheduler Tool",
-      "instruction": "Build a schedule division manager allowing conductors to break rehearsals down into specific minutes per piece (e.g., 30 mins march, 45 mins test-piece).",
-      "acceptance": "Interactive interface calculations update schedule timeline visually as durations are specified.",
-      "result": "Developed dynamic timing allocator component and associated backend timing API."
+      "title": "Add venue capacity warning mechanism",
+      "instruction": "Compare venue capacity against active musicians scheduled to attend a rehearsal.",
+      "acceptance": "Returns alert if count of expected musicians exceeds maximum capacity of the venue.",
+      "result": "Capacity validation added. Evaluates musician section assignments against venue seating constraints and raises warnings."
     },
     {
       "taskId": "b689b320-044e-4b04-b7c3-e13780088fa8",
@@ -395,10 +384,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Develop Conductor Administrative Overrides Panel",
-      "instruction": "Construct the secure dashboard allowing conductors to manually override scheduling rules, force bookings, or change times.",
-      "acceptance": "Dashboard view permits administrators to bypass scheduling conflicts after confirmation warnings.",
-      "result": "Admin override UI panels built and hooked to forced-booking database controllers."
+      "title": "Implement band inventory/instrument list",
+      "instruction": "Add tracking for band-owned instruments loaned to musicians (e.g., Eb Soprano Cornet, Bb Bass).",
+      "acceptance": "CRUD endpoints for instruments and assignment tracking to musicians.",
+      "result": "Loan inventory endpoints completed. Successfully tracks instrument model, serial number, and current assignee."
     },
     {
       "taskId": "2913b456-9e07-4d63-83b4-27a12419daf7",
@@ -408,10 +397,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 0,
-      "title": "Implement Password Reset Module for Band Members",
-      "instruction": "Create back-to-front authentication flows letting band members securely reset credentials.",
-      "acceptance": "Secure password recovery system dispatching tokenized reset verification links.",
-      "result": "Completed password reset flows, secure token generation, and credential update logic."
+      "title": "Integrate inventory warnings with rehearsals",
+      "instruction": "Warn if a piece requires an instrument (e.g., Percussion - Timpani) that is currently marked as out of service.",
+      "acceptance": "Schedule endpoint cross-references instrument status and flags warnings.",
+      "result": "Validation check integrated. Scans piece requirements against broken or unassigned inventory items."
     },
     {
       "taskId": "bf50f2c7-ab50-450d-a010-c70adad45b73",
@@ -421,10 +410,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Connect Mobile SMS Notification Gateway",
-      "instruction": "Configure integration with an SMS dispatcher to broadcast rehearsal update pings directly to players' phones.",
-      "acceptance": "System successfully triggers alerts via external gateway during test suite execution.",
-      "result": "Completed integration with standard SMS dispatch API; test alerts route correctly."
+      "title": "Standardize API error responses",
+      "instruction": "Implement uniform JSON structure for all API errors and exception handling middleware.",
+      "acceptance": "All errors return { error: string, code: string, timestamp: string }.",
+      "result": "Global exception handler middleware deployed. Standardized error structure applied to all existing controllers."
     },
     {
       "taskId": "5f1e75a9-c523-4e07-9b20-0c5b560e9f09",
@@ -434,10 +423,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Optimize Schedule Calculation Queries",
-      "instruction": "Perform index improvements and rewrite scheduling aggregate queries to improve dashboard load times.",
-      "acceptance": "Average query times for active schedule dashboards drop under 100 milliseconds.",
-      "result": "Added composite indexes on rehearsal timing and member status tables. Dashboard load times improved by 50%."
+      "title": "Create database backup script",
+      "instruction": "Write a shell utility to dump SQLite/Postgres database structure and data to a backup folder.",
+      "acceptance": "Script runs successfully and generates verified gzip archive.",
+      "result": "Backup script configured and verified. Successfully exports and compresses schema and data."
     },
     {
       "taskId": "b5e3d6c0-dd2d-4932-93a3-93f50654b3c4",
@@ -447,10 +436,10 @@
       "dependsOn": [],
       "status": "done",
       "attempts": 1,
-      "title": "Deploy Brass Band Scheduler to Staging",
-      "instruction": "Compile scheduling application assets and deploy to target staging environment for validation.",
-      "acceptance": "Publicly accessible test link serving fully operational band scheduling system.",
-      "result": "Application successfully compiled and deployed to testing sandbox. System behaves normally and is ready for trial."
+      "title": "Final end-to-end rehearsal scheduling flow verification",
+      "instruction": "Execute complete script creating a venue, scheduling a rehearsal, adding pieces, registering attendance, and exporting stats.",
+      "acceptance": "All operations succeed in logical sequence without manual intervention.",
+      "result": "E2E scenario successfully tested. All systems integrated, from initial schedule creation to post-rehearsal stats compilation."
     }
   ]
 }

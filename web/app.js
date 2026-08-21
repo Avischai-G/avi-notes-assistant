@@ -10,8 +10,17 @@ const pct = (x) => `${Math.round((x || 0) * 100)}%`;
 let TAX = {}, STAGES = [];
 
 /* --- graveyard --------------------------------------------------------- */
+const ago = (t) => {
+  if (!t) return 'never';
+  const s = Math.max(0, Date.now() / 1000 - t);
+  if (s < 90) return `${Math.round(s)}s ago`;
+  if (s < 5400) return `${Math.round(s / 60)} min ago`;
+  return `${Math.round(s / 3600)} h ago`;
+};
+
 async function graveyard() {
-  const [cases, fleet] = await Promise.all([get('/api/cases'), get('/api/fleet').catch(() => null)]);
+  const [cases, fleet, sw] = await Promise.all([
+    get('/api/cases'), get('/api/fleet').catch(() => null), get('/api/sweep').catch(() => null)]);
   const a = fleet?.aggregate;
 
   const groups = {};
@@ -28,6 +37,11 @@ async function graveyard() {
         <div class="fig"><strong>${pct(a.mean_progress)}</strong><span>work banked before death</span></div>
         <div class="fig good"><strong>${a.revivable}</strong><span>still revivable</span></div>
       </div>
+      ${sw ? `<div class="watch">
+        <span class="dot"></span>
+        Watching ${sw.watched} run${sw.watched === 1 ? '' : 's'} · last swept ${esc(ago(sw.at))} ·
+        ${(sw.autopsied || []).length} autopsied unprompted${(sw.errors || []).length ? ` · ${sw.errors.length} error(s)` : ''}
+      </div>` : ''}
     </div>` : ''}
     ${order.map(k => {
       const t = TAX[k] || {};
@@ -46,7 +60,9 @@ async function graveyard() {
 
 const toe = (c) => `
   <a class="toe" href="#/case/${encodeURIComponent(c.run_id)}">
-    <div class="t">${esc(c.title || c.run_id)}</div>
+    <div class="t">${esc(c.title || c.run_id)}
+      <span class="rid">${esc((c.run_id || '').slice(0, 8))}</span></div>
+    ${c.one_liner ? `<p class="why">${esc(c.one_liner)}</p>` : ''}
     <div class="meta">
       <span>${pct(c.progress)}</span>
       <span class="bar"><i style="width:${pct(c.progress)}"></i></span>

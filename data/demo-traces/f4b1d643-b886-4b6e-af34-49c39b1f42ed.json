@@ -3,16 +3,16 @@
   "runId": "d19a90e9-8fc0-4669-b539-93e74c1bd88f",
   "chatId": "f4b1d643-b886-4b6e-af34-49c39b1f42ed",
   "status": "held",
-  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "reason": "Recovered unfinished work from an older orchestrator run.",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": true,
-  "updatedAt": 1787285497956,
+  "updatedAt": 1787286928557,
   "title": "Recovered work",
-  "originalRequest": "Develop a reliable online booking and management system for the local village hall, handling reservations, calendar schedules, and secure payments.",
-  "latestMessage": "Develop a reliable online booking and management system for the local village hall, handling reservations, calendar schedules, and secure payments.",
+  "originalRequest": "Create a web-based village hall booking system to manage room reservations, track availability, prevent concurrent double-bookings, and issue automated email confirmations.",
+  "latestMessage": "Create a web-based village hall booking system to manage room reservations, track availability, prevent concurrent double-bookings, and issue automated email confirmations.",
   "steps": [
     {
       "taskId": "fd3ded0a-a60b-4c74-ab69-8428191a00ca",
@@ -22,9 +22,9 @@
       "dependsOn": [],
       "status": "doing",
       "attempts": 1,
-      "title": "Database Schema Setup for Bookings",
-      "instruction": "Define the PostgreSQL database schema for the booking system, including tables for users, halls, bookings, and payments. Ensure foreign key constraints and indexes on booking date ranges are configured.",
-      "acceptance": "Database migration script executes successfully and all tables are verified in the database schema."
+      "title": "Database Schema Design for Bookings",
+      "instruction": "Design and implement a relational database schema using PostgreSQL to manage resources (halls/rooms), users, and reservations with appropriate date/time constraints.",
+      "acceptance": "The database schema is initialized, constraints prevent overlapping primary keys, and sample records can be successfully inserted into all tables."
     },
     {
       "taskId": "6c60658c-bfbf-4f22-8996-5797863c838f",
@@ -35,8 +35,8 @@
       "status": "todo",
       "attempts": 0,
       "title": "Calendar Availability API Endpoint",
-      "instruction": "Implement a REST API endpoint to query booking availability for specific halls within a requested date range.",
-      "acceptance": "API returns correct vacant slots and excludes already booked time ranges, validated by unit tests."
+      "instruction": "Develop a backend GET endpoint to query and calculate available hours for a given venue on a specified target date.",
+      "acceptance": "The endpoint correctly returns a JSON list of available time blocks, accounting for existing reservation records."
     },
     {
       "taskId": "86bb90e9-f68c-479f-9e50-b56f3d370e20",
@@ -46,9 +46,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Concurrency Control for Double-Bookings",
-      "instruction": "Develop a concurrency resolution mechanism to prevent two users from booking the same hall at the same time.",
-      "acceptance": "Integration tests simulating high-concurrency reservation attempts successfully block double-bookings and return a conflict error."
+      "title": "Real-time Booking Conflict Prevention",
+      "instruction": "Implement a strict locking strategy using database transactions to prevent concurrent booking requests from reserving the exact same venue slot.",
+      "acceptance": "Concurrency test suite successfully simulates parallel booking attempts for the same slot, allowing only one to succeed while rejecting subsequent attempts."
     },
     {
       "taskId": "6da3209d-b70a-47d3-a640-b12542ba09a4",
@@ -58,9 +58,9 @@
       "dependsOn": [],
       "status": "todo",
       "attempts": 0,
-      "title": "Stripe Webhook Integration",
-      "instruction": "Set up a Stripe webhook handler to confirm bookings once payment is processed successfully.",
-      "acceptance": "Webhook endpoint processes test payment events and correctly updates booking statuses to confirmed."
+      "title": "Automated Email Confirmation Service",
+      "instruction": "Configure an asynchronous notification worker to dispatch email confirmations with reservation receipts once a booking transaction is completed.",
+      "acceptance": "The service correctly queues notification tasks to a background broker and dispatches formatted confirmation emails upon successful booking events."
     }
   ]
 }

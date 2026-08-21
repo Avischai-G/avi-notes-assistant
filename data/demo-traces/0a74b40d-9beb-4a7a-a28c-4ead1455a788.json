@@ -10,10 +10,10 @@
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497779,
-  "title": "Community Seed Library Catalogue Backend Development",
-  "originalRequest": "Set up the database and basic search features for the community seed library catalogue.",
-  "latestMessage": "Set up the database and basic search features for the community seed library catalogue.",
+  "updatedAt": 1787286928366,
+  "title": "Community Seed Library Catalogue Refactoring",
+  "originalRequest": "Develop database schema and backend models to support plant taxonomy data, germination rate tracking, and inventory status for the seed library.",
+  "latestMessage": "Develop database schema and backend models to support plant taxonomy data, germination rate tracking, and inventory status for the seed library.",
   "steps": [
     {
       "step": 1,
@@ -23,10 +23,10 @@
       "taskId": "2500d5f3-ceb1-4dfb-b314-2445ad19f2ff",
       "status": "doing",
       "attempts": 1,
-      "title": "Implement seed taxonomy schema and search filters",
-      "instruction": "Design and apply the database schema for indexing seeds by botanical family, planting season, and sun requirements. Implement a backend query service to filter catalogue items based on these attributes.",
-      "acceptance": "Database migrations execute without errors, and the query service returns correct seed records matching the filter criteria in integration tests.",
-      "result": "I have created and applied the PostgreSQL migration schema for the `seed_varieties` and `growth_requirements` tables. Currently implementing the query builder logic in the search service to handle compound filters (season + sun exposure). Basic unit tests for the botanical family filter are passing, and I am now expanding test coverage to seasonal filters."
+      "title": "Database Migration for Taxonomy and Viability Tracking",
+      "instruction": "Create a PostgreSQL schema migration to add 'genus', 'species', and 'cultivar' fields to the catalogued seeds table, and establish a 'germination_tests' tracking table linked via foreign key.",
+      "acceptance": "Migration executes without error on the target database, creating the fields and the new table with appropriate constraints, foreign keys, and indices on taxonomy fields.",
+      "result": "Created the SQL migration script defining the new columns on the 'seeds' table and the schema for the 'germination_tests' table. Currently running localized integration tests on the migration script to verify constraints and rollback execution before deploying to the staging database environment."
     }
   ]
 }

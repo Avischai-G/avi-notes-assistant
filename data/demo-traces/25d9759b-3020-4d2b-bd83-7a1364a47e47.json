@@ -9,10 +9,10 @@
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497800,
+  "updatedAt": 1787286928391,
   "title": "Allotment Watering Roster System",
-  "originalRequest": "Design and implement an automated coordination system to assign and monitor watering duties for community allotment plots based on plot capacity, crop requirements, and owner availability.",
-  "latestMessage": "Design and implement an automated coordination system to assign and monitor watering duties for community allotment plots based on plot capacity, crop requirements, and owner availability.",
+  "originalRequest": "Design and implement a roster scheduling and telemetry tracking application for community allotment watering management.",
+  "latestMessage": "Design and implement a roster scheduling and telemetry tracking application for community allotment watering management.",
   "steps": [
     {
       "step": 1,
@@ -22,10 +22,10 @@
       "taskId": "6364b71d-1f00-4269-b383-023d88a65d00",
       "status": "done",
       "attempts": 2,
-      "title": "Initialize Allotment Database Schema",
-      "instruction": "Define PostgreSQL tables for plots, gardeners, and daily water allocation metrics.",
-      "acceptance": "Database migrations run successfully and schema is verified against PostgreSQL v15 database instance.",
-      "result": "Initial schema design on attempt 1 failed due to unresolved relational foreign key constraints on the gardeners table. Successfully restructured table dependencies and executed migration on attempt 2."
+      "title": "Define database schema for plots and crops",
+      "instruction": "Create a relational schema to store allotment plots, assigned gardeners, and crop types with their daily water volume requirements.",
+      "acceptance": "Schema SQL script compiles and executes without errors on the target database, establishing foreign key constraints between plots and crop types.",
+      "result": "First attempt failed due to a syntax error in the foreign key constraint definition for the crop types table. On the second attempt, corrected the table creation order and successfully initialized the schema. Verification queries confirm tables are active and indexed correctly."
     },
     {
       "step": 2,
@@ -35,10 +35,10 @@
       "taskId": "c13a42c3-ef3b-4149-8b95-e8b7ec47342e",
       "status": "done",
       "attempts": 2,
-      "title": "Implement Core Roster Generation Algorithm",
-      "instruction": "Develop the backend scheduling algorithm to allocate watering shifts based on crops' daily moisture requirements.",
-      "acceptance": "Algorithm generates a conflict-free 7-day watering schedule matrix.",
-      "result": "Attempt 1 generated uneven distribution patterns with multiple weekend conflicts. Adjusted load balancing constraints on attempt 2 to guarantee equal shift distribution across all available gardeners."
+      "title": "Seed initial crop water requirements data",
+      "instruction": "Populate the crop reference table with standardized baseline water volumes (liters per square meter) for key crop types.",
+      "acceptance": "The crop reference table contains at least 10 standard crop types with non-null daily watering coefficients.",
+      "result": "The initial import script failed on the first run due to mismatched CSV delimiters in the seed file. Regenerated the import script using correct comma-separated formatting and successfully populated the reference database with 12 crop profiles on the second run."
     },
     {
       "step": 3,
@@ -48,10 +48,10 @@
       "taskId": "6b347c42-dfab-41d5-aee8-6a532d6ed9dd",
       "status": "done",
       "attempts": 1,
-      "title": "Expose Roster REST API Endpoints",
-      "instruction": "Develop secure endpoints to retrieve and modify the generated watering roster.",
-      "acceptance": "GET /api/v1/roster and PUT /api/v1/roster/{id} return expected JSON payloads with HTTP 200.",
-      "result": "Developed endpoints and added controller unit tests. Verification checks passed on attempt 1 with zero test regressions."
+      "title": "Implement roster scheduling calculation logic",
+      "instruction": "Develop a backend service to generate a weekly watering schedule, distributing duties evenly among available gardeners while prioritizing plots with high-consumption crops.",
+      "acceptance": "Function outputs a 7-day JSON matrix mapping gardener IDs to plot IDs, ensuring no gardener is assigned back-to-back days unless necessary.",
+      "result": "Successfully implemented the scheduling algorithm using a greedy distribution approach. Tests confirm even distribution of assignments and prioritization of high-demand zones. Output format conforms to the specified JSON schema."
     },
     {
       "step": 4,
@@ -65,9 +65,9 @@
       "taskId": "3c92c8be-2ab8-4482-bd98-4811a693f46f",
       "status": "blocked",
       "attempts": 1,
-      "title": "Integrate Weather Forecast API [BLOCKED]",
-      "instruction": "Connect roster scheduler to regional meteorological service to dynamically lower watering volume based on forecasted rain. Currently blocked due to delayed approval of API keys from the regional weather bureau.",
-      "acceptance": "Watering requirements decrease dynamically when forecasted precipitation exceeds 5mm."
+      "title": "Integrate local weather API feed",
+      "instruction": "Connect the scheduling module to a local meteorological API to dynamically reduce scheduled water volumes on days with forecasted rainfall. [BLOCKED] This task is blocked because the public API endpoint registration is pending administrative approval for the API key.",
+      "acceptance": "Algorithm decreases target watering volume by 50% if rainfall > 2mm is forecasted within 12 hours of the scheduled time."
     },
     {
       "step": 5,
@@ -77,9 +77,9 @@
       "taskId": "88d3eb1f-c4fc-47b2-880c-85baa9d35342",
       "status": "blocked",
       "attempts": 1,
-      "title": "Configure SMS Notification Gateway [BLOCKED]",
-      "instruction": "Integrate third-party SMS platform to transmit daily shift notifications to designated gardeners. Currently blocked pending security and privacy compliance review of the external platform API.",
-      "acceptance": "SMS dispatches successfully 24 hours prior to a gardener's scheduled shift."
+      "title": "Build gardener notification dispatch service",
+      "instruction": "Develop the automated worker service that dispatches daily SMS notifications to the scheduled gardeners. [BLOCKED] Blocked pending final selection and procurement of the SMS gateway provider by the project sponsor.",
+      "acceptance": "Outbound queue processor successfully formats and sends message payloads to the SMS gateway API."
     },
     {
       "step": 6,
@@ -89,9 +89,9 @@
       "taskId": "8576e765-8a75-49a2-a842-129c3ad1eb6a",
       "status": "blocked",
       "attempts": 1,
-      "title": "Integrate Smart Soil Moisture Sensor Feedback [BLOCKED]",
-      "instruction": "Establish telemetry pipelines to ingest live soil moisture sensor data and override manual schedule allocations. Currently blocked due to supply chain hardware procurement delays for IoT modules.",
-      "acceptance": "The scheduling algorithm dynamically scales down allocation when moisture readings exceed 75%."
+      "title": "Implement flow-meter telemetry intake",
+      "instruction": "Write an ingestion service to parse IoT flow-meter pulse readings and record actual water applied per plot. [BLOCKED] Blocked by lack of hardware specification sheets for the newly ordered flow-meter units.",
+      "acceptance": "System processes raw pulse count inputs and converts them to liters with +/- 2% accuracy."
     },
     {
       "step": 7,
@@ -101,9 +101,9 @@
       "taskId": "6873089b-16fe-466e-a059-5129a6f1dcbe",
       "status": "doing",
       "attempts": 1,
-      "title": "Develop Administrator Web Dashboard [IN PROGRESS]",
-      "instruction": "Create frontend administrative interface to allow manual override and manual swap of gardener shifts.",
-      "acceptance": "Admins can authenticatedly log in, view the grid layout of the roster, and trigger recalculations."
+      "title": "Develop historical water-usage reporting dashboard",
+      "instruction": "Create a web interface summarizing monthly water consumption vs. roster schedules to optimize overall garden resource usage.",
+      "acceptance": "Dashboard displays interactive charts comparing scheduled water targets against telemetry-recorded actuals."
     }
   ]
 }

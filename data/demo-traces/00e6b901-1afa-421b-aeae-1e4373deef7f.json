@@ -3,17 +3,17 @@
   "runId": "21063f23-fdae-424d-b2b2-ed2995cda76a",
   "chatId": "00e6b901-1afa-421b-aeae-1e4373deef7f",
   "status": "held",
-  "reason": "Waiting for the user: Der spezialisierte Interviewkanal ist in dieser Sitzung technisch nicht verf\u00fcgbar. Damit wir das Anforderungsinterview trotzdem fortsetzen k\u00f6nnen, beantworte bitte diese ersten drei Grundsatzfragen:\n\n1. Welche Jahre soll die Planung abdecken? Wird jede Planungszeile einem Bezugsjahr oder einem genauen Datum zugeordnet? Brauchen befristete Zusatzfl\u00e4chen zus\u00e4tzlich ein Endjahr/-datum?\n\n2. Soll ein Umzug in einer einzigen Zeile \u201evon \u2192 nach\u201c erfasst werden, sodass die alte Fl\u00e4che automatisch frei wird, oder in zwei Zeilen (Auszug + Einzug)? Gibt es Teilumz\u00fcge, bei denen ein Teil der Abteilung am alten Standort bleibt?\n\n3. Soll der heutige Ist-Zustand aus der \u201eMain Database\u201c als fixer Startpunkt (Jahr 0) \u00fcbernommen werden, oder m\u00f6chtest du ihn als editierbare Planungszeilen selbst pflegen?",
+  "reason": "Waiting for the user: Should the dispatch algorithm prioritize minimizing total transit time for high-priority packages even if it increases the average wait time of standard deliveries by more than 25%?",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "tier": "big",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497774,
-  "title": "Bicycle Courier Dispatch Tool Task Board",
-  "originalRequest": "Establish dispatch routing constraints for active courier fleet.",
-  "latestMessage": "Establish dispatch routing constraints for active courier fleet.",
+  "updatedAt": 1787286928360,
+  "title": "Bicycle Courier Dispatch Tool - Route Optimization Module",
+  "originalRequest": "Design and implement the real-time dispatch assignment algorithm for urban bicycle couriers based on distance, cargo capacity, and current workload.",
+  "latestMessage": "Design and implement the real-time dispatch assignment algorithm for urban bicycle couriers based on distance, cargo capacity, and current workload.",
   "steps": [
     {
       "taskId": "3d12ee54-f217-4e62-bde8-98a7527c6be3",
@@ -22,9 +22,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Clarify cargo bike capacity constraints for routing engine",
-      "instruction": "Determine if the dispatch algorithm must evaluate both volume (liters) and weight (kg) constraints for the cargo bike vehicle class, or if a single weight threshold is sufficient for the initial dispatch matrix.",
-      "acceptance": "Receipt of formal business rules from the system owner regarding capacity limits for cargo-class bicycle couriers."
+      "title": "Determine priority weighting metrics for dispatch assignment logic",
+      "instruction": "Define how the dispatch algorithm should trade off between different service level agreements (SLAs) for express vs standard courier deliveries when assigning routes.",
+      "acceptance": "Receive formal clarification from the product owner regarding the exact SLA trade-off thresholds and priority weighting formulas to prevent driver overloading."
     }
   ]
 }

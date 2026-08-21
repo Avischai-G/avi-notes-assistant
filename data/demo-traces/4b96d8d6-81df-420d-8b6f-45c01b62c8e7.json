@@ -3,17 +3,17 @@
   "runId": "9d2af562-1db4-43e3-aeb3-5e4b8a5a7999",
   "chatId": "4b96d8d6-81df-420d-8b6f-45c01b62c8e7",
   "status": "held",
-  "reason": "Waiting for the user: Der Bau ist nach zwei vollst\u00e4ndigen Versuchen technisch blockiert: Die verpflichtende Spreadsheet-Laufzeit `load_workspace_dependencies` mit `@oai/artifact-tool` fehlt, und der Skill verbietet die vorhandenen Alternativen. Bitte starte den Lauf in einer Sitzung mit aktivierter Spreadsheet-Artefakt-Toolchain (`load_workspace_dependencies`, `@oai/artifact-tool` 2.8.6 oder neuer) und antworte anschlie\u00dfend mit \u201ebereit\u201c; Spezifikation, Kapazit\u00e4tsdatei und Designrecherche bleiben im Workspace erhalten.",
+  "reason": "Waiting for the user: Should the simulation engine resolve equal-priority head-on block conflicts using a randomized back-off delay, or should it immediately raise a validation deadlock error to the layout operator?",
   "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
   "tier": "big",
   "completedSteps": [],
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497829,
-  "title": "Model-Railway Timetable Simulator Task Board",
-  "originalRequest": "Design and implement the core scheduling and dispatching modules for the model-railway timetable simulator to handle complex layouts.",
-  "latestMessage": "Design and implement the core scheduling and dispatching modules for the model-railway timetable simulator to handle complex layouts.",
+  "updatedAt": 1787286928421,
+  "title": "Model-Railway Timetable Simulator Priority Routing",
+  "originalRequest": "Implement priority conflict resolution for overlapping schedules on single-track blocks.",
+  "latestMessage": "Implement priority conflict resolution for overlapping schedules on single-track blocks.",
   "steps": [
     {
       "taskId": "e8d4b6f6-108d-44a1-beb8-c1f41d0236dc",
@@ -22,9 +22,9 @@
       "difficulty": "medium",
       "dependsOn": [],
       "status": "user",
-      "title": "Define Dispatching Priority Logic for Single-Track Bottlenecks",
-      "instruction": "We need the product owner to clarify the priority hierarchy when a high-speed passenger train and a local freight train arrive at a single-track block simultaneously. Should the simulator strictly favor passenger timetables, or should it optimize for minimum total network delay? Please provide the decision matrix.",
-      "acceptance": "A documented decision matrix specifying train priority rules under conflict conditions."
+      "title": "Define Train Priority Hierarchy Schema",
+      "instruction": "Design the priority database schema for different categories of model trains (e.g., express, regional, freight) to resolve track block contentions.",
+      "acceptance": "Database schema can persist user-defined priorities, and a test suite verifies correct priority sorting."
     }
   ]
 }

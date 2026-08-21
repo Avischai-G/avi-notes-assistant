@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -56,6 +57,8 @@ class Step(BaseModel):
 class Fiction(BaseModel):
     title: str
     original_request: str
+    stop_reason_payload: str
+    resume_messages: list[str]
     steps: list[Step]
 
 
@@ -77,7 +80,30 @@ Rules:
   'blocked' explains what stood in the way. 'user' is a question put to a human.
 - Never mention the real domain, real people, file paths, URLs, or credentials.
 - Keep the register dry and technical. This is a work log, not marketing.
+
+Also write, for this same fictional project:
+- 'stop_reason_payload': {payload_ask}
+- 'resume_messages': {resume_ask}
 """
+
+# The orchestrator's own boilerplate is diagnostic signal — the rules match on
+# it — so it is preserved exactly. Only what a human typed gets replaced.
+WAITING = re.compile(r"^(waiting for the user:\s*)(.+)$", re.I | re.S)
+
+
+def neutral(text: str) -> str:
+    """Strip the vendor name. A published corpus should read as any orchestrator."""
+    text = re.sub(r"\bagentonomy\b", "orchestrator", text, flags=re.I)
+    if text.lower().startswith("orchestrator"):
+        text = "The " + text          # "Agentonomy restarted" -> "The orchestrator restarted"
+    return text[:1].upper() + text[1:]
+
+
+def rebuild_reason(reason: str, payload: str) -> str:
+    m = WAITING.match(reason or "")
+    if m:
+        return m.group(1) + (payload or "Please confirm how you would like to proceed.")
+    return neutral(reason or "")
 
 
 def skeleton(raw: dict) -> str:
@@ -95,13 +121,20 @@ async def one(client, raw: dict, i: int) -> dict:
     out = {k: v for k, v in raw.items() if k in KEEP_RUN}
 
     if not steps:
-        out.update(title="Recovered work", originalRequest="", latestMessage="", steps=[])
+        out.update(title="Recovered work", originalRequest="", latestMessage="", steps=[],
+                   reason=neutral(raw.get("reason") or ""), resumeMessages=[])
         return out
 
+    waiting = bool(WAITING.match(raw.get("reason") or ""))
+    n_resume = len(raw.get("resumeMessages") or [])
     r = await client.aio.models.generate_content(
         model=MODEL,
-        contents=PROMPT.format(domain=DOMAINS[i % len(DOMAINS)],
-                               n=len(steps), skeleton=skeleton(raw)),
+        contents=PROMPT.format(
+            domain=DOMAINS[i % len(DOMAINS)], n=len(steps), skeleton=skeleton(raw),
+            payload_ask=("the exact question this run put to the human before it stopped, "
+                         "in this project's terms" if waiting else "leave empty"),
+            resume_ask=(f"{n_resume} follow-up message(s) the human sent to nudge this run along"
+                        if n_resume else "an empty list")),
         config=types.GenerateContentConfig(
             temperature=1.0, response_mime_type="application/json", response_schema=Fiction),
     )
@@ -118,6 +151,9 @@ async def one(client, raw: dict, i: int) -> dict:
         new_steps.append(ns)
 
     # Titles like "Recovered work" are orchestrator-generated, not user content.
+    out["reason"] = rebuild_reason(raw.get("reason") or "", f.stop_reason_payload)
+    out["resumeMessages"] = [{"content": m, "attachments": []}
+                             for m in f.resume_messages[:n_resume]]
     out["title"] = raw.get("title") if raw.get("title") == "Recovered work" else f.title
     out["originalRequest"] = f.original_request
     out["latestMessage"] = f.original_request

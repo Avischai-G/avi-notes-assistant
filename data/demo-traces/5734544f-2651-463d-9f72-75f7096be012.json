@@ -9,10 +9,10 @@
   "resumeMessages": [],
   "cliFailures": 0,
   "legacy": false,
-  "updatedAt": 1787285497833,
+  "updatedAt": 1787286928427,
   "title": "Food-Bank Stock Rotation Dashboard",
-  "originalRequest": "Create a dashboard to track and rotate food-bank inventory based on expiration dates.",
-  "latestMessage": "Create a dashboard to track and rotate food-bank inventory based on expiration dates.",
+  "originalRequest": "Implement the First-Expired, First-Out (FEFO) automated stock rotation and alert mechanism to reduce food waste.",
+  "latestMessage": "Implement the First-Expired, First-Out (FEFO) automated stock rotation and alert mechanism to reduce food waste.",
   "steps": [
     {
       "step": 1,
@@ -22,9 +22,9 @@
       "taskId": "651352f8-578d-41ee-a6ed-928002ce62bb",
       "status": "blocked",
       "attempts": 2,
-      "title": "Map inventory database fields for stock rotation",
-      "instruction": "Identify the database fields representing receipt date and expiration date for inventory items. This easy task is blocked on its second attempt by agent joker-codex because the inventory database credentials provided do not grant read access to the schema metadata.",
-      "acceptance": "Verification of database fields required for FIFO calculations."
+      "title": "FEFO Sorting Algorithm and Expiration Alert Database Integration",
+      "instruction": "Implement database queries to sort inventory by closest expiration date and generate automated alerts for items expiring within 7 days. This is the second attempt by agent joker-codex to resolve schema compatibility issues on the expiration tracking table, which has been flagged as an easy task but remains blocked due to missing database write privileges.",
+      "acceptance": "The api/v1/stock/rotation endpoint returns inventory ordered by expiration date, and unit tests verify that trigger flags are correctly raised for items expiring within 7 days."
     }
   ]
 }
