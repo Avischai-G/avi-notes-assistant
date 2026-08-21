@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "runId": "93995360-85ce-463a-9d16-85af16c431fb",
+  "chatId": "b6f4936f-7b54-4563-be42-777b84c0530e",
+  "status": "held",
+  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": true,
+  "updatedAt": 1787285497896,
+  "title": "Recovered work",
+  "originalRequest": "Develop a localized tracking dashboard that implements First-Expired, First-Out (FEFO) rules to minimize waste and streamline distribution across active inventory nodes.",
+  "latestMessage": "Develop a localized tracking dashboard that implements First-Expired, First-Out (FEFO) rules to minimize waste and streamline distribution across active inventory nodes.",
+  "steps": [
+    {
+      "taskId": "c69f91bf-f890-4644-b2c3-9fa18933ee97",
+      "step": 1,
+      "agent": "joker-codex",
+      "difficulty": "easy",
+      "dependsOn": [],
+      "status": "doing",
+      "attempts": 1,
+      "title": "Design and initialize database schema for food stock",
+      "instruction": "Create database schema tracking stock items with fields for item ID, category, batch number, donation timestamp, quantity, location, and explicit expiration date. Set up indices on the expiration date to optimize querying.",
+      "acceptance": "Database migration scripts run successfully on local environments and test suites confirm schema constraints function properly."
+    },
+    {
+      "taskId": "77d0888f-c2ef-4601-9231-15b265d4967b",
+      "step": 2,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Implement FEFO logic service",
+      "instruction": "Build a core service layer module that queries active stock items and ranks them using a First-Expired, First-Out algorithm, grouping them into priority bands (Immediate, Warning, Safe).",
+      "acceptance": "Unit tests confirm that items expiring within 7 days are prioritized highest, followed by those within 30 days, sorting appropriately across multiple food categories."
+    },
+    {
+      "taskId": "015cc6de-7f8b-42fe-ac5d-4658861faa45",
+      "step": 3,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Develop REST API endpoints for stock intake and dispatch",
+      "instruction": "Expose JSON endpoints to record incoming donations (POST /api/inventory) and log stock distribution or disposal (POST /api/inventory/dispatch) to update database state in real time.",
+      "acceptance": "API endpoints correctly validate payload fields, return appropriate HTTP status codes, and accurately decrement or increment inventory quantities in the database."
+    },
+    {
+      "taskId": "351b0d70-7042-4e2d-959c-c05ce7232859",
+      "step": 4,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Build inventory summary UI dashboard component",
+      "instruction": "Develop the primary front-end dashboard screen displaying high-level metrics including total active stock, item count near expiration, and a prioritized list of batches requiring immediate rotation.",
+      "acceptance": "Frontend components render dynamic mock data reflecting different priority levels without rendering delays or layout shift."
+    },
+    {
+      "taskId": "5536aa50-3668-43e0-a80a-d3f2d4c4f66d",
+      "step": 5,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Add stock adjustment interface elements",
+      "instruction": "Implement UI forms and controls on the dashboard interface allowing volunteers to quickly scan or manually input SKU adjustments when moving or auditing stock physically.",
+      "acceptance": "UI successfully triggers state updates and coordinates payload delivery to backend dispatch endpoints with confirmation toasts on success."
+    },
+    {
+      "taskId": "81d5d21b-c208-434e-8fbc-bc3c711d4efc",
+      "step": 6,
+      "agent": "joker-codex",
+      "difficulty": "easy",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Generate and export CSV stock rotation logs",
+      "instruction": "Implement a simple UI button and backend export handler to download a formatted CSV report of current stock levels categorized by urgency of rotation.",
+      "acceptance": "Clicking the export button triggers a clean download of a CSV file containing ID, description, shelf-life level, and recommended distribution timeframe."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "runId": "d4fd8d17-7e73-4dc0-931c-763ec783b331",
+  "chatId": "47fc840b-06f7-489f-907e-0584975f517f",
+  "status": "held",
+  "reason": "Waiting for the user: Welche Jahreslogik w\u00fcnschen Sie? Empfehlung: **2026 als Ist-Stand**, Planung **2027\u20132035**, wobei jede Zuteilung oder Freigabe ab ihrem Wirksamkeitsjahr in allen Folgejahren gilt, bis sie ge\u00e4ndert wird. Passt das?",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "tier": "big",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497825,
+  "title": "Village Hall Booking System Task Board",
+  "originalRequest": "Establish the business logic rules for the automated scheduling and cancellation subsystem.",
+  "latestMessage": "Establish the business logic rules for the automated scheduling and cancellation subsystem.",
+  "steps": [
+    {
+      "taskId": "629ca284-9fc3-4334-80c3-f2a07c0eaef0",
+      "step": 1,
+      "agent": "owner",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "user",
+      "title": "Clarify cancellation and refund policy tier logic",
+      "instruction": "Please define the exact automated refund percentages and threshold limits for booking cancellations (e.g., full refund if cancelled more than 7 days prior, 50% refund between 48 hours and 7 days, and 0% refund under 48 hours) so that we can program the billing engine rules.",
+      "acceptance": "Receipt of a documented set of rules outlining the cancellation window thresholds and corresponding refund percentages to be applied to user accounts."
+    }
+  ]
+}

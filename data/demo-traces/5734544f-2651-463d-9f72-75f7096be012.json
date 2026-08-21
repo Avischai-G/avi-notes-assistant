@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "runId": "a802ae21-d278-46eb-8585-d7049da8d60c",
+  "chatId": "5734544f-2651-463d-9f72-75f7096be012",
+  "status": "held",
+  "reason": "Steps 1 remain blocked after verification.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497833,
+  "title": "Food-Bank Stock Rotation Dashboard",
+  "originalRequest": "Create a dashboard to track and rotate food-bank inventory based on expiration dates.",
+  "latestMessage": "Create a dashboard to track and rotate food-bank inventory based on expiration dates.",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "joker-codex",
+      "difficulty": "easy",
+      "dependsOn": [],
+      "taskId": "651352f8-578d-41ee-a6ed-928002ce62bb",
+      "status": "blocked",
+      "attempts": 2,
+      "title": "Map inventory database fields for stock rotation",
+      "instruction": "Identify the database fields representing receipt date and expiration date for inventory items. This easy task is blocked on its second attempt by agent joker-codex because the inventory database credentials provided do not grant read access to the schema metadata.",
+      "acceptance": "Verification of database fields required for FIFO calculations."
+    }
+  ]
+}

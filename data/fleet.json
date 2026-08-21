@@ -1,0 +1,99 @@
+{
+  "aggregate": {
+    "runs": 39,
+    "by_cause": {
+      "ZOMBIE_RECOVERY": 17,
+      "VERIFICATION_DEADLOCK": 5,
+      "INFRA_RESTART": 5,
+      "STALLED_ON_USER": 4,
+      "WORKER_TERMINATED": 4,
+      "USER_ABORT": 3,
+      "UNDETERMINED": 1
+    },
+    "silent_stops": 36,
+    "silent_rate": 0.9230769230769231,
+    "mean_progress": 0.17978595478595477,
+    "steps_planned": 147,
+    "steps_banked": 73,
+    "steps_abandoned": 74,
+    "revivable": 36
+  },
+  "prescriptions": [
+    {
+      "change": "Overhaul the orchestrator's session recovery pipeline to automatically transition recovered runs from 'held' to 'active' or 'queued' states and trigger a re-planning loop, while implementing strict transactional validation of run IDs, metadata, and task schemas during import to prevent state corruption or cross-talk.",
+      "rationale": "Recovered runs are frequently left permanently stalled in a 'held' state or suffer from database state corruption and metadata leakage from unrelated sessions.",
+      "deaths_prevented": 17,
+      "run_ids": [
+        "060c223c",
+        "1472dc93",
+        "14e70568",
+        "21063f23",
+        "2878b1b1",
+        "2a7dfa6d",
+        "3cad7c06",
+        "3f8c6a0e",
+        "62085a68",
+        "7bf2cf8d",
+        "858e25a7",
+        "93995360",
+        "97e62cb4",
+        "c127eef7",
+        "c1a92979",
+        "d19a90e9",
+        "f6528034"
+      ],
+      "effort": "large"
+    },
+    {
+      "change": "Implement an automated deadlock resolution and escalation handler in the verification engine that detects when all active paths are blocked by external, physical, or permission constraints, and automatically generates fallback steps or escalates to an interactive user prompt rather than deadlocking.",
+      "rationale": "The verification engine permanently pauses runs when steps encounter physical or permission blocks, with no automated fallback or escalation path.",
+      "deaths_prevented": 5,
+      "run_ids": [
+        "3edf5f1e",
+        "77bb7a10",
+        "a4d12cf2",
+        "a802ae21",
+        "dc2491e1"
+      ],
+      "effort": "medium"
+    },
+    {
+      "change": "Implement a persistent state store and startup recovery listener in the orchestrator that serializes active run states upon receiving SIGTERM, and automatically re-queues and resumes runs that were interrupted in 'doing', 'planning', or 'held' states upon system startup.",
+      "rationale": "Infrastructure restarts abruptly terminate the orchestrator process, leaving active runs permanently abandoned in a 'held' state.",
+      "deaths_prevented": 5,
+      "run_ids": [
+        "7bd6432d",
+        "92d8f939",
+        "a1ec7b94",
+        "a941ff8c",
+        "ccf2c535"
+      ],
+      "effort": "medium"
+    },
+    {
+      "change": "Implement a worker process heartbeat monitor and fail-fast mechanism in the orchestrator to immediately abort and flag runs if the worker CLI crashes during startup, and automatically spin up a recovery worker if the process terminates mid-run.",
+      "rationale": "Worker CLI crashes during initialization cause the orchestrator to hang indefinitely until hitting the 7200-second safety timeout.",
+      "deaths_prevented": 4,
+      "run_ids": [
+        "36ce6bd8",
+        "51563ee4",
+        "68376feb",
+        "ff024d3b"
+      ],
+      "effort": "medium"
+    },
+    {
+      "change": "Implement an interactive user-wait management system in the orchestrator featuring automated notification/reminder timeouts that auto-resolve with default recommendations, combined with pre-flight environment checks to verify mandatory toolchain dependencies before execution.",
+      "rationale": "Runs stall indefinitely waiting for user input or because of missing environment dependencies that could have been detected pre-flight.",
+      "deaths_prevented": 4,
+      "run_ids": [
+        "02266df1",
+        "863b685a",
+        "9d2af562",
+        "d4fd8d17"
+      ],
+      "effort": "medium"
+    }
+  ],
+  "headline": "Out of 39 runs examined, 92% stopped silently without ever reporting a failure, primarily due to session recovery failures and verification deadlocks."
+}

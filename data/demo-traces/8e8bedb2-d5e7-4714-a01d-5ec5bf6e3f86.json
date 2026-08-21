@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "runId": "83ba0d6a-7436-4586-b786-20c380c68fb6",
+  "chatId": "8e8bedb2-d5e7-4714-a01d-5ec5bf6e3f86",
+  "status": "held",
+  "reason": "The agent's interactive CLI was stopped.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "tier": "big",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497874,
+  "title": "Recovered work",
+  "originalRequest": "",
+  "latestMessage": "",
+  "steps": []
+}

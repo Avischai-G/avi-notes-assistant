@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runId": "77bb7a10-3004-41ae-9f84-b06579a6b61b",
+  "chatId": "b7cb1d9c-5f52-4925-add7-f6e02a119a60",
+  "status": "held",
+  "reason": "Steps 1 remain blocked after verification.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497900,
+  "title": "Lighthouse Weather Journal Calibration",
+  "originalRequest": "Establish a consistent logging procedure for the daily meteorological ledger.",
+  "latestMessage": "Establish a consistent logging procedure for the daily meteorological ledger.",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "joker-codex",
+      "difficulty": "easy",
+      "dependsOn": [],
+      "taskId": "6fd179a0-7e79-422d-9a31-5036bdf9cfb1",
+      "status": "blocked",
+      "attempts": 1,
+      "title": "Calibrate primary mercury barometer",
+      "instruction": "Adjust the cistern screw on the primary Fort Point barometer to match the reference sea-level pressure reading of 1013.25 hPa under ambient fog conditions.",
+      "acceptance": "The vernier scale aligns with the mercury meniscus, and three consecutive readings match the reference barometer within 0.1 hPa.",
+      "result": "Blocked on attempt 1. The brass adjustment screw on the primary barometer is severely corroded and completely seized due to salt air exposure. Unable to perform calibration without risking structural failure of the glass mercury tube. Awaiting penetrating lubricant or a replacement cistern assembly."
+    }
+  ]
+}

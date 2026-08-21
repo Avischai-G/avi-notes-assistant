@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "runId": "858e25a7-e6cb-4506-b530-596d0294667c",
+  "chatId": "29775592-b905-419f-8032-5c27638362a5",
+  "status": "held",
+  "reason": "Waiting for the user: The restarted run has no task cards or recoverable worker context, so there is nothing recorded for me to resume. Please resend the original request (or just the intended deliverable and any relevant file paths), and I\u2019ll reconstruct the run without repeating known side effects.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "tier": "big",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497804,
+  "title": "Lighthouse Rotation Mechanism Servicing",
+  "originalRequest": "Perform scheduled inspection and torque adjustment on the primary lens rotation assembly to eliminate reported vibration.",
+  "latestMessage": "Perform scheduled inspection and torque adjustment on the primary lens rotation assembly to eliminate reported vibration.",
+  "steps": [
+    {
+      "taskId": "af8dc75d-03b8-4f15-b8ab-f2b90b7338d8",
+      "step": 1,
+      "agent": "owner",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "user",
+      "title": "Lubricant compatibility verification for drive gears",
+      "instruction": "Confirm whether the newly issued synthetic gear lubricant is compatible with the bronze alloy components of the 1904 rotation assembly, as the manufacturer MSDS indicates potential reactivity under sustained thermal load.",
+      "acceptance": "Technical sign-off from the lead preservation officer specifying the approved lubricant compound."
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "runId": "14e70568-b3b3-49ec-a1a9-201b23f2e3d8",
+  "chatId": "c84c54ca-44a7-4883-b074-24bdb5b6f607",
+  "status": "held",
+  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": true,
+  "updatedAt": 1787285497916,
+  "title": "Recovered work",
+  "originalRequest": "Create a responsive tide and swell forecasting dashboard for surfers that integrates real-time marine meteorological data feeds to provide wave characteristics, wind vectors, and tidal heights.",
+  "latestMessage": "Create a responsive tide and swell forecasting dashboard for surfers that integrates real-time marine meteorological data feeds to provide wave characteristics, wind vectors, and tidal heights.",
+  "steps": [
+    {
+      "taskId": "43f05fad-f749-4583-a107-ae89768192dc",
+      "step": 1,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "doing",
+      "attempts": 1,
+      "title": "Integrate NDBC Buoy Data Feed",
+      "instruction": "Establish stable connections to the National Data Buoy Center API to extract wave height, dominant period, and swell direction for selected regional buoys.",
+      "acceptance": "The backend service must successfully parse buoy XML payloads and cache the structured marine metrics on a 30-minute refresh cycle."
+    },
+    {
+      "taskId": "4da067cb-12bf-49b6-adcd-f8fa2a5c166f",
+      "step": 2,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Implement Harmonic Tide Prediction Model",
+      "instruction": "Develop the calculation service to compute hourly tide heights and identify high/low tide peaks using harmonic constants for designated coastal stations.",
+      "acceptance": "Calculated tide heights must deviate by less than 5% from official CO-OPS astronomical predictions for the same station coordinate."
+    },
+    {
+      "taskId": "9be42543-ec7e-44e1-a069-1fc1948025bb",
+      "step": 3,
+      "agent": "joker-codex",
+      "difficulty": "hard",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Build Wind-Swell Correlation Engine",
+      "instruction": "Program an analysis module that classifies wind direction relative to beach orientation to determine clean (offshore) or blown-out (onshore) conditions.",
+      "acceptance": "The system must correctly tag conditions as Clean, Choppy, or Blown-out based on local wind vectors and coastline angles."
+    },
+    {
+      "taskId": "3e2c6a0c-9e52-4aa2-8a9c-d2ad2855b18d",
+      "step": 4,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Develop Interactive Tide Graph and Forecast UI",
+      "instruction": "Construct a responsive web dashboard using a charting library to visualize tide heights, swell periods, and wind velocities over a rolling 7-day period.",
+      "acceptance": "The chart must display an overlay of current time, render correctly on mobile screens, and update dynamically when a user switches surf locations."
+    },
+    {
+      "taskId": "4a2d92e2-d172-4596-b5f9-3e0cb6bffbeb",
+      "step": 5,
+      "agent": "joker-codex",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Implement Geolocation and Favorite Spots Module",
+      "instruction": "Create a client-side geolocation search to locate nearest surf breaks and allow users to save preferred spots to local storage.",
+      "acceptance": "The dashboard must load the nearest break automatically on first visit and maintain a persistent list of saved locations in the browser session."
+    }
+  ]
+}

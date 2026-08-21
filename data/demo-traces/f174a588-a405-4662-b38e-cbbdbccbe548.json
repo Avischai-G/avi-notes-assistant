@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "runId": "060c223c-c99d-4df8-a599-f3b704d3fa79",
+  "chatId": "f174a588-a405-4662-b38e-cbbdbccbe548",
+  "status": "held",
+  "reason": "Recovered unfinished work from an older Agentonomy run.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": true,
+  "updatedAt": 1787285497970,
+  "title": "Recovered work",
+  "originalRequest": "Create a digital logging system for beekeepers to track hive health, population dynamics, queen status, and mite treatments during field inspections.",
+  "latestMessage": "Create a digital logging system for beekeepers to track hive health, population dynamics, queen status, and mite treatments during field inspections.",
+  "steps": [
+    {
+      "taskId": "12bad144-5274-4e15-8469-b4ad0ab9802f",
+      "step": 1,
+      "agent": "joker",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "doing",
+      "attempts": 0,
+      "title": "Implement Hive Inspection Form and State Management",
+      "instruction": "Design and implement the front-end form for recording hive inspection metrics including queen presence, brood pattern quality, and honey super fill levels. Integrate IndexedDB for offline data persistence during field inspections.",
+      "acceptance": "The form must validate input parameters, persist data locally when offline, and successfully sync with the backend database once a connection is re-established."
+    },
+    {
+      "taskId": "7935a08f-9699-42ed-a92d-7333464ed76a",
+      "step": 2,
+      "agent": "verifier",
+      "difficulty": "medium",
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "title": "Develop Mite Percentage Calculator and Treatment Decision Tree",
+      "instruction": "Implement a calculator to process mite counts from alcohol wash or sugar shake samples (mites per 100 bees). Create a conditional UI flow that suggests treatment options based on calculated mite infestation thresholds.",
+      "acceptance": "The calculation logic must accurately compute infestation percentages and display corresponding treatment alerts when thresholds of 2-3% are exceeded, based on the current season."
+    }
+  ]
+}

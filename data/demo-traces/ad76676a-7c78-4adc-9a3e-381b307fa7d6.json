@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "runId": "08cdc72a-6a8d-4c11-b7ce-197b50b6aaf6",
+  "chatId": "ad76676a-7c78-4adc-9a3e-381b307fa7d6",
+  "status": "running",
+  "reason": "",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285514100,
+  "tier": "big",
+  "title": "Recovered work",
+  "originalRequest": "",
+  "latestMessage": "",
+  "steps": []
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "runId": "62085a68-72d2-4f6c-a2e7-0946941678ef",
+  "chatId": "ef12ab36-9650-4e92-9371-ef9b5d63d66a",
+  "status": "held",
+  "reason": "The Fast Main Orchestrator reached the per-run turn ceiling.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "tier": "small",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497942,
+  "title": "Recovered work",
+  "originalRequest": "",
+  "latestMessage": "",
+  "steps": []
+}

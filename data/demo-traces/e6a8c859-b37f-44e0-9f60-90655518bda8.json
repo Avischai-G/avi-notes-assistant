@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "runId": "a4d12cf2-796c-4ea5-8ce9-ecd96f75c4dd",
+  "chatId": "e6a8c859-b37f-44e0-9f60-90655518bda8",
+  "status": "held",
+  "reason": "Steps 1 remain blocked after verification.",
+  "boardId": "c364ea62-0500-4f04-a381-54858a2fdf3b",
+  "tier": "small",
+  "completedSteps": [],
+  "resumeMessages": [],
+  "cliFailures": 0,
+  "legacy": false,
+  "updatedAt": 1787285497937,
+  "title": "Lighthouse Lantern Room Maintenance",
+  "originalRequest": "Perform scheduled replacement of the secondary rotation motor backup battery. Task assigned to technician joker-codex. Easy difficulty rating. Two previous attempts to access the battery compartment were unsuccessful due to frozen hatch bolts. Currently blocked.",
+  "latestMessage": "Perform scheduled replacement of the secondary rotation motor backup battery. Task assigned to technician joker-codex. Easy difficulty rating. Two previous attempts to access the battery compartment were unsuccessful due to frozen hatch bolts. Currently blocked.",
+  "steps": [
+    {
+      "step": 1,
+      "agent": "joker-codex",
+      "difficulty": "easy",
+      "dependsOn": [],
+      "taskId": "37a6301e-343f-430e-81ef-3e35f925ffad",
+      "status": "blocked",
+      "attempts": 2,
+      "title": "Secondary Rotation Motor Battery Replacement",
+      "instruction": "Apply penetrating oil to the seized compartment hatch bolts, extract the corroded fasteners, open the housing, and replace the depleted 12V gel cell battery. Verify system status on the primary control console.",
+      "acceptance": "The backup battery indicator on the main console displays green (nominal voltage) and passes the standard 5-minute automated load test without dropping below 11.8V."
+    }
+  ]
+}
