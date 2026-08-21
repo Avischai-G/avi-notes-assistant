@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 COLLECTION = "cases"
@@ -24,7 +25,19 @@ def _db():
     return firestore.Client(project=os.environ["GOOGLE_CLOUD_PROJECT"], database=DATABASE)
 
 
+# Reading 39 case files out of Firestore on every page view costs ~3.5s and
+# they only change when a sweep runs. ponytail: one tuple, no cache library.
+_TTL = float(os.environ.get("CORONER_CACHE_TTL", "60"))
+_cached: tuple[float, list[dict]] | None = None
+
+
+def _invalidate() -> None:
+    global _cached
+    _cached = None
+
+
 def save(case: dict) -> None:
+    _invalidate()
     run_id = case["run_id"]
     if _USE_FIRESTORE:
         _db().collection(COLLECTION).document(run_id).set(case)
@@ -42,11 +55,17 @@ def get(run_id: str) -> dict | None:
 
 
 def all_cases() -> list[dict]:
+    global _cached
+    if _cached and time.time() - _cached[0] < _TTL:
+        return _cached[1]
     if _USE_FIRESTORE:
-        return [d.to_dict() for d in _db().collection(COLLECTION).stream()]
-    if not LOCAL.exists():
-        return []
-    return [json.loads(p.read_text()) for p in sorted(LOCAL.glob("*.json"))]
+        out = [d.to_dict() for d in _db().collection(COLLECTION).stream()]
+    elif not LOCAL.exists():
+        out = []
+    else:
+        out = [json.loads(p.read_text()) for p in sorted(LOCAL.glob("*.json"))]
+    _cached = (time.time(), out)
+    return out
 
 
 def case_ids() -> set[str]:
