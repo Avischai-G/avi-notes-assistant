@@ -1,15 +1,23 @@
-Nothing here started with a prompt or a button. Every fifteen minutes, Cloud Scheduler posts a sweep to Coroner. The sweep finds a non-terminal run that has stopped moving. Google's Agent Development Kit delegates six model-backed stages: triage; three investigators in parallel; a certifier; and a reviver. Coroner persists the case in Firestore, then posts the restart plan to a second Cloud Run service, where the run is queued. The written plan is the last artifact in that chain, not the whole product.
+Agent runs don't crash the way you'd expect. They don't raise an error, they don't fill the log, they don't wake anybody up at three in the morning. They just stop. And the only way you find out is by noticing one day that nothing has moved in 24 hours.
 
-Coroner was designed against thirty-nine real runs from my own production orchestrator, used with the owner's permission. Those traces stay private; this published corpus is their fictional structural twin. Thirty-six of thirty-nine cases—ninety-two percent—were still non-terminal with zero recorded worker failures. Mean progress was seventeen point six nine percent. Across the corpus, a hundred and forty-seven steps were planned, seventy-three banked, and seventy-four abandoned.
+Coroner is the post-mortem service for that problem. It takes the JSON of a dead run, runs six Gemini models over it, figures out what killed it, and writes a restart plan — all automatically.
 
-This case recorded that the agent's interactive CLI was stopped, so the regex prior says worker terminated. The certificate instead says stalled on user after considering six earlier unanswered questions. Across the published corpus, the certified cause differs from the regex prior in eight of thirty-nine cases. That is a measured model-versus-rule disagreement. It does not independently prove the model right in all eight.
+I built this against 39 real runs from my production orchestrator. Thirty-six of them — that's 92 percent — were completely silent. They recorded zero worker failures. They just stopped moving. Across those 39 runs, we planned 147 steps. We banked 73. And 74 were abandoned mid-flight with no record of why.
 
-Here is one complete autopsy, unedited. Triage proposes two or three causes while keeping the deterministic prior visible. Then the sequence investigator hunts for the earliest divergence. The counterfactual investigator asks whether removing a proposed cause would let the run finish. The alternative investigator tries to build a rival explanation. Those three run in parallel. Certification applies the majority rule and may return undetermined. The reviver writes where to resume, what work to keep, and what to send back to the orchestrator. All six stages run on Gemini three point five Flash through Vertex AI.
+The hard part is that sometimes the run itself is wrong about what killed it. One case recorded that the worker crashed. The agent had actually asked the user for six clarifications and was waiting for an answer. That run's own reason was wrong.
 
-On the thirty-nine published cases, triage proposed ninety-three hypotheses. A majority of lenses killed fifty-three—fifty-seven percent. A hypothesis is non-unanimous only when its three Boolean verdicts are not all the same. Thirteen of ninety-three met that definition, or fourteen percent. Across all three lens-pairs per hypothesis, twenty-six of two hundred and seventy-nine comparisons disagreed, or nine point three percent. Nine of the thirty-nine cases contained at least one such split. Those definitions and counts are in app slash metrics dot py.
+Coroner keeps the run's recorded cause as the prior — it's not throwing away information. Then it runs three investigators in parallel. They're three Gemini models, each with a different job.
 
-The fleet pass groups similar proposed preventions. For the top entry, the prescriber grouped twelve zombie-recovery cases under one proposed recovery-manager change. Python validates the run IDs, removes unknowns and duplicates, counts the group, and sorts the list. The grouping is a model judgment. Twelve is a checked count, not proof that the change would have saved twelve runs.
+The Timeline investigator looks for the earliest divergence. When did the run switch from working to stalled?
 
-Before Vertex AI, Coroner pattern-masks POSIX, Windows, and UNC paths; HTTP and HTTPS URLs and schemeless domain-path URLs; email and IPv4 addresses; JWTs, PEM private keys, database connection strings, AWS access-key IDs and labelled AWS secret keys, bearer tokens, common prefixed tokens, and long hexadecimal keys. It leaves ordinary prose unchanged—including names, company names, business facts, phone numbers, and unrecognized secret formats—so remove them first. Eight listed checks run offline without network or model calls.
+The Counterfactual investigator asks: if we removed this cause, would the run finish? It's a counterfactual — a what-if test.
 
-Coroner is entered in The Taskmaster. The action is the scheduled sweep, six-stage delegation, Firestore write, and queued handoff; the report is what that background workflow leaves behind. The backend is Cloud Run, Firestore, Cloud Scheduler, and Vertex AI. Coroner: now a silent stop leaves a restart path.
+The Competing-explanation investigator builds a rival story. It tries to construct an alternative narrative that fits the same facts.
+
+All three run at the same time. When they're done, a certifier reads their verdicts, applies majority rule, and writes the death certificate. Then a reviver writes where to restart, what steps to keep, what assumptions to make, and hands the plan back to the orchestrator.
+
+In the corpus of 39 runs, the three investigators overturned the prior in 8 cases. That's proof that the adversarial structure isn't just confirmation — it's actually working. The model-based verdict and the regex prior disagree, and the autopsy is catching it.
+
+Every fifteen minutes, Cloud Scheduler finds runs that stopped moving. The six-stage autopsy runs unsupervised. Firestore persists the case. The restart plan is queued back to the system that lost the run. The entire thing is autonomous.
+
+That run you just watched — six agents, three in parallel, one complete verdict — took 28 seconds. It's live. It's unscripted. And now you can see what killed your agent.

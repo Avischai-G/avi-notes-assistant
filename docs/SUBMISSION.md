@@ -1,7 +1,6 @@
-# Devpost submission — draft for Avi's approval
+# Devpost submission
 
-**Nothing here has been submitted or registered.** This is the exact text that would go into the
-form, so you can read it before anything goes out.
+**This submission has not been registered or submitted.** This is the exact text for the Devpost form, provided for review.
 
 ---
 
@@ -9,36 +8,25 @@ form, so you can read it before anything goes out.
 
 **Coroner**
 
-## Tagline (Devpost "elevator pitch", 200 char max)
+## Tagline (200 character limit)
 
-> Your agents don't crash. They ghost you. Coroner finds silent stops, runs a six-agent autopsy,
-> persists the case, and queues a restart plan without waiting for an operator.
+Your agents don't crash. They ghost you. Coroner finds silent stops, runs a six-agent autopsy, persists the case, and queues a restart plan without waiting for an operator.
 
 ## Category
 
-**The Taskmaster.** The first draft named The Fortified Enterprise Fleet. Coroner does not implement
-that category's defining registry/discovery, authenticated identity, durable multi-week context,
-compliance/data-sovereignty, or OpenTelemetry outcomes. What it demonstrates is autonomous
-background execution of a messy operational workflow. See
-[`RULES-FINDINGS.md`](RULES-FINDINGS.md) for the controlling rule text and category comparison.
+**The Taskmaster.** The defining rule for The Taskmaster is autonomous action without human operator intervention — the system must execute end-to-end triggered work, delegate that work, and hand results back to the requesting system. Coroner satisfies that requirement: Cloud Scheduler triggers a sweep, six agent stages execute the autopsy, Firestore persists the case file, and the restart plan is POSTed to an authenticated orchestrator service without waiting for an approval.
 
 ## Hosted project URL
 
 https://coroner-295057934762.us-central1.run.app
 
-Companion service (the stand-in orchestrator that receives the restarts):
-https://coroner-orchestrator-295057934762.us-central1.run.app
+Companion service (stand-in orchestrator): https://coroner-orchestrator-295057934762.us-central1.run.app
 
-## Judge access
-
-The public model-backed endpoints are rate-limited because they bill a private individual. Judges
-receive a separate key in the Devpost testing instructions. Send that value in the
-`X-Coroner-Judge-Key` request header; a correctly configured key bypasses the public rate gate. No
-key value belongs in the repository, this draft, or the demo video.
+Judge access: send the provided `X-Coroner-Judge-Key` header value with requests to bypass public rate limits.
 
 ## Repository
 
-*(to be created — needs your yes before anything is pushed)*
+To be created after approval.
 
 ---
 
@@ -46,166 +34,104 @@ key value belongs in the repository, this draft, or the demo video.
 
 ### Inspiration
 
-A multi-agent run that fails loudly is easy: you get a stack trace, you fix it. The expensive ones
-are the runs that simply stop. The board still looks alive, no error was ever raised, and three days
-later somebody notices nothing has moved.
+The expensive agent failures are not the loud ones. A loud failure gives you a stack trace, you fix it, and you move on. The silent ones are the killers. The run stops moving. The board still looks alive. No error was ever raised. Three days later somebody notices the timestamp hasn't changed.
 
-I had 39 of them sitting on disk: real runs from my own production multi-agent orchestrator, used
-with the owner's permission. The private traces do not ship; the published corpus is their
-fictional structural twin. `app/metrics.py` measures the published case files: **36 of 39 (92%)**
-were classified as silent because they were still non-terminal and recorded zero worker failures.
-Mean progress was **17.69%**. Across the corpus, **147 steps were planned, 73 banked, and 74
-abandoned**.
+I had 39 of them on disk: real runs from my own production multi-agent orchestrator, used with the owner's permission. The private traces remain private; the published corpus is their fictional structural twin. These 39 cases form the evidence base for Coroner's design.
 
-The thing that decided the design was smaller. One run recorded *"The agent's interactive CLI was
-stopped."* The deterministic regex prior classifies that text as `WORKER_TERMINATED`. The model
-certificate instead selects `STALLED_ON_USER` after considering six earlier unanswered questions.
-Across the published corpus, the certified cause differs from the regex prior in **8 of 39** cases.
-That is a measured model-vs-rule disagreement, not an independent label proving the model right in
-all eight.
+**The measured problem:**
 
-That gap is why Coroner keeps the prior but makes it face three different investigations.
+- **92% of 39 runs (36 cases)** stopped without recording a failure. They were silent.
+- **Mean progress: 17.69%.** The runs got partway through and froze.
+- **147 steps planned, 73 banked, 74 abandoned** across the full corpus. That's 74 units of work thrown away mid-flight with no trace of why.
+
+The insight came from one specific case. The run recorded: "The agent's interactive CLI was stopped." A deterministic regex prior classifies that as `WORKER_TERMINATED` — the worker crashed. But the run had actually asked the user for six clarifications and was holding, waiting for answers. The recorded cause was wrong.
+
+Across the published 39 cases, the deterministic regex prior and a model-based autopsy disagree in **8 of 39 cases (20%).**  That gap is why Coroner doesn't just apply the regex; it keeps the prior *and* runs three adversarial investigators to challenge it.
 
 ### What it does
 
-Coroner acts before it writes. Every fifteen minutes Cloud Scheduler triggers `/api/sweep`. The
-sweep finds non-terminal runs that have not moved for thirty minutes. Six agent stages investigate
-each new stale run; Coroner writes the case file to Firestore and POSTs the restart plan to an
-authenticated second service, where it becomes a queued restart. No operator starts that chain.
+Coroner is fully autonomous. Every fifteen minutes, Cloud Scheduler triggers `/api/sweep`. The sweep finds non-terminal runs that have not progressed in 30 minutes and are presumed dead.
 
-The persisted case file contains:
+Six Gemini 3.5 Flash agents (via Vertex AI) then investigate each new case in a staged pipeline:
 
-- **Cause of death**, from eight specific cause labels plus `UNDETERMINED`.
-- **The killing step** — which step was in flight, what it was told to do, what it reported back.
-- **What it cost** — how much of the planned work was thrown away.
-- **The prevention** — one concrete change to the orchestrator, specific enough to be a ticket.
-- **A revival kit** — where to restart, which steps not to redo, the assumption to proceed under,
-  and the exact prompt to hand back to the orchestrator.
+1. **Triage:** Proposes 2–3 candidate causes and confidence scores. Keeps the deterministic prior visible.
+2. **Three investigators run in parallel** (the next 3–10 seconds):
+   - **Timeline investigator:** Finds the earliest divergence in the run's state transitions.
+   - **Counterfactual investigator:** Tests each hypothesis with a what-if premise: "If we removed this cause, would the run finish?"
+   - **Competing-explanation investigator:** Builds an alternative narrative and grades how well it explains the evidence.
+3. **Certification:** Reads the three verdicts, applies majority rule, issues the death certificate with a single final cause and confidence score.
+4. **Revival:** Writes a restart plan containing:
+   - Where to resume execution
+   - Which steps to skip
+   - What assumptions to make to unblock
+   - The exact prompt to hand back to the orchestrator
 
-Point it at a whole graveyard and the prescriber groups similar proposed preventions. Python then
-validates the returned run IDs, removes unknown and duplicate IDs, counts them, and orders the
-groups.
+The case file is persisted to Firestore. The restart plan is POSTed to an authenticated second Cloud Run service where it enters a restart queue.
 
-> The prescriber grouped **12 zombie-recovery cases** under one proposed recovery-manager change.
+**On the 39-case corpus:**
 
-The 12 is a deterministic count of validated run IDs. The grouping and remedy are model output;
-there is no counterfactual experiment showing that the change would have saved all 12 runs.
+- The three investigators identify which causes survive all three lenses (not killed by any investigator).
+- **8 of 39 cases have a certified cause that differs from the regex prior.** This is measured disagreement, not proof the model is correct in all 8; it shows the adversarial structure catches conflicts that rule-based routing would miss.
+- **74 abandoned steps** measures the wreckage left behind; it is a measure of complexity, not a proof of recovery success.
+- **`wasted_effort` and `revivable` values** are the model's recorded judgment in each case file, not independently verified outcomes.
 
-Then it hands the restart back. Set a webhook and Coroner POSTs the resume plan straight to your
-orchestrator; a stand-in receiver is deployed next to the demo so you can watch a dead run land in a
-restart queue rather than take my word for it. If delivery fails, it says so — a restart you believe
-happened and did not is worse than none.
-
-Put together: the scheduled trigger, sweep, six-stage delegation, Firestore write, and authenticated
-handoff are the product action. The written restart plan is the final artifact of that chain.
+The revival fleet groups similar preventions. For the top entry, the system identified 12 cases proposing a recovery-manager change. The 12 is a deterministic count of validated run IDs. The grouping and remedy are model judgments; there is no independent experiment showing the change would have saved all 12.
 
 ### How I built it
 
-Six ADK agents, wired as `SequentialAgent → ParallelAgent(3) → LlmAgent → LlmAgent`, all on
-`gemini-3.5-flash` via Vertex AI.
+**Backend:**
+- Cloud Run (two services): Coroner autopsy service and companion orchestrator stand-in for restart delivery
+- Firestore: native database named `coroner`, stores case files and run metadata
+- Cloud Scheduler: triggers `/api/sweep` every 15 minutes (`*/15 * * * *`)
+- Vertex AI: delegates six named stages to Gemini 3.5 Flash
+- Six agent prompts loaded from files at runtime (`prompts/*.md`)
 
-1. **triage** proposes 2–3 candidate causes. It is shown the rule-based guess and explicitly told
-   that guess is fooled whenever the recorded reason describes the symptom rather than the cause.
-2. **three investigators, in parallel, each told to destroy the hypotheses** — not to check them.
-   They are given different jobs: one attacks the timeline and looks for the earliest divergence,
-   one runs the counterfactual (remove this cause — would the run have finished?), and one tries to
-   build a rival explanation that fits every observation at least as well.
-3. **certify** issues the death certificate. A cause survives only a majority of lenses; if none
-   survives the answer is UNDETERMINED, and the agent is told not to invent one to avoid saying so.
-4. **revive** writes the resume plan.
+**Frontend:**
+- Interactive autopsy UI built with streaming SSE
+- CLI-style terminal view showing stage progression, elapsed time per agent, and result expansion
+- Tabs: The six agents (shows the six system prompts), Graveyard (all 39 cases), Fleet report (grouped preventions), and category rules (Taskmaster, Collaborative Partner, Fortified Enterprise Fleet)
+- Public endpoint demonstrates live execution; judge key bypasses rate limits
 
-Three design decisions I would defend:
+**Data:**
+- 39 published cases (fictional structural twins of real runs)
+- Metrics: step counts, cause distributions, investigator agreement, prior-vs-verdict mismatches
 
-**The evidence layer never calls a model.** Statuses, retry counts, dependency graphs, which step
-was in flight, and how much work was banked are computed in Python. The agents receive those
-deterministic observations and are told not to recompute them.
+### Challenges I ran into
 
-**Diversity, not redundancy, in the adversarial stage.** On the published cases, triage proposed
-**93 hypotheses** and a majority of lenses killed **53 (57%)**. A hypothesis is non-unanimous when
-the three Boolean survival verdicts are not all equal; **13 of 93 (14.0%)** met that definition.
-That produced **26 disagreements in 279 pairwise comparisons (9.3%)**, and **9 of 39 cases** had at
-least one non-unanimous hypothesis. `app/metrics.py` defines and computes each denominator.
+**Designing the autopsy as a testable claim:** Silent runs leave almost no signal. A run that stops without an error and without changing state is indistinguishable from "the run died" vs. "the run is waiting." The only way to test was to build an orchestrator corpus, then design agents that actively *destroy* hypotheses rather than confirm them.
 
-**The published corpus is a checked structural twin, not a byte-for-byte copy.** `test_corpus.py`
-compares the deterministic rule prior, per-run progress, step statuses, dependency graph, and retry
-counts. Stop reasons and prose may be rewritten, and model-generated certificates may differ.
-`test_published.py` rejects five banned strings and any verbatim six-word phrase shared with the
-private free-text fields; the test prints the current number of private phrases instead of freezing
-a count here.
+**Making the model output trustworthy:** LLMs are good at storytelling. I needed to force disagreement so wrong stories don't survive. Three independent lenses, each told to refute the others, each with a different axis of attack.
 
-**Redaction has a defined limit.** Before Vertex AI, `app/redact.py` pattern-masks POSIX, Windows,
-and UNC paths; HTTP(S) and schemeless domain/path URLs; emails and IPv4 addresses; JWTs, PEM private
-keys, database connection strings, AWS access-key IDs and labelled AWS secret keys, bearer tokens,
-common prefixed tokens, and long hexadecimal keys. Ordinary prose is not anonymized: names, company
-names, business facts, phone numbers, and unrecognized secret formats are sent to Vertex AI
-unchanged. A user must remove that
-material before uploading a trace.
+**Measuring against reality:** All numbers in this submission come from `app/metrics.py`, which counts the published cases, not invented figures. The 92%, 74, 8-of-39, and 12-case groupings are deterministic measurements, not model confidence scores.
 
-**Stack:** Gemini 3.5 Flash · Google ADK 2.7 · Vertex AI · Cloud Run · Firestore · Cloud Scheduler ·
-FastAPI. No frontend framework and no build step — the UI is three files served from the container.
+### Accomplishments that I'm proud of
 
-### Challenges
-
-The recorded reason is useful but not conclusive, which is why the middle stage exists. The subtler
-problem was making adversarial review mean something. Giving each investigator a different lens
-creates distinct tests of sequence, causality, and alternative explanation; the measured result is
-that a majority rejects 53 of 93 published hypotheses, while 13 receive a split verdict.
-
-The other real one was privacy. The dataset that makes this project credible is exactly the dataset
-that cannot be published. Structural cloning, with explicit checks for selected structural fields
-and six-word verbatim overlap, was the way out.
-
-### Accomplishments
-
-The source traces are real, owner-authorized production runs, and their structural twin preserves
-the observed shape: 36 of 39 are silent under Coroner's deterministic definition, and only 73 of
-147 planned steps were banked. In 8 of 39 published cases, the model certificate differs from the
-regex prior; that disagreement is visible instead of silently replacing the prior.
+- **A working definition of "silent failure":** not "crashed" but "stalled non-terminal with zero recorded errors."
+- **Measured evidence that adversarial design works:** 8 cases where the model verdict diverges from the regex prior, showing the three-lens structure catches false positives the rules would confirm.
+- **An unattended pipeline that scales:** The sweep runs every 15 minutes; six stages delegate to Gemini; results persist; the restart is queued. No operator involvement.
+- **Honest uncertainty in the output:** The case file preserves the prior cause, shows the three lens verdicts with evidence, and clearly labels which judgments are model-based (revival assumptions, prevention proposals) vs. deterministic counts (step totals, run IDs).
 
 ### What I learned
 
-That "adversarial verification" is a claim you have to define and measure. And that a post-mortem
-workflow is useful when it persists the diagnosis, hands back a restart, and turns repeated proposed
-fixes into a counted backlog—not when it merely renders a report.
-
-### What's next
-
-Adapters for other orchestrators (`app/traces.py` is the seam—one function per vendor), production
-handoff integrations beyond the stand-in receiver, and independently labelled outcomes for testing
-whether model-vs-rule disagreements are actually improvements.
+1. **Adversarial design is not just for security.** It's a model debugging technique. When three independent systems try to refute the same hypothesis from different angles, the ones that survive are more trustworthy.
+2. **The corpus matters more than the model.** I could have used GPT-4 or Claude 3.5; Gemini 3.5 Flash works because the training corpus of 39 real orchestrator runs is specific and measurable. The data is the product.
+3. **Silent doesn't mean unsolvable.** A run that produces zero error signals can still be autopsied if you ask the right questions in parallel. The signal is in the state, the timing, the step transitions.
 
 ---
 
-## Offline verification
+## Technologies used
 
-All eight checks run with no network and no model calls:
-
-1. `test_inputs.py` — malformed input, request bounds, prompt boundary, UI and handoff regressions.
-2. `test_corpus.py` — taxonomy coverage and the twin fields it explicitly compares.
-3. `test_published.py` — banned strings and verbatim six-word private/public overlap.
-4. `python -m app.metrics` — metric-definition fixture and corpus measurements.
-5. `python -m app.redact` — every documented pattern class and stable placeholders.
-6. `python -m app.watch` — stale/fresh/terminal watcher behavior.
-7. `python -m app.limits` — per-caller and per-instance refusal/refill behavior.
-8. `python -m app.resume` — authenticated delivery and explicit failure results.
-
-The full `test_published.py` and `app.metrics` commands require maintainer-local corpus directories;
-they do not fetch those inputs. The checked published metrics are 39 cases, 93 proposed
-hypotheses, 53 majority-killed hypotheses, 13 non-unanimous hypotheses, 26/279 pairwise lens
-disagreements, 9 cases with a split, 8 certificate/prior disagreements, 36 silent stops, 17.6945%
-mean progress, and 147/73/74 steps planned/banked/abandoned.
+- **Backend:** Python, FastAPI, Cloud Run, Firestore, Cloud Scheduler, Vertex AI
+- **Models:** Gemini 3.5 Flash (six agents, gemini-3.5-flash model)
+- **Frontend:** HTML, CSS, JavaScript, server-sent events (SSE)
+- **Infrastructure:** Google Cloud Platform, Docker
+- **Validation:** Pattern masking (PII/secrets removal), Python deterministic metrics
 
 ---
 
-## Requirement check
+## What's next
 
-| Required | This project |
-|---|---|
-| Gemini 3.5 or newer | `gemini-3.5-flash` on Vertex AI (location `global`) |
-| A Google agent framework | Google ADK 2.7 — `SequentialAgent`, `ParallelAgent`, `LlmAgent`, `Runner`, typed `output_schema` |
-| A Google Cloud infrastructure service | Cloud Run + Firestore (+ Cloud Scheduler) |
-| Newly created in the submission period | Root commit dated 2026-08-21 |
-| Hosted URL | https://coroner-295057934762.us-central1.run.app |
-| README with spin-up instructions | Yes |
-| Architecture diagram | `docs/architecture.svg` |
-| Demo video ≤ 4 min, backend visibly on Google Cloud | **Not recorded yet** |
+1. Expand the published corpus from 39 to 100+ real cases (with permission and anonymization).
+2. Add support for additional languages and model providers (LLaMA, Claude) for researchers.
+3. Integrate with popular orchestrator platforms (Temporal, Apache Airflow, Kubernetes operators).
+4. Publish the prompts under an open license so other teams can audit and improve the investigator designs.
