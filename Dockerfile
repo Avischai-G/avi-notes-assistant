@@ -9,7 +9,7 @@ RUN pip install -r requirements.txt
 COPY app ./app
 COPY web ./web
 COPY data/fleet.json data/sample-trace.json ./data/
-COPY server.py cli.py ./
+COPY server.py cli.py stub_orchestrator.py ./
 
 # Cloud Run sets $PORT. One worker: the work is IO-bound on Vertex, and the
 # autopsy streams, so concurrency inside the worker is what matters.

@@ -132,8 +132,8 @@
   <text x="496" y="834" class="xs">92% of dead runs never report a failure, so nobody knows to ask for an autopsy.</text>
   <text x="496" y="854" class="xs">Any non-terminal run that has not moved for 30 minutes is presumed dead and examined unasked.</text>
 
-  <path class="lnw" d="M1402 526 L1402 552"/>
-  <path class="lnw" d="M1600 700 L1600 829 L1176 829"/>
+  <path class="ln" d="M1402 526 L1402 556"/>
+  <path class="lnw" d="M1610 470 L1610 829 L1176 829"/>
   <path class="lnw" d="M470 829 L238 829 L238 532"/>
 
   <!-- ============ platform ============ -->
@@ -153,12 +153,19 @@
   <path class="lng" d="M404 782 L440 782 L440 660 L494 660"/>
   <path class="lng" d="M404 790 L452 790 L452 380 L504 380" opacity="0"/>
 
+  <rect x="1236" y="688" width="332" height="90" class="box" stroke="#21453a"/>
+  <text x="1254" y="716" class="t" font-size="14"><tspan class="grn">your orchestrator</tspan></text>
+  <text x="1254" y="736" class="xs">POST the resume plan to a URL you set</text>
+  <text x="1254" y="754" class="xs">the loop closes without a human: nobody</text>
+  <text x="1254" y="770" class="xs">asked for the autopsy or for the restart</text>
+  <path class="lng" d="M1146 648 L1200 648 L1200 733 L1230 733"/>
+
   <rect x="1236" y="562" width="332" height="96" class="box" stroke="#2e4457"/>
   <text x="1254" y="590" class="t" font-size="14">Browser</text>
   <text x="1254" y="610" class="xs">graveyard · case file · fleet report</text>
   <text x="1254" y="628" class="xs">live autopsy, streamed stage by stage</text>
   <text x="1254" y="646" class="xs">no framework, no build step</text>
-  <path class="lng" d="M404 688 L436 688 L436 890 L1600 890 L1600 664"/>
+  <path class="lng" d="M404 688 L436 688 L436 890 L1596 890 L1596 664"/>
 
   <text x="48" y="926" class="xs">Designed against 39 real dead runs from a production orchestrator · 92% silent · 18% of planned work banked · agents overruled the recorded cause on 8 of 39</text>
 </svg>

@@ -132,14 +132,35 @@ async function caseFile(id) {
           <div class="row"><b>Proceed under</b><div>${esc(plan.unblock || '—')}</div></div>
           <div class="row"><b>Still worth keeping</b><div>${esc(plan.salvage || '—')}</div></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px">
           <b style="font-size:12px;color:var(--dimmer);font-family:var(--mono);letter-spacing:.6px">HAND THIS TO THE ORCHESTRATOR</b>
-          <button class="copy" id="cp">copy</button>
+          <span style="display:flex;gap:7px">
+            <button class="copy" id="cp">copy</button>
+            ${id === 'live' ? '' : '<button class="copy send" id="send">hand it back &rarr;</button>'}
+          </span>
         </div>
-        <pre class="prompt" id="rp">${esc(plan.restart_prompt || '')}</pre>`
+        <pre class="prompt" id="rp">${esc(plan.restart_prompt || '')}</pre>
+        <p class="sent" id="sent"></p>`
       : `<p style="margin:0;color:var(--dim)">Not revivable. ${esc(plan.unblock || '')}</p>
          <p style="margin:10px 0 0;color:var(--dim)"><b style="color:var(--ink)">Salvage:</b> ${esc(plan.salvage || '—')}</p>`}
     </div>`;
+
+  $('#send')?.addEventListener('click', async (e) => {
+    e.target.disabled = true; e.target.textContent = 'handing back…';
+    const out = $('#sent');
+    try {
+      const r = await fetch(`/api/case/${encodeURIComponent(id)}/resume`, { method: 'POST' });
+      const d = await r.json();
+      out.className = `sent ${d.delivered ? 'ok' : 'no'}`;
+      out.textContent = d.delivered
+        ? `Delivered — the orchestrator accepted it (HTTP ${d.status}). ${d.detail}`
+        : `Not delivered: ${d.detail}`;
+    } catch (err) {
+      out.className = 'sent no';
+      out.textContent = `Not delivered: ${err.message}`;
+    }
+    e.target.disabled = false; e.target.textContent = 'hand it back →';
+  });
 
   $('#cp')?.addEventListener('click', async (e) => {
     await navigator.clipboard.writeText($('#rp').textContent);

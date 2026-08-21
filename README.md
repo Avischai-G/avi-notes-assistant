@@ -53,6 +53,16 @@ have to *invoke* solves half the problem. A Cloud Scheduler job hits `/api/sweep
 minutes; any run still in a non-terminal state that has not moved for thirty minutes is presumed
 dead and autopsied unprompted. `app/watch.py` is the whole of it.
 
+**And it hands the restart back.** Set `CORONER_RESUME_WEBHOOK` and Coroner POSTs the resume plan
+to your orchestrator instead of putting a copy button next to it. The watcher does this
+automatically, so a run can die, be noticed, be autopsied, and be queued for restart with no human
+in the loop at any point. A stand-in receiver ships in `stub_orchestrator.py`, deployed alongside
+the demo so the loop can be watched end to end rather than described:
+
+> **https://coroner-orchestrator-295057934762.us-central1.run.app** — the runs Coroner has handed back.
+
+If delivery fails it says so. A restart you believe happened and did not is worse than none.
+
 **A whole graveyard → a ranked list of fixes.** Every certificate proposes a prevention for
 its own run. Most are the same handful of fixes in different words. The fleet pass
 collapses them and ranks by deaths prevented:
@@ -87,6 +97,7 @@ flowchart TB
         C --> V["LlmAgent<br/><b>revive</b><br/><i>resume plan</i>"]
     end
 
+    V --> ORC["your orchestrator<br/><i>POST the resume plan</i>"]
     V --> FS[("Firestore<br/><i>case files</i>")]
     FS --> FL["LlmAgent<br/><b>prescriber</b><br/><i>ranked fixes</i>"]
 
@@ -260,6 +271,7 @@ python test_published.py  # no phrase from the private corpus survives into the 
 python -m app.redact      # nothing leaks; placeholders stable across calls
 python -m app.watch       # stale runs are swept; fresh and finished ones are left alone
 python -m app.limits      # the spend ceilings actually hold, and refill
+python -m app.resume      # delivers when it should, and reports every way it can fail
 ```
 
-All five run without a network or a model.
+All six run without a network or a model.

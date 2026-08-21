@@ -189,6 +189,13 @@ button.copy {
 }
 button.copy:hover { color: var(--ink); border-color: #3d444b; }
 
+button.copy.send { color: var(--live); border-color: #21453a; background: #10201b; }
+button.copy.send:hover { color: #7ee0c2; border-color: #2d6552; }
+button.copy:disabled { opacity: .5; cursor: default; }
+.sent { margin: 11px 0 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.5; word-break: break-word; }
+.sent.ok { color: var(--live); }
+.sent.no { color: var(--dead); }
+
 ul.sig { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13.5px; }
 ul.sig li { margin-bottom: 5px; }
 

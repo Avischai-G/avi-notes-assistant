@@ -22,6 +22,9 @@ form, so you can read it before anything goes out.
 
 https://coroner-295057934762.us-central1.run.app
 
+Companion service (the stand-in orchestrator that receives the restarts):
+https://coroner-orchestrator-295057934762.us-central1.run.app
+
 ## Repository
 
 *(to be created — needs your yes before anything is pushed)*
@@ -65,6 +68,14 @@ Point it at a whole graveyard and it does the thing a single autopsy cannot: it 
 separate preventions into the ranked list of changes that would have saved the most runs.
 
 > **12 of 39 runs** would have been saved by one change to the recovery manager.
+
+Put together: a run dies quietly, the sweep notices, six agents work out what killed it, and the
+restart is queued on the orchestrator — with nobody asked at any point in that chain.
+
+Then it hands the restart back. Set a webhook and Coroner POSTs the resume plan straight to your
+orchestrator; a stand-in receiver is deployed next to the demo so you can watch a dead run arrive in
+a restart queue rather than take my word for it. If delivery fails, it says so — a restart you
+believe happened and did not is worse than none.
 
 And because 92% of dead runs never announce themselves, Coroner does not wait to be asked. A
 Cloud Scheduler job sweeps every fifteen minutes; any run that is still in a non-terminal state and

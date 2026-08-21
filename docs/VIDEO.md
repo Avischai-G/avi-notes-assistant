@@ -89,19 +89,30 @@ SURVIVED and the others say REFUTED — then down to the revival kit.
 
 ---
 
-## 2:50–3:15 · It doesn't wait to be asked
+## 2:50–3:05 · It closes the loop
+
+**Screen:** on the case file, click **hand it back →**, then switch to the stub-orchestrator tab and
+refresh — the run is queued there.
+
+> And it doesn't stop at the diagnosis. That restart plan gets posted straight to your orchestrator.
+> Here it's going to a second Cloud Run service standing in for one — and there's the dead run,
+> queued for restart.
+
+---
+
+## 3:05–3:25 · It doesn't wait to be asked
 
 **Screen:** the watcher line on the graveyard ("Watching 39 runs · last swept … "), then the
 Cloud Scheduler job in the console.
 
 > Ninety-two percent of these runs never announced they'd died — so a post-mortem service you have
 > to *ask* only solves half the problem. Cloud Scheduler hits Coroner every fifteen minutes. Any run
-> still in a non-terminal state that hasn't moved in thirty minutes is presumed dead and autopsied
-> without anyone asking.
+> still in a non-terminal state that hasn't moved in thirty minutes is presumed dead, autopsied, and
+> handed back for restart — with no human anywhere in that loop.
 
 ---
 
-## 3:15–3:35 · Backend on Google Cloud  *(required shot)*
+## 3:25–3:45 · Backend on Google Cloud  *(required shot)*
 
 **Screen — must all be visible:**
 1. Cloud Run console → service `coroner`, revision serving 100% of traffic, region `us-central1`.
@@ -114,7 +125,7 @@ Cloud Scheduler job in the console.
 
 ---
 
-## 3:35–3:45 · Close
+## 3:45–3:55 · Close
 
 **Screen:** back to the graveyard, headline figures visible.
 

@@ -18,7 +18,7 @@ import asyncio
 import time
 from dataclasses import dataclass, asdict
 
-from . import store
+from . import resume, store
 from .autopsy import perform_async
 from .findings import extract
 from .redact import redact
@@ -38,6 +38,7 @@ class Sweep:
     autopsied: list[str]
     skipped_terminal: int
     already_known: int
+    handed_back: list[str]
     errors: list[str]
 
     def as_dict(self):
@@ -75,20 +76,30 @@ async def sweep(now: float | None = None, after: float = SILENT_AFTER,
     fresh = [r for r in dead if (r.get("runId") or "") not in known]
 
     done: list[str] = []
+    handed: list[str] = []
     errors: list[str] = []
     for raw in fresh[:limit]:
         try:
             t = load(raw)
             t = redact(t)
             report = await perform_async(t, extract(t))
-            store.save(report.as_dict())
+            case = report.as_dict()
+            store.save(case)
             done.append(report.run_id)
+
+            # The loop closes here: nobody asked for this autopsy, and nobody
+            # asks for the restart either.
+            d = resume.hand_back(case)
+            if d.delivered:
+                handed.append(report.run_id)
+            elif d.status is not None or d.endpoint:
+                errors.append(f"{report.run_id[:8]}: resume not delivered — {d.detail}")
         except Exception as e:                       # one bad trace must not stop the sweep
             errors.append(f"{raw.get('runId', '?')[:8]}: {type(e).__name__}: {str(e)[:120]}")
 
     result = Sweep(at=now, watched=len(traces), silent=len(dead), autopsied=done,
                    skipped_terminal=terminal, already_known=len(dead) - len(fresh),
-                   errors=errors)
+                   handed_back=handed, errors=errors)
     store.put_meta("sweep", result.as_dict())
     return result
 

@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import fleet, limits, store, watch
+from app import fleet, limits, resume, store, watch
 from app.autopsy import STAGES, perform_async
 from app.findings import CAUSES, extract
 from app.redact import redact
@@ -168,6 +168,21 @@ async def sweep(request: Request, after: int = watch.SILENT_AFTER, limit: int = 
 @api.get("/api/sweep")
 def last_sweep():
     return store.get_meta("sweep") or {"at": None, "watched": 0, "autopsied": []}
+
+
+@api.post("/api/case/{run_id}/resume")
+def hand_back(run_id: str):
+    """Hand this run's resume plan to the configured orchestrator."""
+    c = store.get(run_id)
+    if not c:
+        raise HTTPException(404, f"no case file for {run_id}")
+    return resume.hand_back(c).as_dict()
+
+
+@api.get("/api/resume/target")
+def resume_target():
+    url = os.environ.get(resume.WEBHOOK, "")
+    return {"configured": bool(url), "endpoint": url}
 
 
 @api.get("/api/sample")
