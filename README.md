@@ -4,35 +4,50 @@
 
 Live: **https://coroner-295057934762.us-central1.run.app**
 
-A multi-agent run that fails loudly is easy. You get a stack trace, you fix it. The
-expensive ones are the runs that simply stop — the board still looks alive, no error was
-ever raised, and three days later somebody notices nothing has moved.
+A multi-agent run that fails loudly is easy. You get a stack trace, you fix it. The expensive ones
+simply stop: the board still looks alive, no failure is recorded, and three days later somebody
+notices nothing has moved.
 
-Coroner is the post-mortem service for those runs. You give it the trace a dead run left
-behind. Six agents examine it, argue about it, and hand back a death certificate and a
-plan to restart the run from where it fell over.
+Coroner handles that failure in the background. Every fifteen minutes Cloud Scheduler calls a
+sweep. A stale run is picked up, six specialized agents examine its trace, a case file is persisted
+to Firestore, and the restart plan is delivered to a second service that queues it. Nobody has to
+notice the run or press a button first. The written plan is the last artifact in that operational
+chain, not the whole product.
+
+## Hackathon category
+
+**The Taskmaster.** The first draft named The Fortified Enterprise Fleet. That category's defining
+outcomes include agent registry/discovery, authenticated agent identity, durable multi-week context,
+compliance and data-sovereignty controls, and OpenTelemetry auditability; Coroner does not implement
+those outcomes. Its demonstrated work is instead a scheduled, asynchronous, multi-step operational
+workflow, which is the Taskmaster fit. The rule text and decision record are in
+[`docs/RULES-FINDINGS.md`](docs/RULES-FINDINGS.md).
 
 ---
 
 ## The problem, measured
 
-Coroner was designed against **39 real dead runs** from a production multi-agent
-orchestrator — not a hypothetical. Reading them:
+The source corpus contains **39 real runs from the author's own production orchestrator, used with
+the owner's permission**. Those private traces are not published. The repository ships a fictional
+structural twin, and the live site shows 39 case files generated from that twin.
+
+`python -m app.metrics` measures those published case files as follows:
 
 | | |
 |---|---|
-| **92%** | stopped without ever reporting a failure. They didn't crash. They went quiet. |
-| **18%** | of planned work was banked before death, on average |
-| **74 of 147** | planned steps abandoned across the fleet |
-| **8 of 39** | runs where the recorded stop reason was **wrong**, and the agents caught it |
+| **36 of 39 (92%)** | classified as silent: still non-terminal, with zero recorded worker failures |
+| **17.69%** | mean share of planned steps banked before the stop |
+| **147 / 73 / 74** | steps planned / banked / abandoned |
+| **8 of 39** | cases where the model-certified cause differs from the deterministic regex prior |
 
-The published twin reproduces every one of those figures independently — same 36/39 silent, same
-74 abandoned steps, same 8 of 39 overruled — which is the point of building it the way it is built.
+That last row is a measured disagreement, not an independent ground-truth label. It does not prove
+that the model is right in all eight cases. It shows where the model-backed certificate challenged
+the rule-based first guess.
 
-That last row is the whole product. A trace saying `"The agent's interactive CLI was
-stopped"` is a string-matcher's dream and a liar: the CLI closing was the *consequence* of
-a run that had been sitting on an unanswered question for hours. Rules believe the string.
-Coroner doesn't.
+One published case makes the distinction concrete. Its stop text says `"The agent's interactive CLI
+was stopped"`, so the regex prior is `WORKER_TERMINATED`. The case file's model certificate instead
+selects `STALLED_ON_USER` after considering the earlier unanswered questions. Coroner preserves both
+values so the disagreement can be inspected rather than presented as settled fact.
 
 ---
 
@@ -40,34 +55,36 @@ Coroner doesn't.
 
 **One run → a case file.**
 
-- **Cause of death**, in plain English, from a fixed taxonomy of nine causes read off the
-  real corpus rather than invented.
+- **Cause of death**, in plain English, from eight specific cause labels plus `UNDETERMINED`.
 - **The killing step** — which step was in flight, what it was told to do, what it reported.
 - **What it cost** — how much of the planned work was thrown away.
 - **The prevention** — one concrete change to the orchestrator, specific enough to be a ticket.
 - **A revival kit** — where to restart, which steps not to redo, and the exact prompt to
   hand back to the orchestrator.
 
-**Nobody has to ask.** 92% of these runs never announced they had died, so a post-mortem service you
-have to *invoke* solves half the problem. A Cloud Scheduler job hits `/api/sweep` every fifteen
-minutes; any run still in a non-terminal state that has not moved for thirty minutes is presumed
-dead and autopsied unprompted. `app/watch.py` is the whole of it.
+**Nobody has to ask.** A Cloud Scheduler job hits `/api/sweep` every fifteen minutes; any run still
+in a non-terminal state that has not moved for thirty minutes is presumed dead and autopsied
+unprompted. `app/watch.py` contains that watcher.
 
 **And it hands the restart back.** Set `CORONER_RESUME_WEBHOOK` and Coroner POSTs the resume plan
 to your orchestrator instead of putting a copy button next to it. The watcher does this
 automatically, so a run can die, be noticed, be autopsied, and be queued for restart with no human
-in the loop at any point. A stand-in receiver ships in `stub_orchestrator.py`, deployed alongside
-the demo so the loop can be watched end to end rather than described:
-
-> **https://coroner-orchestrator-295057934762.us-central1.run.app** — the runs Coroner has handed back.
+in the loop at any point. An authenticated stand-in receiver ships in `stub_orchestrator.py` and is
+deployed alongside the demo at
+**https://coroner-orchestrator-295057934762.us-central1.run.app**. The demo video shows the queued
+restart on that second service without publishing its credential.
 
 If delivery fails it says so. A restart you believe happened and did not is worse than none.
 
 **A whole graveyard → a ranked list of fixes.** Every certificate proposes a prevention for
 its own run. Most are the same handful of fixes in different words. The fleet pass
-collapses them and ranks by deaths prevented:
+collapses related proposals and ranks the validated groups by case count:
 
-> **12 of 39 runs** would have been saved by one change to the recovery manager.
+> The prescriber grouped **12 zombie-recovery cases** under one proposed recovery-manager change.
+
+Python validates the returned run IDs, removes unknown and duplicate IDs, counts each group, and
+sorts it. The grouping and proposed causal remedy are model output; the count is deterministic, and
+no counterfactual experiment proves that the change would have saved all 12 runs.
 
 ---
 
@@ -77,7 +94,7 @@ collapses them and ranks by deaths prevented:
 flowchart TB
     subgraph ingest["Ingest — deterministic, no model involved"]
         T["Trace JSON<br/><i>any orchestrator</i>"] --> A["Adapter<br/>→ canonical Trace"]
-        A --> R["Redactor<br/><i>paths · URLs · keys · emails</i>"]
+        A --> R["Pattern redactor<br/><i>recognized identifiers · secrets</i>"]
         R --> E["Evidence extractor<br/><i>rules, counts, killing step</i>"]
     end
 
@@ -121,57 +138,75 @@ flowchart TB
 
 ### Why it is shaped like this
 
-**The evidence layer never calls a model.** Statuses, retry counts, dependency graphs,
-which step was in flight, how much work was banked — all counted in Python. The agents
-receive those numbers and are told not to recompute them. A model that is allowed to count
-will eventually count wrong, and a post-mortem that gets its own arithmetic wrong is worse
-than none.
+**The evidence layer never calls a model.** Statuses, retry counts, dependency graphs, which step
+was in flight, and how much work was banked are computed in Python. The agents receive those
+deterministic observations and are told not to recompute them. Model judgment begins after the
+evidence extraction boundary.
 
 **The middle stage is adversarial, and diverse.** The failure mode of an LLM reading a
-broken run is to agree with the first plausible story. Three identical skeptics agree with
-each other too. So the three investigators are given genuinely different jobs — one attacks
-the timeline, one attacks cause and effect, one tries to build a better story — and a
-hypothesis has to survive a majority of them.
+broken run is to agree with the first plausible story. The three investigators therefore have
+different jobs: one attacks the timeline, one attacks cause and effect, and one tries to build a
+better story. A hypothesis has to survive a majority of them.
 
-Measured over the corpus: **56% of proposed hypotheses were killed**, and the three lenses
-**disagreed with each other on 60%** of hypotheses. The adversarial stage is doing work,
-not rubber-stamping.
+On the published corpus, triage proposed **93 hypotheses** and a majority of lenses killed
+**53 (57%)**. A hypothesis is *non-unanimous* when its three Boolean survival verdicts are not all
+the same: **13 of 93 (14.0%)** met that definition. Across the three lens-pairs per hypothesis,
+**26 of 279 comparisons (9.3%)** disagreed; **9 of 39 cases** contained at least one non-unanimous
+hypothesis. The definitions, validation, and counts live in `app/metrics.py`.
+
+The private case set is measured separately rather than mixed into that denominator: 96 hypotheses
+proposed, 54 majority-killed (56%), 8 non-unanimous (8.3%), 16 of 288 pairwise disagreements, and
+5 of 39 cases with at least one split.
 
 **Rules first, then a jury.** A regex pass over the stop reason gives a prior. The agents
 are shown that prior and explicitly told it is fooled whenever the recorded reason
-describes the symptom. On 8 of 39 runs they overruled it.
+describes the symptom. In **8 of 39** published cases, the certified cause differs from that prior.
+That is model-vs-rule disagreement, not proof that either side is independently correct.
 
 ---
 
-## Running somebody else's money
+## Public limits and judge access
 
-The hosted demo is open to the internet and every autopsy is six live model calls, so the endpoints
-that spend money are bounded rather than trusting:
+An autopsy runs six model-backed agent stages on a private individual's billing account. Public
+traffic is therefore bounded:
 
-- **`app/limits.py`** — a token bucket per caller and a second one for the whole service. Five
-  autopsies per caller per hour, sixty across the service; sweeps are tighter. Refusals return
-  `429` with `Retry-After` instead of quietly billing.
-- **Cloud Run `--max-instances 3`**, and a billing budget with alerts at 50 / 90 / 100%.
+- `app/limits.py` allows five autopsies per caller per hour and 60 per process instance per hour.
+  The buckets live only in memory and reset on cold starts. They are not a service-wide quota.
+- Sweep traffic has separate in-memory buckets: eight per caller and 12 per process instance per
+  hour. The deployed Cloud Run service allows up to three instances.
+- Refusals return `429` with `Retry-After`.
 - **Nothing a visitor posts is stored.** `/api/autopsy` streams the report back and forgets it. It
   never enters the shared graveyard, so pointing the live demo at your own trace does not publish it
   to the next person who visits.
 
-## Privacy: how a private corpus ships a public demo
+Judges receive a separate key in the Devpost testing instructions. Send it as the
+`X-Coroner-Judge-Key` request header; a correctly configured key bypasses the public rate gate.
+The key value is never committed to this repository or written into these instructions.
 
-The 39 traces are real runs, full of somebody's actual work — file paths, internal
-hostnames, whatever the human asked for. Two separate mechanisms:
+## Privacy: exact boundary
 
-1. **Redaction at ingest** (`app/redact.py`). Paths, URLs, keys, emails and IPs are replaced
-   with stable typed placeholders — `<path:38f93f>` — before the first model call. Stable,
-   so a model can still see that two steps touched the same file without seeing which file.
-   On by default; `CORONER_REDACT=0` to disable.
+The private source corpus stays private; the repository contains its fictional structural twin.
+For a trace submitted to `/api/autopsy`, `app/redact.py` pattern-masks these recognized forms before
+the first Vertex AI call:
 
-2. **A structural twin** (`tools/synthesize.py`) for the published corpus. Every structural
-   field is copied byte-for-byte — statuses, dependency graph, retry counts, stop reasons,
-   completed-step ledger — and only the project content is regenerated as an unrelated
-   fictional project. `test_corpus.py` asserts the twin still produces an identical cause
-   distribution and identical per-run progress. The demo corpus in `data/demo-traces/` is
-   not a mock-up; it is the same corpus with the names changed.
+- POSIX, Windows drive-letter, and UNC paths;
+- HTTP(S) URLs and domain/path URLs without a scheme;
+- email addresses and IPv4 addresses;
+- JWTs, PEM private-key blocks, database connection strings, AWS access-key IDs and labelled AWS
+  secret keys, bearer tokens, common prefixed tokens, and long hexadecimal keys.
+
+The placeholders are typed and stable, so repeated values remain linkable. This is syntax-based
+masking, not anonymization. **Ordinary prose is sent to Vertex AI unchanged**, including personal
+names, company names, business facts, phone numbers, and unrecognized secret formats. Remove that
+material before uploading a trace. Redaction is on by default and can be disabled with
+`CORONER_REDACT=0`.
+
+The public twin is also narrower than “the same file with names changed.” `test_corpus.py` checks
+the deterministic rule prior, per-run progress, step statuses, dependency graph, and retry counts
+against the source traces. `test_published.py` rejects five banned strings and any verbatim six-word
+phrase shared with private free-text fields; it prints the current phrase count instead of freezing
+that moving number in documentation. Stop reasons and prose may be rewritten, and model-generated
+certificates can differ between the two corpora.
 
 ---
 
@@ -263,15 +298,22 @@ container.
 
 ## Checks
 
-Non-trivial logic leaves one runnable check behind:
+All eight checks were run offline: they make no network request and no model call. Six run from a
+clone with the installed dependencies. The full `test_published.py` and `python -m app.metrics`
+commands also require maintainer-local corpus directories; they never fetch those private inputs.
 
 ```
-python test_corpus.py     # taxonomy explains ≥85% of the corpus; published twin matches structure
-python test_published.py  # no phrase from the private corpus survives into the published one
-python -m app.redact      # nothing leaks; placeholders stable across calls
-python -m app.watch       # stale runs are swept; fresh and finished ones are left alone
-python -m app.limits      # the spend ceilings actually hold, and refill
-python -m app.resume      # delivers when it should, and reports every way it can fail
+python test_inputs.py      # malformed inputs, bounded bodies, prompt boundary, UI/handoff regressions
+python test_corpus.py      # taxonomy coverage; checked twin fields match the source traces
+python test_published.py   # banned strings and verbatim six-word overlap; prints the live phrase count
+python -m app.metrics      # validates metric definitions, then measures configured case directories
+python -m app.redact       # every documented pattern class; stable placeholders
+python -m app.watch        # stale runs swept; fresh and terminal runs ignored
+python -m app.limits       # per-caller and per-instance buckets refuse and refill
+python -m app.resume       # authenticated delivery and explicit failure results
 ```
 
-All six run without a network or a model.
+The checked published metric output is: 39 cases; 93 hypotheses proposed; 53 killed by a majority;
+13 non-unanimous; 26 of 279 pairwise disagreements; 9 cases with at least one split; 8 certificate/
+prior disagreements; 36 silent stops; 17.6945% mean progress; and 147/73/74 steps
+planned/banked/abandoned.

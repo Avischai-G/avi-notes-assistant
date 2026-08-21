@@ -179,8 +179,9 @@ async function fleetReport() {
   view.innerHTML = `
     <div class="slab">
       <h2>${esc(f.headline || '')}</h2>
-      <p>Every certificate proposed a fix for its own run. Collapsed and ranked by how many
-         deaths each one would actually have prevented.</p>
+      <p>Every certificate proposed a fix for its own run. The prescriber groups related proposals;
+         Python validates the case IDs, counts them, and ranks the groups. This is not a measured
+         counterfactual.</p>
       <div class="figures">
         <div class="fig warn"><strong>${esc(a.runs)}</strong><span>runs</span></div>
         <div class="fig"><strong>${esc(a.steps_planned)}</strong><span>steps planned</span></div>
@@ -189,7 +190,7 @@ async function fleetReport() {
       </div>
     </div>
     ${(f.prescriptions || []).map(p => `<div class="rx">
-      <div class="count"><strong>${esc(p.deaths_prevented)}</strong><span>runs saved</span></div>
+      <div class="count"><strong>${esc(p.deaths_prevented)}</strong><span>cases grouped</span></div>
       <div>
         <h4>${esc(p.change)}</h4>
         <p>${esc(p.rationale)}</p>
@@ -203,8 +204,13 @@ function autopsyView() {
   view.innerHTML = `
     <div class="slab"><h2>Autopsy a run</h2>
       <p>Drop the JSON a dead run left behind. Six agents examine it: one triages, three try to
-         destroy the theories, one certifies, one writes the restart. Nothing that identifies your
-         project reaches the model — paths, URLs and keys are replaced before the first call.</p></div>
+         destroy the theories, one certifies, one writes the restart. Before the first call, Coroner
+         pattern-masks POSIX, Windows and UNC paths; HTTP(S) and schemeless domain/path URLs; email
+         and IPv4 addresses; JWTs, PEM private-key blocks, database connection strings, AWS
+         access-key IDs and labelled AWS secret keys, bearer tokens, common prefixed tokens and long
+         hexadecimal keys. Ordinary prose—including names, company names, business facts, phone
+         numbers and unrecognized secret formats—still goes to Vertex AI unchanged; remove it
+         before uploading.</p></div>
     <div class="drop" id="drop">
       Drop a trace file here, or paste it below.
       <textarea id="ta" placeholder='{ "runId": "...", "status": "held", "steps": [...] }'></textarea>

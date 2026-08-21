@@ -38,17 +38,17 @@
   <text x="90" y="216" class="xs">whatever the dead run left behind</text>
 
   <rect x="72" y="262" width="332" height="66" class="box"/>
-  <text x="90" y="290" class="t" font-size="14">Adapter → canonical Trace</text>
+  <text x="90" y="290" class="t" font-size="14">Adapter to canonical Trace</text>
   <text x="90" y="310" class="xs">the seam: vendor-specific above, neutral below</text>
 
   <rect x="72" y="356" width="332" height="66" class="box"/>
   <text x="90" y="384" class="t" font-size="14">Redactor</text>
-  <text x="90" y="404" class="xs">paths · URLs · keys · emails → &lt;path:38f93f&gt;</text>
+  <text x="90" y="404" class="xs">recognized paths · URLs · credentials are masked</text>
 
   <rect x="72" y="450" width="332" height="76" class="box"/>
   <text x="90" y="478" class="t" font-size="14">Evidence extractor</text>
   <text x="90" y="498" class="xs">rule-based prior · counts · killing step</text>
-  <text x="90" y="516" class="xs">every number is counted here, never modelled</text>
+  <text x="90" y="516" class="xs">structural counts computed here; model judgment follows</text>
 
   <path class="ln" d="M238 234 L238 256"/>
   <path class="ln" d="M238 328 L238 350"/>
@@ -112,15 +112,15 @@
 
   <rect x="1236" y="290" width="332" height="96" class="box"/>
   <text x="1254" y="318" class="t" font-size="14">LlmAgent · <tspan class="amb">prescriber</tspan></text>
-  <text x="1254" y="338" class="xs">collapses 39 preventions into the</text>
-  <text x="1254" y="356" class="xs">ranked changes that would have</text>
-  <text x="1254" y="374" class="xs">saved the most runs</text>
+  <text x="1254" y="338" class="xs">groups 39 proposed preventions into</text>
+  <text x="1254" y="356" class="xs">related orchestrator changes;</text>
+  <text x="1254" y="374" class="xs">the grouping is model judgment</text>
 
   <rect x="1236" y="422" width="332" height="104" class="box" stroke="#3a3423"/>
   <text x="1254" y="450" class="t" font-size="14">Fleet report</text>
-  <text x="1254" y="472" class="xs">counts computed in Python and handed</text>
-  <text x="1254" y="490" class="xs">to the agent as ground truth —</text>
-  <text x="1254" y="508" class="xs">it ranks, it never counts</text>
+  <text x="1254" y="472" class="xs">run IDs validated in Python;</text>
+  <text x="1254" y="490" class="xs">group counts and ordering computed</text>
+  <text x="1254" y="508" class="xs">after the agent proposes groups</text>
 
   <path class="ln" d="M1146 633 L1180 633 L1180 211 L1230 211"/>
   <path class="ln" d="M1402 254 L1402 284"/>
@@ -128,8 +128,8 @@
 
   <!-- ============ watcher ============ -->
   <rect x="470" y="782" width="700" height="94" class="box" stroke="#3a3423"/>
-  <text x="496" y="812" class="t" font-size="14"><tspan class="amb">watcher</tspan> — Cloud Scheduler → POST /api/sweep</text>
-  <text x="496" y="834" class="xs">92% of dead runs never report a failure, so nobody knows to ask for an autopsy.</text>
+  <text x="496" y="812" class="t" font-size="14"><tspan class="amb">watcher</tspan> — Cloud Scheduler POSTs /api/sweep</text>
+  <text x="496" y="834" class="xs">36/39 cases were non-terminal with zero recorded worker failures.</text>
   <text x="496" y="854" class="xs">Any non-terminal run that has not moved for 30 minutes is presumed dead and examined unasked.</text>
 
   <path class="ln" d="M1402 526 L1402 556"/>
@@ -167,5 +167,5 @@
   <text x="1254" y="646" class="xs">no framework, no build step</text>
   <path class="lng" d="M404 688 L436 688 L436 890 L1596 890 L1596 664"/>
 
-  <text x="48" y="926" class="xs">Designed against 39 real dead runs from a production orchestrator · 92% silent · 18% of planned work banked · agents overruled the recorded cause on 8 of 39</text>
+  <text x="48" y="926" class="xs">39 owner-authorized production traces · 36/39 silent · mean progress 17.69% · certificate differs from regex prior on 8/39</text>
 </svg>
