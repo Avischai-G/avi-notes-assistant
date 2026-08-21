@@ -88,7 +88,8 @@ def measure_cases(cases: list[dict]) -> Metrics:
         silent += bool(evidence.get("silent"))
         fraction = float(evidence.get("progress") or 0.0)
         count = int(evidence.get("steps_planned") or 0)
-        progress.append(fraction)
+        if (certified or prior) != "USER_ABORT":   # a run stopped on purpose did not die
+            progress.append(fraction)
         planned += count
         banked += round(fraction * count)
 
@@ -104,7 +105,7 @@ def measure_cases(cases: list[dict]) -> Metrics:
         certified_prior_disagreements=prior_disagreements,
         silent_stops=silent,
         silent_rate=silent / count if count else 0.0,
-        mean_progress=sum(progress) / count if count else 0.0,
+        mean_progress=sum(progress) / len(progress) if progress else 0.0,
         steps_planned=planned,
         steps_banked=banked,
         steps_abandoned=planned - banked,
@@ -172,7 +173,7 @@ def print_metrics(path: Path, result: Metrics) -> None:
     print("  certified cause differs from rule prior: "
           + _ratio(result.certified_prior_disagreements, result.cases))
     print("  silent stops: " + _ratio(result.silent_stops, result.cases))
-    print(f"  mean progress: {result.mean_progress:.4%}")
+    print(f"  mean progress: {result.mean_progress:.4%} (of runs that did not stop on purpose)")
     print(f"  steps planned/banked/abandoned: {result.steps_planned}/"
           f"{result.steps_banked}/{result.steps_abandoned}")
 

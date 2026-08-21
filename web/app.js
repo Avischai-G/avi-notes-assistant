@@ -37,7 +37,7 @@ async function graveyard() {
         <div class="fig warn"><strong>${esc(a.runs)}</strong><span>runs autopsied</span></div>
         <div class="fig bad"><strong>${esc(pct(a.silent_rate))}</strong><span>died without a word</span></div>
         <div class="fig bad"><strong>${esc(a.steps_abandoned)}</strong><span>steps abandoned</span></div>
-        <div class="fig"><strong>${esc(pct(a.mean_progress))}</strong><span>work banked before death</span></div>
+        <div class="fig"><strong>${esc(pct(a.mean_progress))}</strong><span>work banked before an unplanned death</span></div>
         <div class="fig good"><strong>${esc(a.revivable)}</strong><span>still revivable</span></div>
       </div>
       ${sw ? `<div class="watch">

@@ -111,7 +111,7 @@ def extract(t: Trace) -> Evidence:
 
     if total:
         sig.append(
-            f"{total} steps planned; banked {int(t.progress * total)} "
+            f"{total} step(s) planned; banked {int(t.progress * total)} "
             f"({t.progress:.0%}). Step states: "
             + ", ".join(f"{k}={v}" for k, v in sorted(c.items()))
         )

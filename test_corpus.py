@@ -43,7 +43,7 @@ def main() -> int:
 
     avg = sum(stalled_progress) / len(stalled_progress) if stalled_progress else 0
     print(f"\n  silent stops (never reported a failure): {silent}/{n} = {silent/n:.0%}")
-    print(f"  mean progress of runs that died unintentionally: {avg:.1%}")
+    print(f"  mean progress, over traces the rules did not call a user abort: {avg:.1%}")
 
     # The taxonomy is only worth shipping if it explains most of the corpus.
     assert undetermined / n <= 0.15, (
