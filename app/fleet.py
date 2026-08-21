@@ -7,8 +7,8 @@ saved the most runs?
 
 Discipline that matters here: **the numbers are counted, the judgment is
 modelled.** Everything in `Aggregate` is computed in Python from the traces.
-The agent is handed those numbers and asked only to group and rank the
-preventions — never to count anything itself.
+The agent is handed those numbers and asked only to group the preventions.
+Python validates the returned run IDs, counts them and ranks the groups.
 """
 from __future__ import annotations
 
@@ -79,15 +79,12 @@ def aggregate(cases: list[dict]) -> Aggregate:
 class Prescription(BaseModel):
     change: str = Field(description="one concrete change to the orchestrator, specific enough to assign")
     rationale: str = Field(description="one sentence: why this class of death happens")
-    deaths_prevented: int = Field(description="how many of the listed runs this change would have saved")
     run_ids: list[str] = Field(description="the run ids this change would have saved")
     effort: str = Field(description="small | medium | large")
 
 
 class Prescriptions(BaseModel):
     prescriptions: list[Prescription]
-    headline: str = Field(
-        description="one sentence an engineering lead would repeat in a standup")
 
 
 _PRESCRIBE = """You are reviewing every post-mortem from one fleet of AI agents.
@@ -103,7 +100,8 @@ YOUR JOB
 Every certificate proposed a prevention for its own run. Most of those are the
 same handful of fixes said in different words. Collapse them.
 
-Return the ranked list of orchestrator changes, most deaths prevented first.
+Return the orchestrator-change groups. Python validates the run IDs, counts
+them, ranks the groups and writes the numerical headline.
 
 - Merge preventions that are the same change described differently. Be
   aggressive about this: two fixes that touch the same component for the same
@@ -117,8 +115,6 @@ Return the ranked list of orchestrator changes, most deaths prevented first.
   "improve error handling" — name the component and what it should do instead.
 - Ignore USER_ABORT runs. A human stopping a run on purpose is not a defect
   and there is nothing to prevent.
-- 'headline' states the single most valuable fact about this fleet in one
-  sentence, using the counted numbers.
 """
 
 
@@ -151,6 +147,60 @@ def _facts(a: Aggregate) -> str:
 {causes}"""
 
 
+def finalize(grouped: dict, cases: list[dict], a: Aggregate | None = None) -> dict:
+    """Validate model groupings and add every number deterministically."""
+    a = a or aggregate(cases)
+    full_ids = [str(c.get("run_id") or "") for c in cases if c.get("run_id")]
+    exact = {run_id: run_id for run_id in full_ids}
+    by_prefix: dict[str, list[str]] = collections.defaultdict(list)
+    for run_id in full_ids:
+        by_prefix[run_id[:8]].append(run_id)
+    aliases = {prefix: matches[0] for prefix, matches in by_prefix.items()
+               if len(matches) == 1}
+
+    seen: set[str] = set()
+    unknown = duplicates = 0
+    prescriptions = []
+    raw_groups = grouped.get("prescriptions") if isinstance(grouped, dict) else []
+    for raw in raw_groups if isinstance(raw_groups, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        validated = []
+        raw_ids = raw.get("run_ids") or []
+        for candidate in raw_ids if isinstance(raw_ids, list) else []:
+            if not isinstance(candidate, str):
+                unknown += 1
+                continue
+            run_id = exact.get(candidate) or aliases.get(candidate)
+            if not run_id:
+                unknown += 1
+                continue
+            if run_id in seen:
+                duplicates += 1
+                continue
+            seen.add(run_id)
+            validated.append(run_id[:8] if len(by_prefix[run_id[:8]]) == 1 else run_id)
+        prescriptions.append({
+            "change": raw.get("change") or "",
+            "rationale": raw.get("rationale") or "",
+            "run_ids": validated,
+            "effort": raw.get("effort") or "",
+            "deaths_prevented": len(validated),
+        })
+
+    prescriptions.sort(key=lambda p: p["deaths_prevented"], reverse=True)
+    return {
+        "aggregate": a.as_dict(),
+        "prescriptions": prescriptions,
+        "headline": (
+            f"{a.silent_rate:.0%} of {a.runs} runs stopped without reporting a failure; "
+            f"{a.steps_abandoned} planned steps were abandoned."
+        ),
+        "unknown_run_ids": unknown,
+        "duplicate_run_ids": duplicates,
+    }
+
+
 prescriber = LlmAgent(
     name="prescriber",
     model=MODEL,
@@ -179,7 +229,7 @@ async def prescribe_async(cases: list[dict]) -> dict:
     st = (await sessions.get_session(app_name=APP, user_id="coroner", session_id=s.id)).state
 
     from .autopsy import _parse
-    return {"aggregate": a.as_dict(), **_parse(st.get("prescriptions"))}
+    return finalize(_parse(st.get("prescriptions")), cases, a)
 
 
 def prescribe(cases: list[dict]) -> dict:

@@ -147,12 +147,11 @@ def case(run_id: str):
 @api.get("/api/fleet")
 def fleet_report():
     """The ranked prescriptions. Precomputed — recomputing costs ~40 model calls."""
+    cases = store.all_cases()
     cached = DATA / "fleet.json"
     if cached.exists():
-        d = json.loads(cached.read_text())
-        d["aggregate"] = fleet.aggregate(store.all_cases())   # counts stay live
-        return d
-    return fleet.prescribe(store.all_cases())
+        return fleet.finalize(json.loads(cached.read_text()), cases)
+    return fleet.prescribe(cases)
 
 
 @api.post("/api/fleet/recompute")
