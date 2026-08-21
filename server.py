@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import fleet, store, watch
+from app import fleet, limits, store, watch
 from app.autopsy import STAGES, perform_async
 from app.findings import CAUSES, extract
 from app.redact import redact
@@ -25,6 +25,21 @@ WEB = Path(__file__).parent / "web"
 DATA = Path(__file__).parent / "data"
 
 api = FastAPI(title="Coroner", description="Post-mortems for dead agent runs.")
+
+
+def _caller(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return (fwd.split(",")[0].strip() if fwd else
+            (request.client.host if request.client else "unknown"))
+
+
+def _gate(limiter: limits.Limiter, request: Request) -> None:
+    """These endpoints spend money. Refuse politely rather than quietly billing."""
+    ok, wait = limiter.check(_caller(request))
+    if not ok:
+        raise HTTPException(429, f"Rate limited — this endpoint runs live model calls. "
+                                 f"Try again in {wait}s.",
+                            headers={"Retry-After": str(wait)})
 
 
 def _summary(c: dict) -> dict:
@@ -85,15 +100,18 @@ def fleet_report():
 
 
 @api.post("/api/fleet/recompute")
-def fleet_recompute():
-    d = fleet.prescribe(store.all_cases())
-    (DATA / "fleet.json").write_text(json.dumps(d, indent=2))
-    return d
+def fleet_recompute(request: Request):
+    """~40 model calls. Rate limited, and the result is not persisted — Cloud
+    Run's filesystem is ephemeral, so the shipped fleet.json stays the source
+    of truth until someone regenerates it deliberately with the CLI."""
+    _gate(limits.sweep, request)
+    return fleet.prescribe(store.all_cases())
 
 
 @api.post("/api/autopsy")
 async def autopsy(request: Request):
     """Stream an autopsy of a trace posted as JSON. Server-sent events."""
+    _gate(limits.autopsy, request)
     try:
         raw = await request.json()
     except Exception:
@@ -113,8 +131,10 @@ async def autopsy(request: Request):
 
     async def work():
         try:
+            # Deliberately not stored. Whatever a visitor posts is theirs; it is
+            # streamed back to them and forgotten, never added to the graveyard
+            # everyone else sees.
             r = await perform_async(t, ev, on_event=emit)
-            store.save(r.as_dict())
             await q.put({"done": True, "report": r.as_dict()})
         except Exception as e:                     # the client must hear about it
             await q.put({"error": f"{type(e).__name__}: {e}"})
@@ -136,12 +156,13 @@ async def autopsy(request: Request):
 
 
 @api.post("/api/sweep")
-async def sweep(after: int = watch.SILENT_AFTER, limit: int = 10):
+async def sweep(request: Request, after: int = watch.SILENT_AFTER, limit: int = 10):
     """Look for runs that have gone quiet and autopsy them without being asked.
 
     Driven by Cloud Scheduler. Safe to call by hand — it skips anything it has
     already examined."""
-    return (await watch.sweep(after=after, limit=limit)).as_dict()
+    _gate(limits.sweep, request)
+    return (await watch.sweep(after=after, limit=min(limit, 10))).as_dict()
 
 
 @api.get("/api/sweep")

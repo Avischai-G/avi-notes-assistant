@@ -7,7 +7,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (x) => `${Math.round((x || 0) * 100)}%`;
 
-let TAX = {}, STAGES = [];
+let TAX = {}, STAGES = [], LIVE = null;
 
 /* --- graveyard --------------------------------------------------------- */
 const ago = (t) => {
@@ -74,12 +74,17 @@ const toe = (c) => `
 
 /* --- one case file ----------------------------------------------------- */
 async function caseFile(id) {
-  const c = await get(`/api/case/${encodeURIComponent(id)}`);
+  // 'live' is an autopsy this visitor just ran. It is never stored server-side,
+  // so it is rendered from what the stream handed back.
+  const c = id === 'live' && LIVE ? LIVE : await get(`/api/case/${encodeURIComponent(id)}`);
   const cert = c.certificate || {}, ev = c.evidence || {}, plan = c.resume_plan || {};
   const t = TAX[cert.cause] || {};
 
   view.innerHTML = `
-    <a class="back" href="#/graveyard">&larr; graveyard</a>
+    <a class="back" href="#/${id === 'live' ? 'autopsy' : 'graveyard'}">&larr; ${
+      id === 'live' ? 'new autopsy' : 'graveyard'}</a>
+    ${id === 'live' ? '<p class="note">You ran this one. It was streamed back to you and not stored — '
+      + 'it is not in the graveyard and nobody else can see it.</p>' : ''}
     <div class="cert">
       <div class="who">Certificate of death · run ${esc((c.run_id || '').slice(0, 8))}</div>
       <h2>${esc(c.title || 'untitled run')}</h2>
@@ -250,7 +255,8 @@ async function start(text) {
       }
       if (e.done) {
         STAGES.forEach(s => state[s.agent] = 'done'); drawPipe(state);
-        location.hash = `#/case/${encodeURIComponent(e.report.run_id)}`;
+        LIVE = e.report;
+        location.hash = '#/case/live';
       }
     }
   }

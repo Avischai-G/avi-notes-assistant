@@ -26,6 +26,9 @@ orchestrator — not a hypothetical. Reading them:
 | **74 of 147** | planned steps abandoned across the fleet |
 | **8 of 39** | runs where the recorded stop reason was **wrong**, and the agents caught it |
 
+The published twin reproduces every one of those figures independently — same 36/39 silent, same
+74 abandoned steps, same 8 of 39 overruled — which is the point of building it the way it is built.
+
 That last row is the whole product. A trace saying `"The agent's interactive CLI was
 stopped"` is a string-matcher's dream and a liar: the CLI closing was the *consequence* of
 a run that had been sitting on an unanswered question for hours. Rules believe the string.
@@ -45,11 +48,16 @@ Coroner doesn't.
 - **A revival kit** — where to restart, which steps not to redo, and the exact prompt to
   hand back to the orchestrator.
 
+**Nobody has to ask.** 92% of these runs never announced they had died, so a post-mortem service you
+have to *invoke* solves half the problem. A Cloud Scheduler job hits `/api/sweep` every fifteen
+minutes; any run still in a non-terminal state that has not moved for thirty minutes is presumed
+dead and autopsied unprompted. `app/watch.py` is the whole of it.
+
 **A whole graveyard → a ranked list of fixes.** Every certificate proposes a prevention for
 its own run. Most are the same handful of fixes in different words. The fleet pass
 collapses them and ranks by deaths prevented:
 
-> **17 of 39 runs** would have been saved by one change to the session-recovery pipeline.
+> **12 of 39 runs** would have been saved by one change to the recovery manager.
 
 ---
 
@@ -85,7 +93,11 @@ flowchart TB
     subgraph gcp["Google Cloud"]
         CR["Cloud Run<br/><i>FastAPI · SSE stream</i>"]
         VX["Vertex AI<br/><i>Gemini 3.5 Flash</i>"]
+        SCH["Cloud Scheduler<br/><i>every 15 min</i>"]
     end
+
+    SCH --> W["watcher<br/><i>presumes any run silent<br/>for 30 min is dead</i>"]
+    W --> TR
 
     TR -.-> VX
     P -.-> VX
@@ -119,6 +131,19 @@ are shown that prior and explicitly told it is fooled whenever the recorded reas
 describes the symptom. On 8 of 39 runs they overruled it.
 
 ---
+
+## Running somebody else's money
+
+The hosted demo is open to the internet and every autopsy is six live model calls, so the endpoints
+that spend money are bounded rather than trusting:
+
+- **`app/limits.py`** — a token bucket per caller and a second one for the whole service. Five
+  autopsies per caller per hour, sixty across the service; sweeps are tighter. Refusals return
+  `429` with `Retry-After` instead of quietly billing.
+- **Cloud Run `--max-instances 3`**, and a billing budget with alerts at 50 / 90 / 100%.
+- **Nothing a visitor posts is stored.** `/api/autopsy` streams the report back and forgets it. It
+  never enters the shared graveyard, so pointing the live demo at your own trace does not publish it
+  to the next person who visits.
 
 ## Privacy: how a private corpus ships a public demo
 
@@ -183,8 +208,16 @@ Deploy:
 ```bash
 CORONER_STORE=firestore ./.venv/bin/python cli.py seed        # push case files to Firestore
 gcloud run deploy coroner --source . --region us-central1 --allow-unauthenticated \
+  --max-instances 3 \
   --set-env-vars "GOOGLE_CLOUD_PROJECT=YOUR_PROJECT,GOOGLE_CLOUD_LOCATION=global,\
 GOOGLE_GENAI_USE_VERTEXAI=true,CORONER_STORE=firestore,CORONER_MODEL=gemini-3.5-flash"
+
+# Let it watch. Without this, Coroner only autopsies what you hand it.
+./.venv/bin/python cli.py seed-traces                          # give the watcher something to watch
+gcloud services enable cloudscheduler.googleapis.com
+gcloud scheduler jobs create http coroner-sweep --location=us-central1 \
+  --schedule="*/15 * * * *" --http-method=POST --attempt-deadline=900s \
+  --uri="https://YOUR-SERVICE-URL/api/sweep"
 ```
 
 ---
@@ -212,7 +245,7 @@ fails if more than 15% of a corpus lands in `UNDETERMINED`.
 |---|---|
 | Gemini 3.5 or newer | `gemini-3.5-flash` on Vertex AI |
 | Google Agent Framework | **Google ADK 2.7** — `SequentialAgent`, `ParallelAgent`, `LlmAgent`, `Runner`, typed `output_schema` |
-| Google Cloud infrastructure | **Cloud Run** (service) and **Firestore** (case files, native mode) |
+| Google Cloud infrastructure | **Cloud Run** (service), **Firestore** (case files, native mode), **Cloud Scheduler** (the watcher) |
 
 No frontend framework and no build step — the UI is three files served straight from the
 container.
@@ -223,5 +256,10 @@ Non-trivial logic leaves one runnable check behind:
 
 ```
 python test_corpus.py     # taxonomy explains ≥85% of the corpus; published twin matches structure
+python test_published.py  # no phrase from the private corpus survives into the published one
 python -m app.redact      # nothing leaks; placeholders stable across calls
+python -m app.watch       # stale runs are swept; fresh and finished ones are left alone
+python -m app.limits      # the spend ceilings actually hold, and refill
 ```
+
+All five run without a network or a model.
