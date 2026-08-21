@@ -1,253 +1,162 @@
 # Demo video — shot list and narration
 
-**Hard limit 4:00.** Budget **30–50 seconds** for live execution (measured: 28.4s–47.4s on the deployed service); **3:00–3:30** for narration and visual beats.
+**Hard limit 4:00.** Budget for live execution variance: the autopsy measured 28.4 seconds on one run, 47.4 seconds on deployment. Every beat below is triggered by a visual event, not a clock time, so the script remains valid across the full range.
 
-The video must be in English, must visibly show the hosted service on Google Cloud (`coroner-295057934762.us-central1.run.app`), and must be uploaded as **Public** on YouTube or Vimeo. Address bar and any identifying UI (run IDs, timestamps) are visible; no secret values or billing numbers on screen.
+The video must be in English, must visibly show the hosted service on Google Cloud, and must be uploaded as **Public** on YouTube or Vimeo. Address bar is visible; no secret values on screen.
 
-This shot list uses the rebuilt interactive autopsy UI. The featured run is "All six steps waiting on a human" (run `02266df1-6d2e-42be-8239-c243bd0896de`), which recorded itself as dead from a worker crash but the six agents overturned that verdict to prove it was stalled waiting for user input — the clearest evidence in the corpus that the adversarial design works.
-
-**Exact timings come from a captured stream, not guesses.** Every number below is measured.
+**Every beat must have visible motion.** No static frames. The narration is cut to fit the video, not the other way around.
 
 ---
 
-## 0:00–0:08 · The homepage (8 seconds)
+## 0:00–0:30 · Hook and problem (approximately 30 seconds)
 
-**What's on screen:** Coroner homepage at `coroner-*.run.app`. Address bar visible. Dark theme, full viewport.
+**Visual narrative:**
+1. **Fade in on the Coroner homepage.** Address bar shows `coroner-295057934762.us-central1.run.app`. Headline: "Six agents cut open one dead agent run and tell you what killed it."
+2. **Read the three sample-run cards aloud:** "Pick a dead run. It is autopsied live, in about thirty seconds." The three cards are visible.
+3. **Click card #2: "All six steps waiting on a human"** (run `02266df1-6d2e-42be-8239-c243bd0896de`).
+4. **Brief voiceover while the page transitions:** "An agent run that stops and says nothing is invisible. Nobody gets woken up. Three days later somebody notices the timestamp hasn't changed."
 
-**What you click:** Click on sample run #2: "All six steps waiting on a human" (orange/yellow card).
+**Narration (voiceover):**
+"Agent runs don't crash the way you'd expect. They ghost you. No error. No log. Just silence. Coroner is the post-mortem service for that problem."
 
-**What you say:** "Coroner watches for agent runs that stop dead and says nothing. Six Gemini models work together to figure out what killed it. Watch a real autopsy."
-
-**Notes:**
-- The three sample cards are visible in the center of the screen ("Pick a dead run. It is autopsied live, in about thirty seconds.")
-- Do not click "New autopsy" or anything else; go straight to sample #2.
-- Landing page is the context — you're picking one of three pre-loaded cases to autopsy.
-
----
-
-## 0:08–0:14 · Terminal view spawns with triage starting (6 seconds)
-
-**What's on screen:** The terminal-style autopsy view materializes. Header reads `coroner://autopsy` with "Triage is running" and an elapsed-time counter starting at ~2.5s. The Triage row shows "proposes candidate causes" as the description. Below it, bracketed together, three investigation rows appear:
-
-- Timeline lens
-- Counterfactual lens
-- Competing-explanation lens
-
-All labeled as pending. Certification and Revival rows are grayed out below.
-
-**What you click:** Nothing. Watch.
-
-**What you say:** (Silence or very brief transition sound.) The UI is doing all the talking now — the timers and checkmarks are the narration.
-
-**Notes:**
-- The elapsed time on the right grows visibly (2.5s → 6.0s).
-- Triage is the only agent working at this moment; the three investigators have not yet been assigned their tasks.
-- Run clock ticks noticeably in the header.
+**Duration:** ~25–35s depending on page load.
 
 ---
 
-## 0:14–0:22 · Triage completes; three investigators start in parallel (8 seconds)
+## 0:30–1:35 · Live autopsy streaming (approximately 65 seconds)
 
-**What's on screen:** At the 6.1-second mark (in the run's time, not wall clock):
+**Visual narrative — watch the terminal view unfold as it runs, with no cuts or interruptions. The autopsy is the performance.**
 
-- Triage row shows a **green checkmark** and "done" state.
-- **Results expand** underneath: three cause hypotheses with confidence scores (STALLED_ON_USER 85%, USER_ABORT 0.1%, WORKER_TERMINATED 0.05%).
-- The three investigator rows now show checkmarks and elapsed time (0.4s each) — they started simultaneously and are running in parallel.
-- The three rows are visually grouped together with a bracket or distinct styling to show they run at the same time.
-- Timers tick on the right for each investigator.
+1. **The terminal-style view materializes.** Header: "Triage is running". Elapsed timer visible and ticking.
+2. **Triage completes (around 6 seconds in).** Green checkmark. Results expand showing three candidate causes with confidence scores.
+3. **Immediately, three investigator rows light up and start in parallel.** Timeline, Counterfactual, Competing-explanation. Timers ticking on the right for each.
+   - **Voiceover:** "Triage proposes causes. Then three investigators attack them at once, each from a different angle."
+4. **Investigators finish one by one** (next ~10 seconds). Each shows a green checkmark as it completes. Results expand. Evidence becomes visible.
+   - **Voiceover:** "Timeline looks for when the run switched from working to stalled. Counterfactual asks: if we removed this cause, would it finish? Competing-explanation builds a rival story."
+5. **Certification row activates** (around 16 seconds in). Timer ticks.
+6. **Certification completes** (around 22 seconds in). Green checkmark. Results expand: final cause, confidence (0.95), plain-English verdict.
+   - **Key moment — voiceover:** "The run's own record said the worker crashed. The certificate says it was waiting on the user. The model overturned the prior."
+7. **Revival row activates** (around 22.5 seconds in). Timer ticks.
+8. **Revival completes** (around 28–47 seconds depending on deployment). Green checkmark. Results expand: `revivable: true`, `resume_at: [step ID]`, `unblock` assumptions, `restart_prompt`.
+   - **Voiceover:** "The reviver writes where to restart, what work to save, and the assumptions to proceed under."
 
-**What you click:** Nothing. Watch the three agents work.
+**Critical instruction:** Do not interrupt this section with cuts or transitions. It is one continuous stream. The timers and checkmarks are the visual narration. Keep the camera on the page. Scroll only if needed to show new sections appearing.
 
-**What you say:** "Triage found three possible causes. Now the three investigators attack them at the same time — each one tries to destroy the hypotheses from a different angle."
-
-**Notes:**
-- The three investigators have identical elapsed times because they start at the same instant (6.110s in the transcript).
-- This is the visual proof of parallelism — if this moment is clear, the video's central claim (six agents, three in parallel) is proven.
-- The triage results are visible and readable; they show the run recorded "WORKER_TERMINATED" but triage thinks "STALLED_ON_USER" is more likely.
-
----
-
-## 0:22–0:37 · Investigators complete one by one (15 seconds)
-
-**What's on screen:** The three investigators finish in sequence (not together). Watch them complete:
-
-- Counterfactual lens finishes first (13.89s into the run, ~7.8s elapsed per investigator).
-- Competing-explanation lens finishes next (14.47s, ~8.4s per investigator).
-- Timeline lens finishes last (16.02s, ~9.9s per investigator).
-
-Each shows:
-
-- **Green checkmark** when done.
-- **Results expand** showing "SURVIVED" and "REFUTED" verdicts for each hypothesis.
-- The frame shows which causes survived the lens and which were destroyed.
-
-All three sections are visible in the viewport at the same time so the viewer can see the verdicts stacking up.
-
-**What you click:** Nothing. Let the results pour in.
-
-**What you say:** "Each lens tries to break the hypotheses on a different axis. Timeline looks for the earliest divergence. Counterfactual asks 'what if we removed this cause?' Competing-explanation tries to build a rival story. All three agree on the winner."
-
-**Notes:**
-- Timers on the right show slight variance (7.8s vs. 9.9s) because the agents' actual work differs.
-- All three arrive within the live window; no waiting between them.
-- The key visual: STALLED_ON_USER survives all three lenses; the other two die. That's the proof.
+**Duration:** 47–65 seconds (depends on actual run timing; wait for revival to complete, do not cut early).
 
 ---
 
-## 0:37–0:45 · Certification runs (8 seconds)
+## 1:35–2:00 · Why this matters: the overturned verdict (approximately 25 seconds)
 
-**What's on screen:** The view has scrolled or the focus shifts to show:
+**Visual narrative:**
 
-- The three investigators are now all marked done with checkmarks collapsed.
-- Certification row activates with a running state (timer shows ~6.5s elapsed).
-- Description: "issues the death certificate."
-- Below it, Revival is grayed out.
-- The header still shows total elapsed time.
+1. **From the autopsy view, scroll down slightly to show the full case file.** Visible now: the three investigator verdicts stacked, each showing SURVIVED and REFUTED.
+2. **Highlight or read aloud:** All three investigators independently killed the WORKER_TERMINATED hypothesis. STALLED_ON_USER survived all three.
+3. **Scroll or transition to show the statistics at the bottom of the page:** "92% of 39 runs stopped without reporting a failure." "74 planned steps abandoned." "8 of 39 had the run's own recorded cause overturned."
+4. **Voiceover:** "Across 39 real runs from production, the model and the rules disagree in 8 cases. That is proof the adversarial structure works."
 
-**What you click:** Nothing.
-
-**What you say:** "The certifier reads the three lenses, applies the majority rule, and writes the death certificate."
-
-**Notes:**
-- Certification is not parallel; it waits for all three investigators to finish before starting (that's the architectural join point).
-- The elapsed time (6.5 seconds in the run) should be visible and ticking.
+**Duration:** ~20–30s (read the evidence at a pace the viewer can follow).
 
 ---
 
-## 0:45–0:52 · Certification completes (7 seconds)
+## 2:00–2:30 · How it works: the six agents (approximately 30 seconds)
 
-**What's on screen:** Certification row shows:
+**Visual narrative:**
 
-- **Green checkmark** and "done" state.
-- **Results expand** showing: cause ("STALLED_ON_USER"), confidence (0.95), plain English verdict, killing step, and prevention.
-- Plain English quote: "The run successfully generated 6 distinct clarification questions and handed them over to the user. It then entered a 'held' state waiting for the user's input, which was never provided, causing the run to stall indefinitely."
-- Revival row is still grayed out.
+1. **Click or navigate to the "The six agents" tab.** The page shows the six system prompts rendered from files. Triage, Timeline, Counterfactual, Competing-explanation, Certification, Revival.
+2. **Scroll through the first two or three agents' prompts** so the viewer sees they are real text, not marketing copy. Each has a clear job.
+3. **Voiceover:** "Six Gemini models. Each one has a job. Triage proposes. Three investigators destroy hypotheses. Certifier reads the votes. Reviver writes the restart."
+4. **Optional:** Show the "Collaborative Partner" or "Fortified Enterprise Fleet" tabs to demonstrate the product is being judged against multiple categories.
 
-**What you click:** Nothing.
-
-**What you say:** "The certificate: the run asked the user for six clarifications, got no answer, and stalled waiting. Ninety-five percent confident. The worker did not crash."
-
-**Notes:**
-- This is the moment the original verdict (WORKER_TERMINATED) is overturned by the certificate (STALLED_ON_USER).
-- The text is legible; the viewer sees proof that the model is reading the actual data, not just confirming a guess.
+**Duration:** ~25–35s (scroll at a readable pace).
 
 ---
 
-## 0:52–0:59 · Revival runs (7 seconds)
+## 2:30–3:05 · Cloud deployment proof (approximately 35 seconds)
 
-**What's on screen:** 
+**Visual narrative:**
 
-- Certification row is collapsed to checkmark + title.
-- Revival row activates with running state (timer shows ~5.8s elapsed).
-- Description: "writes the resume plan."
-- Header shows total elapsed time climbing toward 22.5s.
+1. **Open the Google Cloud Console in a new tab.** Navigate to **Cloud Scheduler**.
+2. **Show the `coroner-sweep` job.** Visible must be:
+   - Job name: `coroner-sweep`
+   - Schedule: `*/15 * * * *` (every 15 minutes)
+   - Status: ENABLED (green checkmark)
+   - **Do NOT show:** any secrets, API keys, billing information, full project ID if avoidable.
+3. **Click "View logs" or navigate to Cloud Run logs.** Show the recent POST `/api/sweep` entry. Scroll down slightly to show the six named stages (triage, investigator_sequence, investigator_counterfactual, investigator_alternative, certify, revive) in the logs.
+4. **Voiceover:** "Every fifteen minutes, Cloud Scheduler finds a run that stopped moving. The six-stage autopsy runs unsupervised. Firestore keeps the case. The restart plan is queued back."
+5. **Brief shot of Firestore:** Navigate to Firestore and show the `coroner` database with a case document. Show the `title`, `cause`, `confidence` fields. Do NOT show secrets or connection strings.
 
-**What you click:** Nothing.
+**Duration:** ~30–40s (slow enough to read the labels, fast enough to stay engaging).
 
-**What you say:** "The reviver writes where to restart, what work to save, and what assumptions to make to unblock."
-
-**Notes:**
-- Revival is the final sequential stage; it waits for Certification to finish.
-- The timer is visible and ticking; the run is nearly done.
-
----
-
-## 0:59–1:08 · Revival completes; case file visible (9 seconds)
-
-**What's on screen:** Revival row shows:
-
-- **Green checkmark** and "done" state.
-- **Results expand** showing: `revivable: true`, `resume_at: d2dc6bb8`, skip list (empty), `unblock` assumptions, and `restart_prompt` for the orchestrator.
-- Header shows "28.3s" (or similar — the full run took 28.36 seconds).
-- Optional: scroll down to show "Allotment Watering Roster Setup — cause of death STALLED_ON_USER, confidence 0.95. Read the death certificate →"
-- At the bottom, the statistics are visible: "92% of 39 runs stopped without reporting a failure" · "74 planned steps abandoned" · "8 of 39 had the run's own recorded cause overturned."
-
-**What you click:** Optionally, click "Read the death certificate →" to show the full case file (a detailed scroll through the verdict chain).
-
-**What you say:** "The run is revivable. The restart plan saves the six original questions, assumes standard defaults for the six unknowns, and posts back to the orchestrator. The entire autopsy ran in 28 seconds."
-
-**Notes:**
-- The clock and the measured timing prove the execution speed.
-- The statistics at the bottom provide evidence: this is not a hypothetical — it's built on 39 real runs, 74 abandoned steps, and 8 cases where the model overturned the recorded cause.
-- If you show the full case file, let the viewer read the detail: the three investigators' verdicts are visible, the survival logic is transparent.
+**Critical:** Keep every value and identifier visible. The judge must be able to see that this is deployed, scheduled, and real. No blurred screens.
 
 ---
 
-## 1:08–1:15 · (Optional) Full case file detail view (7 seconds)
+## 3:05–3:35 · The corpus and the fleet report (approximately 30 seconds)
 
-**If time permits, show this; if not, skip to 1:15.**
+**Visual narrative:**
 
-**What's on screen:** Click "Read the death certificate" or scroll to show the full case file. The page displays:
+1. **Navigate to the "Fleet report" tab** or show the graveyard view with statistics prominent.
+2. **Read aloud or display:**
+   - "92% of 39 runs stopped without reporting a failure."
+   - "147 steps planned, 73 banked, 74 abandoned across the corpus."
+   - "6 ranked prevention proposals."
+   - "8 of 39 cases where the model verdict differs from the recorded cause."
+3. **Scroll through the fleet report to show the top 2–3 prevention proposals.** Each shows a grouped set of run IDs, a proposed change, and the count of cases affected. For example: "Recovery manager: 12 cases."
+4. **Voiceover:** "The prescriber groups similar preventions. Twelve cases point to one recovery-manager fix. The twelve is a real count of run IDs. The remedy is a model judgment — not proof it would have saved all twelve."
 
-- The three investigator verdicts stacked (Timeline, Counterfactual, Competing-explanation), each showing which causes survived and which were refuted.
-- Evidence bullets under each verdict.
-- The killing step.
-- The salvage note: "The 6 planned steps and the specific clarification questions formulated by the agent are fully preserved."
-
-**What you click:** Scroll or page through slowly.
-
-**What you say:** "Here's what each investigator found. Timeline says the run handed work to the user and never got it back. Counterfactual says if the user had answered, the run would have succeeded. Competing-explanation built a rival story and rejected it. All three kill the crash hypothesis."
-
-**Notes:**
-- This proves the adversarial structure. The three lenses are not rubber-stamping; they're actively destroying hypotheses.
-- The evidence is visible (step IDs, state transitions, step counts).
+**Duration:** ~25–35s.
 
 ---
 
-## 1:15–1:45 · Context: the problem and the build (30 seconds)
+## 3:35–4:00 · Close (approximately 25 seconds)
 
-**What's on screen:** Navigate to or show (via fast cuts or a narration voiceover) the context:
+**Visual narrative:**
 
-1. A brief mention of the graveyard tab or a screenshot showing "39 dead runs" and the statistics.
-2. The agents tab, showing the six system prompts that live on the server (a fast cut showing the `prompts/` directory or the rendered agent list).
-3. A terminal or Google Cloud console showing the Cloud Scheduler trigger (`*/15 * * * *`), Cloud Run services, and Firestore.
+1. **Return to or show the homepage one more time.**
+2. **Read the headline:** "Six agents cut open one dead agent run and tell you what killed it."
+3. **Closing voiceover:** "Coroner: six autonomous agents, one dead run, the truth. Now you can see what killed yours."
+4. **Fade or hold on the Coroner logo/header.**
 
-**What you click:** Navigate the tabs or show the backend console.
-
-**What you say:** "Coroner runs six Gemini models through Vertex AI. Every fifteen minutes, Cloud Scheduler finds a run that stopped moving. The six stages run in sequence and parallel, Firestore keeps the case, and the restart plan is queued back to the orchestrator. This autopsy was live and unscripted — the timing you're seeing is real."
-
-**Notes:**
-- This is the proof of scale and automation: it's not a one-off; it's a scheduled system.
-- The six agent prompts are visible (the "Agents" tab shows them).
-- Keep it fast; the viewer doesn't need to understand every detail, just that there's a real backend.
+**Duration:** ~20–25s.
 
 ---
 
-## 1:45–3:55 · Narration: the why (2 minutes 10 seconds)
+## Production notes
 
-**What's on screen:** Return to the homepage or hold on a static frame of the autopsy view. The narration runs over a loop or series of still frames.
+### Pacing the narration
 
-**What you say:** (Read `narration.txt` in full; see below for the exact words and pacing.)
+Narration word count is ~230 words, timed to be spoken at 160–180 wpm with natural pauses. That fits comfortably into the beats above with room for silence and visual focus.
 
-**Notes:**
-- This is the longest section and contains all the detail.
-- Do not introduce new UI or new claims; just explain what was shown.
-- Every number in the narration is measured or counted (39 runs, 92%, 74 abandoned steps, 8 cases overturned).
+### Handling variance
 
----
+If the autopsy takes 47 seconds instead of 28 seconds:
+- The live autopsy section (0:30–1:35) expands. Wait for all stages to complete; do not cut.
+- Tighten the subsequent beats slightly (Fleet report, proof of deployment) to hold the 4:00 limit.
+- The narration remains the same; you simply pause longer on visuals.
 
-## 3:55–4:00 · Closing and credits (5 seconds)
+### Secrets and identifiers
 
-**What's on screen:** The homepage or a static frame showing the Coroner headline.
+✓ Address bar (URL) must be visible.
+✓ Run IDs, case titles, step IDs are public.
+✓ Log output (stages, timestamps) is safe to show.
+✗ Do NOT show: `X-Coroner-Judge-Key`, API keys, database connection strings, full project ID with billing account, credential files.
+✗ Do NOT show: personal names or identifying information from the case run prompts.
 
-**What you say:** "Coroner: the post-mortem service for silent agent failures. Six agents, one dead run, the truth."
-
-**Notes:**
-- This is the final hook; keep it short.
-- Optional credit: "Gemini 3.5 Flash · Google ADK · Vertex AI · Cloud Run · Firestore."
-
----
-
-## Recording checklist
+### Recording checklist
 
 - [ ] Run is `02266df1-6d2e-42be-8239-c243bd0896de` ("All six steps waiting on a human").
-- [ ] Address bar is visible; URL is `coroner-295057934762.us-central1.run.app` (no query params except the run ID).
-- [ ] No secret values visible (no `X-Coroner-Judge-Key`, no API keys, no bearer tokens).
-- [ ] Run completes in under 50 seconds; total video is under 4:00.
-- [ ] All three investigators finish before Certification starts (proof of parallelism).
-- [ ] Certification overturns the recorded cause (WORKER_TERMINATED → STALLED_ON_USER).
-- [ ] Revival shows the restart plan and the `unblock` assumptions.
-- [ ] Statistics at the bottom are legible (92%, 74, 8 of 39).
-- [ ] Narration is at a natural pace (165–180 words per minute; test by reading aloud).
+- [ ] Run title matches API: "Allotment Watering Roster **Setup**" (not "System").
+- [ ] Every beat has motion (no static frames for more than 2 seconds).
+- [ ] Triage completes before investigators start (proof of sequencing).
+- [ ] All three investigators show timers running in parallel.
+- [ ] Investigators complete before Certification starts (proof of join).
+- [ ] Certification shows 0.95 confidence in STALLED_ON_USER (overturns prior).
+- [ ] Revival shows `revivable: true` and restart assumptions.
+- [ ] Statistics are legible (92%, 74, 8 of 39).
+- [ ] Cloud Scheduler job visible: `coroner-sweep`, `*/15 * * * *`, ENABLED.
+- [ ] Cloud Run logs show the six named stages.
+- [ ] No secrets visible (no judge key, no billing, no API key).
+- [ ] Total runtime ≤ 4:00.
 - [ ] Video is uploaded to YouTube or Vimeo as **Public**.
 - [ ] Video link is pasted into the Devpost form.

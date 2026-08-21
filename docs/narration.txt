@@ -1,23 +1,26 @@
-Agent runs don't crash the way you'd expect. They don't raise an error, they don't fill the log, they don't wake anybody up at three in the morning. They just stop. And the only way you find out is by noticing one day that nothing has moved in 24 hours.
+HOOK AND PROBLEM (read over homepage and clicking into demo)
+Agent runs don't crash the way you'd expect. They ghost you. No error. No log. Just silence. Coroner is the post-mortem service for that problem.
 
-Coroner is the post-mortem service for that problem. It takes the JSON of a dead run, runs six Gemini models over it, figures out what killed it, and writes a restart plan — all automatically.
+LIVE AUTOPSY — TRIAGE TO REVIVAL (read over streaming terminal view as each stage completes)
+Triage proposes causes. Then three investigators attack them at once, each from a different angle.
 
-I built this against 39 real runs from my production orchestrator. Thirty-six of them — that's 92 percent — were completely silent. They recorded zero worker failures. They just stopped moving. Across those 39 runs, we planned 147 steps. We banked 73. And 74 were abandoned mid-flight with no record of why.
+Timeline looks for when the run switched from working to stalled. Counterfactual asks: if we removed this cause, would it finish? Competing-explanation builds a rival story.
 
-The hard part is that sometimes the run itself is wrong about what killed it. One case recorded that the worker crashed. The agent had actually asked the user for six clarifications and was waiting for an answer. That run's own reason was wrong.
+The run's own record said the worker crashed. The certificate says it was waiting on the user. The model overturned the prior.
 
-Coroner keeps the run's recorded cause as the prior — it's not throwing away information. Then it runs three investigators in parallel. They're three Gemini models, each with a different job.
+The reviver writes where to restart, what work to save, and the assumptions to proceed under.
 
-The Timeline investigator looks for the earliest divergence. When did the run switch from working to stalled?
+WHY THIS WORKS: THE OVERTURNED VERDICT (read over case file and statistics)
+Across 39 real runs from production, the model and the rules disagree in 8 cases. That is proof the adversarial structure works.
 
-The Counterfactual investigator asks: if we removed this cause, would the run finish? It's a counterfactual — a what-if test.
+HOW IT WORKS: THE SIX AGENTS (read over agent prompts tab)
+Six Gemini models. Each one has a job. Triage proposes. Three investigators destroy hypotheses. Certifier reads the votes. Reviver writes the restart.
 
-The Competing-explanation investigator builds a rival story. It tries to construct an alternative narrative that fits the same facts.
+CLOUD DEPLOYMENT (read over Cloud Scheduler, logs, Firestore)
+Every fifteen minutes, Cloud Scheduler finds a run that stopped moving. The six-stage autopsy runs unsupervised. Firestore keeps the case. The restart plan is queued back.
 
-All three run at the same time. When they're done, a certifier reads their verdicts, applies majority rule, and writes the death certificate. Then a reviver writes where to restart, what steps to keep, what assumptions to make, and hands the plan back to the orchestrator.
+CORPUS EVIDENCE (read over fleet report statistics)
+92 percent of 39 runs stopped without reporting a failure. 147 steps planned, 74 abandoned. The prescriber groups similar preventions. Twelve cases point to one recovery-manager fix. The twelve is a real count. The remedy is a model judgment.
 
-In the corpus of 39 runs, the three investigators overturned the prior in 8 cases. That's proof that the adversarial structure isn't just confirmation — it's actually working. The model-based verdict and the regex prior disagree, and the autopsy is catching it.
-
-Every fifteen minutes, Cloud Scheduler finds runs that stopped moving. The six-stage autopsy runs unsupervised. Firestore persists the case. The restart plan is queued back to the system that lost the run. The entire thing is autonomous.
-
-That run you just watched — six agents, three in parallel, one complete verdict — took 28 seconds. It's live. It's unscripted. And now you can see what killed your agent.
+CLOSE
+Coroner: six autonomous agents, one dead run, the truth. Now you can see what killed yours.
