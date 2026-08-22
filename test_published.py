@@ -94,6 +94,18 @@ def main() -> int:
             print(f"  {f}  …{s}…")
     assert not leaked, f"{len(leaked)} phrases survived from the private corpus"
 
+    # 3. data/sample-trace.json ships in the image (Dockerfile) and is served at
+    #    GET /api/sample, but sits outside PUBLISHED, so nothing above ever read
+    #    it. A pre-synthesis snapshot parked there leaks exactly what this test
+    #    exists to ban. Byte-identity to a published trace is the whole check:
+    #    if it is a copy, the scan above already cleared it.
+    sample = os.path.join(os.path.dirname(PUBLISHED) or ".", "sample-trace.json")
+    if os.path.exists(sample):
+        blob = open(sample, "rb").read()
+        assert any(blob == open(f, "rb").read() for f in pub_files), (
+            f"{sample} is not a byte-copy of any trace in {PUBLISHED} — "
+            "it was never scanned above and may carry private content")
+
     print(f"private traces: {len(private)}   published: {len(published)}")
     print(f"distinct {SHINGLE}-word phrases in private corpus: {len(priv_sh)}")
     print("OK — no banned strings and no phrasing carried over from the private corpus")
