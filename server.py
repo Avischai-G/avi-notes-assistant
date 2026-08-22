@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import fleet, limits, resume, store, watch
+from app import fleet, limits, resume, store, watch, chat
 from app.autopsy import STAGES, agent_cards, perform_async, watch_autopsy
 from app.findings import CAUSES, extract
 from app.redact import redact
@@ -29,7 +29,14 @@ REQUEST_BODY_TIMEOUT = 10
 JUDGE_KEY = "CORONER_JUDGE_KEY"
 JUDGE_HEADER = "x-coroner-judge-key"
 
-api = FastAPI(title="Coroner", description="Post-mortems for dead agent runs.")
+api = FastAPI(title="Task Organizer", description="A task-organizing chat app.")
+
+# Initialize chat infrastructure on startup
+try:
+    use_firestore = os.environ.get("USE_FIRESTORE", "1") != "0"
+    chat.init_chat_stores(use_firestore=use_firestore)
+except Exception as e:
+    print(f"Warning: Chat initialization failed: {e}")
 
 
 def _caller(request: Request) -> str:
@@ -323,9 +330,21 @@ def sample_trace(run_id: str):
     return json.loads(p.read_text())
 
 
+# Register chat routes
+chat.register_chat_routes(api)
+
 @api.get("/")
 def index():
-    return FileResponse(WEB / "index.html")
+    # Serve the new task-chat HTML from web/index.html
+    index_file = WEB / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    # Fallback
+    return {"message": "Task Chat - use /api/channels/init to start"}
 
 
-api.mount("/", StaticFiles(directory=WEB), name="web")
+# Mount remaining static files (if any)
+try:
+    api.mount("/", StaticFiles(directory=WEB), name="web")
+except Exception:
+    pass  # OK if no static files directory
