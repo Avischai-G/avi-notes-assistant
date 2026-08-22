@@ -36,7 +36,7 @@ structural twin, and the live site shows 39 case files generated from that twin.
 | | |
 |---|---|
 | **36 of 39 (92%)** | classified as silent: still non-terminal, with zero recorded worker failures |
-| **17.69%** | mean share of planned steps banked before the stop |
+| **19.34%** | mean share of planned steps banked before the stop, over the 33 runs that did not stop on purpose (the 6 `USER_ABORT` cases are excluded) |
 | **147 / 73 / 74** | steps planned / banked / abandoned |
 | **8 of 39** | cases where the model-certified cause differs from the deterministic regex prior |
 
@@ -315,5 +315,5 @@ python -m app.resume       # authenticated delivery and explicit failure results
 
 The checked published metric output is: 39 cases; 93 hypotheses proposed; 53 killed by a majority;
 13 non-unanimous; 26 of 279 pairwise disagreements; 9 cases with at least one split; 8 certificate/
-prior disagreements; 36 silent stops; 17.6945% mean progress; and 147/73/74 steps
+prior disagreements; 36 silent stops; 19.3375% mean progress over the 33 runs that did not stop on purpose; and 147/73/74 steps
 planned/banked/abandoned.

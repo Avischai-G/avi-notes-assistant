@@ -34,7 +34,7 @@ The video must be in English, must visibly show the hosted service on Google Clo
 4. **Investigators finish one by one** (next ~10 seconds). Each shows a green checkmark as it completes. Results expand. Evidence becomes visible.
    - **Voiceover:** "Timeline looks for when the run switched from working to stalled. Counterfactual asks: if we removed this cause, would it finish? Competing-explanation builds a rival story."
 5. **Certification row activates** (around 16 seconds in). Timer ticks.
-6. **Certification completes** (around 22 seconds in). Green checkmark. Results expand: final cause, confidence (0.95), plain-English verdict.
+6. **Certification completes** (around 22 seconds in). Green checkmark. Results expand: final cause, confidence (0.9), plain-English verdict.
    - **Key moment — voiceover:** "The run's own record said the worker crashed. The certificate says it was waiting on the user. The model overturned the prior."
 7. **Revival row activates** (around 22.5 seconds in). Timer ticks.
 8. **Revival completes** (around 28–47 seconds depending on deployment). Green checkmark. Results expand: `revivable: true`, `resume_at: [step ID]`, `unblock` assumptions, `restart_prompt`.
@@ -146,12 +146,12 @@ If the autopsy takes 47 seconds instead of 28 seconds:
 ### Recording checklist
 
 - [ ] Run is `02266df1-6d2e-42be-8239-c243bd0896de` ("All six steps waiting on a human").
-- [ ] Run title matches API: "Allotment Watering Roster **Setup**" (not "System").
+- [ ] Run title matches API: "Allotment Watering Roster **System**" (not "Setup").
 - [ ] Every beat has motion (no static frames for more than 2 seconds).
 - [ ] Triage completes before investigators start (proof of sequencing).
 - [ ] All three investigators show timers running in parallel.
 - [ ] Investigators complete before Certification starts (proof of join).
-- [ ] Certification shows 0.95 confidence in STALLED_ON_USER (overturns prior).
+- [ ] Certification shows STALLED_ON_USER, overturning the prior (0.9 confidence in every recorded run; the sample runs a fresh autopsy, so the exact value can move).
 - [ ] Revival shows `revivable: true` and restart assumptions.
 - [ ] Statistics are legible (92%, 74, 8 of 39).
 - [ ] Cloud Scheduler job visible: `coroner-sweep`, `*/15 * * * *`, ENABLED.

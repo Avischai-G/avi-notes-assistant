@@ -167,5 +167,5 @@
   <text x="1254" y="646" class="xs">no framework, no build step</text>
   <path class="lng" d="M404 688 L436 688 L436 890 L1596 890 L1596 664"/>
 
-  <text x="48" y="926" class="xs">39 owner-authorized production traces · 36/39 silent · mean progress 17.69% · certificate differs from regex prior on 8/39</text>
+  <text x="48" y="926" class="xs">39 owner-authorized production traces · 36/39 silent · mean progress 19.34% over 33 non-aborted runs · certificate differs from regex prior on 8/39</text>
 </svg>

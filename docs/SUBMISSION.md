@@ -41,7 +41,7 @@ I had 39 of them on disk: real runs from my own production multi-agent orchestra
 **The measured problem:**
 
 - **92% of 39 runs (36 cases)** stopped without recording a failure. They were silent.
-- **Mean progress: 17.69%.** The runs got partway through and froze.
+- **Mean progress: 19.34%** across the 33 runs that did not stop on purpose. The runs got partway through and froze.
 - **147 steps planned, 73 banked, 74 abandoned** across the full corpus. That's 74 units of work thrown away mid-flight with no trace of why.
 
 The insight came from one specific case. The run recorded: "The agent's interactive CLI was stopped." A deterministic regex prior classifies that as `WORKER_TERMINATED` — the worker crashed. But the run had actually asked the user for six clarifications and was holding, waiting for answers. The recorded cause was wrong.
