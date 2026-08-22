@@ -14,7 +14,7 @@ WHY THIS WORKS: THE OVERTURNED VERDICT (read over case file and statistics)
 Across 39 real runs from production, the model and the rules disagree in 8 cases. That is proof the adversarial structure works.
 
 HOW IT WORKS: THE SIX AGENTS (read over agent prompts tab)
-Six Gemini models. Each one has a job. Triage proposes. Three investigators destroy hypotheses. Certifier reads the votes. Reviver writes the restart.
+Six ADK agents. One model — Gemini 3.5 Flash. Each agent has a job. Triage proposes. Three investigators destroy hypotheses in parallel. Certifier reads the votes. Reviver writes the restart.
 
 CLOUD DEPLOYMENT (read over Cloud Scheduler, logs, Firestore)
 Every fifteen minutes, Cloud Scheduler finds a run that stopped moving. The six-stage autopsy runs unsupervised. Firestore keeps the case. The restart plan is queued back.

@@ -65,7 +65,7 @@ The video must be in English, must visibly show the hosted service on Google Clo
 
 1. **Click or navigate to the "The six agents" tab.** The page shows the six system prompts rendered from files. Triage, Timeline, Counterfactual, Competing-explanation, Certification, Revival.
 2. **Scroll through the first two or three agents' prompts** so the viewer sees they are real text, not marketing copy. Each has a clear job.
-3. **Voiceover:** "Six Gemini models. Each one has a job. Triage proposes. Three investigators destroy hypotheses. Certifier reads the votes. Reviver writes the restart."
+3. **Voiceover:** "Six ADK agents. One model — Gemini 3.5 Flash. Each agent has a job. Triage proposes. Three investigators destroy hypotheses in parallel. Certifier reads the votes. Reviver writes the restart."
 4. **Optional:** Show the "Collaborative Partner" or "Fortified Enterprise Fleet" tabs to demonstrate the product is being judged against multiple categories.
 
 **Duration:** ~25–35s (scroll at a readable pace).
