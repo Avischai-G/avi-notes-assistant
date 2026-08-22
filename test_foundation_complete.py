@@ -18,7 +18,13 @@ def test_1_adk_exactly_one_llmagent():
     print("\n[1/7] ADK construction: exactly one LlmAgent")
     from app.organizer import TaskOrganizerAgent
 
-    config = TaskOrganizerAgent.get_config()
+    # Construct actual agent instance with correct config (no real credentials needed for config check)
+    agent = TaskOrganizerAgent(
+        api_key='test-key-for-config-only',
+        model='gemini-3.5-flash',
+        location='global'
+    )
+    config = agent.get_config()
     assert config['agent_type'] == 'LlmAgent', f"Expected LlmAgent, got {config['agent_type']}"
     assert config['model'] == 'gemini-3.5-flash', f"Expected gemini-3.5-flash, got {config['model']}"
     assert config['location'] == 'global', f"Expected global location, got {config['location']}"
