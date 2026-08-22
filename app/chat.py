@@ -80,13 +80,18 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.get("/api/health")
     def health():
-        """Health check with eligibility information."""
+        """Health check with eligibility information.
+
+        Reports the actual agent's model and location, not environment variables.
+        If they differ, something is wrong with initialization.
+        """
         channel_store, task_store, agent = get_stores()
+        agent_config = agent.get_config()
         return {
             "ok": True,
-            "model": os.environ.get("CORONER_MODEL", "gemini-3.5-flash"),
-            "location": os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-            "framework": "Google ADK",
+            "model": agent_config["model"],
+            "location": agent_config["location"],
+            "framework": agent_config["framework"],
             "firestore_mode": "firestore" if isinstance(channel_store, FirestoreChannelStore) else "local",
             "build_revision": os.environ.get("BUILD_REVISION", "local"),
         }

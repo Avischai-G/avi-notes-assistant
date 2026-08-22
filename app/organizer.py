@@ -57,9 +57,14 @@ class TaskOrganizerAgent:
             model: Vertex AI model name. Default gemini-3.5-flash.
             location: Vertex AI location. Must be 'global' for hackathon eligibility.
         """
+        # Eligibility guard: hard failure if not contest-eligible
         if location != "global":
             raise ValueError(
                 f"Location must be 'global' for contest eligibility, got {location}"
+            )
+        if model != "gemini-3.5-flash":
+            raise ValueError(
+                f"Model must be 'gemini-3.5-flash' for contest eligibility (Gemini 3.5+), got {model}"
             )
 
         self.model = model
@@ -178,12 +183,16 @@ Use them when the user asks you to organize their work."""
         except Exception as e:
             yield {"error": f"{type(e).__name__}: {e}"}
 
-    @staticmethod
-    def get_config() -> dict:
-        """Return the agent configuration for eligibility checks."""
+    def get_config(self) -> dict:
+        """Return the agent configuration for eligibility checks.
+
+        Returns the actual values this instance was built with,
+        not hardcoded constants. Guards against drift between
+        environment variables and running agent.
+        """
         return {
             "agent_type": "LlmAgent",
-            "model": "gemini-3.5-flash",
-            "location": "global",
+            "model": self.model,
+            "location": self.location,
             "framework": "Google ADK",
         }
