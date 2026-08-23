@@ -30,6 +30,6 @@ weaker check is treated as equivalent.
 
 ## Ready next action
 
-Commit the prepared candidate and prove its offline setup from a clean checkout,
-then present the exact one-time live transcript, mutation set, and call estimate
-to Avi for an explicit yes. No outward live test will occur before that answer.
+Present the exact one-time live transcript, mutation set, and call estimate to Avi
+for an explicit yes. The integration commit and clean-checkout proof now exist;
+no outward live test will occur before that answer.

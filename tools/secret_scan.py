@@ -11,7 +11,16 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXCLUDED_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".pytest_cache"}
+EXCLUDED_PARTS = {
+    ".git",
+    ".npm-cache",
+    ".pytest_cache",
+    ".python",
+    ".uv-cache",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
 
 
 def _notion_values() -> list[tuple[str, bytes]]:

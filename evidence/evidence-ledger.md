@@ -14,11 +14,14 @@ Raw secrets and local credential contents are never recorded here.
 | Merged-suite test | Python suite plus JavaScript syntax and diff whitespace | `69 passed, 1 skipped`; Python compiled; all JavaScript parsed; `git diff --check` passed | pytest, compileall, `node --check`, `git diff --check` output |
 | Added live-row containment | Marker-scoped wrapper plus synthetic reset | Offline guard tests prove unowned rows hidden and mutation rejected | `tests/test_marker_scoped_store.py` |
 | Compared Card 3 boundary | Six source/destination pairs | Every pair byte-identical; SHA-256 values recorded separately | `evidence/card3-hashes.md` |
-| Secret scan before commit | Worktree (including installed dependencies), reachable patches, exact local sensitive values, generic credential shapes | PASS: 2,320 files; 1,542,936 history bytes; 5 exact values; 4 generic patterns | `tools/secret_scan.py` stdout |
+| Integration commit | Complete five-card join, obsolete-surface deletion, repaired tests, deliverables, acceptance harness | Local commit `5a05d5110c304b5aec1fd49acfc0a152facd803c`; no remote and no release tag | local git log/status |
+| Clean-checkout verification | Clone of `5a05d51`, local origin removed, repository setup with Python 3.12.12 | Setup passed; npm found 0 vulnerabilities; `69 passed, 1 skipped`; compile/JS/diff checks passed; tracked tree clean | clean-checkout terminal output |
+| Clean-checkout Card 3 comparison | Six source/destination pairs from Card 3 clone | All six `cmp` checks and SHA-256 values matched | clean-checkout terminal output; `evidence/card3-hashes.md` |
+| Secret scan after integration commit | Repository/local-data files, reachable patches, exact local sensitive values, generic credential shapes; generated dependency/cache trees excluded | PASS: 65 files; 2,889,584 history bytes; 5 exact values; 4 generic patterns | `tools/secret_scan.py` stdout |
 | Attempted merged rendered QA | First `UI_BASE_URL=http://127.0.0.1:8764 npm run test:ui`, then—after matching browsers were installed—unchanged `npm run test:ui` | `UNVERIFIED`: no browser context in this sandbox. The final unchanged run launched system Chrome, then it exited `SIGABRT`; cleanup reported `kill EPERM`. Avi independently proved matching Chromium and WebKit can read a DOM outside this run. | `evidence/browser/report.json`, `debug/1/ledger.md`, Avi's independent runtime probe |
 
 Matching Playwright browsers are now installed, but this managed run still cannot
 create a context. The remaining resolution is to execute the unchanged suite
 outside this sandbox. No static or DOM-only assertion is recorded as rendered verification.
-Further post-commit secret, clean-checkout, live, cleanup, restart, and tag rows
-will be appended only after observation.
+Further final secret, live, cleanup, restart, and tag rows will be appended only
+after observation.
