@@ -1,6 +1,15 @@
 .git
-.venv
+.venv*
 __pycache__
 *.pyc
-data/cases
 .env
+.knowledge
+evidence
+tests
+test_*.py
+requirements-dev.txt
+node_modules
+.npm-cache
+.package-inspect
+notion-mcp-server-*.tgz
+evidence/.notion-live-smoke-state.json

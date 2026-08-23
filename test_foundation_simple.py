@@ -74,13 +74,13 @@ def test_task_store():
     store = FakeTaskStore()
 
     # Create task
-    task = store.create_task('Buy milk', lane='what to do today')
+    task = store.create_task('Buy milk', lane='Not started')
     assert task.title == 'Buy milk', "Task title mismatch"
-    assert task.lane == 'what to do today', "Task lane mismatch"
+    assert task.lane == 'Not started', "Task status mismatch"
 
     # List and retrieve
-    today = store.list_tasks('what to do today')
-    assert len(today) == 1, "Should have 1 task in today lane"
+    not_started = store.list_tasks('Not started')
+    assert len(not_started) == 1, "Should have one Not started task"
 
     # Rename
     store.rename_task(task.id, 'Buy organic milk')
@@ -88,9 +88,9 @@ def test_task_store():
     assert tasks[0].title == 'Buy organic milk', "Rename failed"
 
     # Move
-    store.move_task(task.id, 'what to not do today')
-    not_today = store.list_tasks('what to not do today')
-    assert len(not_today) == 1, "Move to not-today failed"
+    store.move_task(task.id, 'In progress')
+    in_progress = store.list_tasks('In progress')
+    assert len(in_progress) == 1, "Status move failed"
 
     # Verify operations recorded
     assert len(store.operations) == 3, "Should have 3 operations recorded"
@@ -100,42 +100,27 @@ def test_task_store():
 def test_agent_config():
     """Test agent configuration."""
     print("Testing TaskOrganizerAgent configuration...")
-    # We can't instantiate without a real API key, but we can check the static method
-
-    try:
-        from app.organizer import TaskOrganizerAgent
-        config = TaskOrganizerAgent.get_config()
-        assert config['agent_type'] == 'LlmAgent', "Should be LlmAgent"
-        assert config['model'] == 'gemini-3.5-flash', "Should use gemini-3.5-flash"
-        assert config['location'] == 'global', "Should use global location"
-        assert config['framework'] == 'Google ADK', "Should use Google ADK"
-        print("✓ TaskOrganizerAgent: exactly one LlmAgent, gemini-3.5-flash, global location")
-    except Exception as e:
-        print(f"✗ Agent config test failed: {e}")
-        return False
-
-    return True
+    from app.organizer import TaskOrganizerAgent
+    agent = TaskOrganizerAgent(api_key="offline")
+    config = agent.get_config()
+    assert config['agent_type'] == 'LlmAgent', "Should be LlmAgent"
+    assert config['model'] == 'gemini-3.5-flash', "Should use gemini-3.5-flash"
+    assert config['location'] == 'global', "Should use global location"
+    assert config['framework'] == 'Google ADK', "Should use Google ADK"
+    print("✓ TaskOrganizerAgent: exactly one LlmAgent, gemini-3.5-flash, global location")
 
 
 def test_no_orchestration():
-    """Verify organizer never performs or dispatches work."""
-    print("Testing organizer explicitly states it never performs/dispatches...")
+    """Verify the short prompt keeps the assistant organize-only."""
+    print("Testing the assistant stays organize-only...")
 
-    try:
-        from app.organizer import SYSTEM_PROMPT
+    from app.organizer import SYSTEM_PROMPT
 
-        # Check what's in the prompt
-        assert 'organize' in SYSTEM_PROMPT.lower(), "Should mention organizing"
-        assert 'never' in SYSTEM_PROMPT.lower() and 'perform' in SYSTEM_PROMPT.lower(), \
-            "Should explicitly say it never performs work"
-        assert 'never' in SYSTEM_PROMPT.lower() and 'dispatch' in SYSTEM_PROMPT.lower(), \
-            "Should explicitly say it never dispatches work"
-        print("✓ System prompt: organizes tasks, explicitly never performs or dispatches work")
-    except Exception as e:
-        print(f"✗ Orchestration test failed: {e}")
-        return False
-
-    return True
+    assert 'organize' in SYSTEM_PROMPT.lower(), "Should mention organizing"
+    assert 'never do the task itself' in SYSTEM_PROMPT.lower(), \
+        "Should explicitly say it never does the task"
+    assert len(SYSTEM_PROMPT.split()) <= 90, "Prompt should stay readable in fifteen seconds"
+    print("✓ System prompt: short, personal, and organize-only")
 
 
 def main():

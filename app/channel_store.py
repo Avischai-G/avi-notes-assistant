@@ -36,6 +36,12 @@ class ChannelStore:
         """Create a new channel. Returns the channel ID."""
         raise NotImplementedError
 
+    def ensure_channel(self, channel_id: str) -> str:
+        """Create only when absent; restart-safe stable channel binding."""
+        if not self.get_channel(channel_id):
+            return self.create_channel(channel_id)
+        return channel_id
+
 
 class LocalChannelStore(ChannelStore):
     """Deterministic local test store. Production uses Firestore."""
@@ -55,6 +61,10 @@ class LocalChannelStore(ChannelStore):
         if channel_id is None:
             channel_id = str(uuid.uuid4())
         self.channels[channel_id] = []
+        return channel_id
+
+    def ensure_channel(self, channel_id: str) -> str:
+        self.channels.setdefault(channel_id, [])
         return channel_id
 
 
@@ -104,4 +114,10 @@ class FirestoreChannelStore(ChannelStore):
             "messages": [],
             "created_at": datetime.utcnow(),
         })
+        return channel_id
+
+    def ensure_channel(self, channel_id: str) -> str:
+        ref = self.db.collection("channels").document(channel_id)
+        if not ref.get().exists:
+            self.create_channel(channel_id)
         return channel_id

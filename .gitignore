@@ -1,4 +1,15 @@
-.venv/
+.venv*/
+.test-deps/
 __pycache__/
 *.pyc
 .env
+.knowledge/
+evidence/live/
+evidence/browser/*.png
+node_modules/
+.npm-cache/
+.python/
+.uv-cache/
+.package-inspect/
+notion-mcp-server-*.tgz
+evidence/.notion-live-smoke-state.json

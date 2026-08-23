@@ -7,6 +7,7 @@ and location=global. It is not asserting constants.
 
 import sys
 import os
+import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.organizer import TaskOrganizerAgent
@@ -15,62 +16,41 @@ from app.organizer import TaskOrganizerAgent
 def test_wrong_model_fails():
     """Test: agent rejects model that is not gemini-3.5-flash."""
     print("\n[TEST 1] Wrong model: agent rejects gemini-2.0-flash")
-    try:
-        agent = TaskOrganizerAgent(
+    with pytest.raises(ValueError, match="gemini-3.5-flash"):
+        TaskOrganizerAgent(
             api_key='test-key',
             model='gemini-2.0-flash',  # WRONG - not eligible
             location='global'
         )
-        print("  ✗ FAILED: Should have raised ValueError")
-        return False
-    except ValueError as e:
-        if 'gemini-3.5-flash' in str(e) and 'eligibility' in str(e).lower():
-            print(f"  ✓ PASS: {e}")
-            return True
-        else:
-            print(f"  ✗ FAILED: Wrong error message: {e}")
-            return False
+    print("  ✓ PASS: wrong model rejected")
 
 
 def test_wrong_location_fails():
     """Test: agent rejects location that is not global."""
     print("\n[TEST 2] Wrong location: agent rejects us-central1")
-    try:
-        agent = TaskOrganizerAgent(
+    with pytest.raises(ValueError, match="global"):
+        TaskOrganizerAgent(
             api_key='test-key',
             model='gemini-3.5-flash',
             location='us-central1'  # WRONG - not eligible
         )
-        print("  ✗ FAILED: Should have raised ValueError")
-        return False
-    except ValueError as e:
-        if 'global' in str(e) and 'eligibility' in str(e).lower():
-            print(f"  ✓ PASS: {e}")
-            return True
-        else:
-            print(f"  ✗ FAILED: Wrong error message: {e}")
-            return False
+    print("  ✓ PASS: wrong location rejected")
 
 
 def test_correct_config_succeeds():
     """Test: agent accepts correct model and location."""
     print("\n[TEST 3] Correct config: agent accepts gemini-3.5-flash at global")
-    try:
-        agent = TaskOrganizerAgent(
-            api_key='test-key',
-            model='gemini-3.5-flash',  # CORRECT
-            location='global'  # CORRECT
-        )
-        config = agent.get_config()
-        assert config['model'] == 'gemini-3.5-flash', f"Expected model in config, got {config}"
-        assert config['location'] == 'global', f"Expected location in config, got {config}"
-        print(f"  ✓ PASS: Agent created with correct config")
-        print(f"    - model: {config['model']}")
-        print(f"    - location: {config['location']}")
-        return True
-    except Exception as e:
-        print(f"  ✗ FAILED: {e}")
-        return False
+    agent = TaskOrganizerAgent(
+        api_key='test-key',
+        model='gemini-3.5-flash',  # CORRECT
+        location='global'  # CORRECT
+    )
+    config = agent.get_config()
+    assert config['model'] == 'gemini-3.5-flash', f"Expected model in config, got {config}"
+    assert config['location'] == 'global', f"Expected location in config, got {config}"
+    print("  ✓ PASS: Agent created with correct config")
+    print(f"    - model: {config['model']}")
+    print(f"    - location: {config['location']}")
 
 
 def main():
@@ -87,8 +67,8 @@ def main():
     results = []
     for test in tests:
         try:
-            result = test()
-            results.append(result)
+            test()
+            results.append(True)
         except Exception as e:
             print(f"  ✗ ERROR: {e}")
             import traceback

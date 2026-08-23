@@ -7,20 +7,29 @@ from __future__ import annotations
 
 import json
 import os
-import asyncio
+from copy import deepcopy
 from typing import Optional
-from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 try:
-    from firebase_admin import firestore
+    from google.cloud import firestore
 except ImportError:
     firestore = None
 
 from app.channel_store import LocalChannelStore, FirestoreChannelStore, Message
-from app.context_window import ContextWindow
+from app.automations import (
+    AutomationRunner,
+    DEFAULT_AUTOMATIONS,
+    FirestoreAutomationStore,
+    LocalAutomationStore,
+)
+from app.notion_mcp import NotionConfigurationError
+from app.notion_task_store import NotionTaskStore
+from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
+from app.learning import create_learning_router
+from app.task_planning import DayPlanner
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent
 
@@ -29,41 +38,104 @@ from app.organizer import TaskOrganizerAgent
 _channel_store: Optional[object] = None
 _task_store: Optional[object] = None
 _agent: Optional[TaskOrganizerAgent] = None
+_knowledge: Optional[OrganizerKnowledge] = None
+_automation_store: Optional[object] = None
+_automation_runner: Optional[AutomationRunner] = None
 
 
-def init_chat_stores(use_firestore: bool = True) -> tuple:
+def init_chat_stores(
+    use_firestore: bool = True,
+    *,
+    task_store_override: object | None = None,
+) -> tuple:
     """Initialize the chat stores and agent.
 
     Args:
         use_firestore: Use Firestore for production, LocalChannelStore for tests.
+        task_store_override: Explicit test-harness store. Production never supplies it.
 
     Returns:
         Tuple of (channel_store, task_store, agent)
     """
-    global _channel_store, _task_store, _agent
+    global _channel_store, _task_store, _agent, _knowledge, _automation_store, _automation_runner
+
+    # A failed re-initialization must not leave an earlier fake store reachable.
+    _channel_store = None
+    _task_store = None
+    _agent = None
+    _knowledge = None
+    _automation_store = None
+    _automation_runner = None
 
     # Channel store
-    if use_firestore and firestore:
-        try:
-            db = firestore.client()
-            _channel_store = FirestoreChannelStore(db)
-        except Exception as e:
-            print(f"Warning: Firestore init failed, using local store: {e}")
-            _channel_store = LocalChannelStore()
+    db = None
+    if use_firestore:
+        if firestore is None:
+            raise RuntimeError("Firestore support is unavailable in production mode")
+        db = firestore.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT") or None)
+        _channel_store = FirestoreChannelStore(db)
+        _automation_store = FirestoreAutomationStore(db)
     else:
         _channel_store = LocalChannelStore()
+        _automation_store = LocalAutomationStore()
 
-    # Task store (fake for now)
-    _task_store = FakeTaskStore()
+    # The deterministic fake is test/local-only. Production defaults to the
+    # scoped Notion adapter and fails closed when its token or database id is absent.
+    if task_store_override is not None:
+        if isinstance(task_store_override, FakeTaskStore):
+            raise NotionConfigurationError(
+                "The explicit task-store override must not be FakeTaskStore"
+            )
+        _task_store = task_store_override
+    else:
+        task_store_mode = os.environ.get(
+            "TASK_STORE_MODE", "notion" if use_firestore else "fake"
+        ).strip().lower()
+        if task_store_mode == "notion":
+            _task_store = NotionTaskStore.from_env()
+        elif task_store_mode == "fake":
+            if use_firestore or os.environ.get("K_SERVICE"):
+                raise NotionConfigurationError(
+                    "FakeTaskStore is local/offline only; production requires "
+                    "TASK_STORE_MODE=notion and the complete scoped Notion config"
+                )
+            _task_store = FakeTaskStore()
+        else:
+            raise NotionConfigurationError(
+                "TASK_STORE_MODE must be exactly 'notion' or 'fake'"
+            )
+
+    # Markdown bodies live in the local test directory or /knowledge in production.
+    # Firestore holds only durable embedding metadata and private learning events.
+    _knowledge = build_organizer_knowledge(db=db)
 
     # Agent
     try:
         _agent = TaskOrganizerAgent(
             model=os.environ.get("CORONER_MODEL", "gemini-3.5-flash"),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+            knowledge=_knowledge,
         )
     except ValueError as e:
         raise RuntimeError(f"Agent initialization failed: {e}")
+
+    for definition in DEFAULT_AUTOMATIONS:
+        automation = _automation_store.get(definition.id)
+        if automation is None:
+            _automation_store.save(deepcopy(definition))
+            automation = _automation_store.get(definition.id)
+        _channel_store.ensure_channel(automation.channel_id)
+
+    planner = DayPlanner(_task_store)
+    _automation_runner = AutomationRunner(
+        _automation_store,
+        _channel_store,
+        _task_store,
+        _agent,
+        knowledge=_knowledge,
+        planner=planner,
+    )
+    _agent.configure_planning(planner, _automation_runner.save_sweep)
 
     return _channel_store, _task_store, _agent
 
@@ -75,8 +147,16 @@ def get_stores() -> tuple:
     return _channel_store, _task_store, _agent
 
 
+def get_knowledge() -> OrganizerKnowledge:
+    if _knowledge is None:
+        raise RuntimeError("Knowledge service not initialized. Call init_chat_stores() first.")
+    return _knowledge
+
+
 def register_chat_routes(app: FastAPI) -> None:
     """Register chat and channel routes on the FastAPI app."""
+
+    app.include_router(create_learning_router(get_knowledge))
 
     @app.get("/api/health")
     def health():
@@ -163,18 +243,45 @@ def register_chat_routes(app: FastAPI) -> None:
             },
         )
 
-    @app.get("/api/tasks")
-    def list_tasks(lane: Optional[str] = None):
-        """List tasks, optionally filtered by lane."""
-        channel_store, task_store, agent = get_stores()
-        tasks = task_store.list_tasks(lane)
+    @app.get("/api/automations")
+    def list_automations():
+        """Return the fixed automation channels, never a run-history sidebar."""
         return {
-            "tasks": [
+            "automations": [
                 {
-                    "id": t.id,
-                    "title": t.title,
-                    "lane": t.lane,
+                    "id": automation.id,
+                    "name": automation.name,
+                    "enabled": automation.enabled,
+                    "schedule": automation.schedule,
+                    "channel_id": automation.channel_id,
                 }
-                for t in tasks
-            ],
+                for automation in _automation_store.list()
+            ]
         }
+
+    @app.post("/api/automations/{automation_id}/run")
+    async def run_automation(automation_id: str, place: Optional[str] = None):
+        try:
+            return await _automation_runner.run(
+                automation_id, force=True, place=place
+            )
+        except KeyError:
+            raise HTTPException(404, "automation not found")
+
+    @app.post("/api/automations/nightly-plan/pick")
+    async def pick_nightly_plan(request: Request):
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(400, f"Invalid JSON: {exc}")
+        plan = body.get("plan")
+        if plan not in {"A", "B"}:
+            raise HTTPException(400, "plan must be A or B")
+        try:
+            return _automation_runner.pick_plan(plan)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc))
+
+    @app.post("/api/automations/tick")
+    async def automation_tick():
+        return {"results": await _automation_runner.tick()}

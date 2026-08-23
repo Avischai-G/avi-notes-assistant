@@ -6,7 +6,10 @@ Requires .venv/bin/python3 to run (uses local google-genai SDK).
 
 import sys
 import os
+from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
+
+ROOT = Path(__file__).resolve().parent
 
 from app.channel_store import LocalChannelStore, Message
 from app.context_window import ContextWindow
@@ -37,7 +40,7 @@ def test_1_adk_exactly_one_llmagent():
 
 
 def test_2_health_endpoint_eligibility():
-    """Criterion 2: /api/health reports eligibility, test fails if fields change."""
+    """Criterion 2: runtime eligibility fails on model, location, or framework drift."""
     print("\n[2/7] /api/health endpoint and eligibility test")
     from app import chat
     import inspect
@@ -47,21 +50,55 @@ def test_2_health_endpoint_eligibility():
     assert 'def health(' in source, "Missing health() endpoint"
     assert '@app.get("/api/health")' in source, "health() not registered as GET /api/health"
 
-    # Verify all required fields
+    # Verify all required health fields remain wired.
     required_fields = ['model', 'location', 'framework', 'firestore_mode', 'build_revision']
     for field in required_fields:
         assert f'"{field}"' in source or f"'{field}'" in source, \
             f"health() missing required field: {field}"
 
+    from app.organizer import TaskOrganizerAgent
+
+    agent = TaskOrganizerAgent(api_key="offline")
+    original_model = agent.model
+    original_location = agent.location
+    original_agent = agent.agent
+
+    agent.model = "gemini-2.0-flash"
+    try:
+        agent.get_config()
+        raise AssertionError("wrong model did not fail")
+    except RuntimeError as exc:
+        assert "model" in str(exc)
+    finally:
+        agent.model = original_model
+
+    agent.location = "us-central1"
+    try:
+        agent.get_config()
+        raise AssertionError("wrong location did not fail")
+    except RuntimeError as exc:
+        assert "location" in str(exc)
+    finally:
+        agent.location = original_location
+
+    agent.agent = object()
+    try:
+        agent.get_config()
+        raise AssertionError("wrong framework did not fail")
+    except RuntimeError as exc:
+        assert "framework" in str(exc)
+    finally:
+        agent.agent = original_agent
+
+    assert agent.get_config()["framework"] == "Google ADK"
     print("  ✓ Endpoint defined: GET /api/health")
     print("  ✓ Returns: model, location, framework, firestore_mode, build_revision")
-    print("  ✓ Test would FAIL if any eligibility field removed or changed")
-    print("  → Manual verification: curl http://localhost:8000/api/health | jq")
+    print("  ✓ Mutated model, location, and framework; every drift raised RuntimeError")
 
 
-def test_3_browser_transcript_infrastructure():
-    """Criterion 3: Browser sends message, SSE chunks arrive, reload recovers."""
-    print("\n[3/7] Browser round-trip infrastructure")
+def test_3_http_transcript_contract():
+    """Criterion 3 contract only; rendered-browser behavior is tested separately."""
+    print("\n[3/7] Static HTTP/SSE transcript contract")
     from app import chat
     import inspect
 
@@ -77,17 +114,17 @@ def test_3_browser_transcript_infrastructure():
     assert 'StreamingResponse' in source, "chat() should use StreamingResponse"
 
     # Verify HTML UI
-    with open('/Users/avischaigrau/Developer/coroner/web/index.html', 'r') as f:
+    with (ROOT / 'web' / 'index.html').open() as f:
         html = f.read()
+    with (ROOT / 'web' / 'app.js').open() as f:
+        script = f.read()
     assert 'id="transcript"' in html, "HTML missing transcript element"
     assert 'id="input"' in html, "HTML missing input element"
-    assert 'fetch' in html, "HTML should fetch endpoints"
+    assert 'fetch' in script, "Browser script should fetch endpoints"
 
-    print("  ✓ POST /api/channels/init → create channel")
-    print("  ✓ POST /api/channels/{id}/chat → SSE stream (no typewriter)")
-    print("  ✓ GET /api/channels/{id} → recover full transcript")
-    print("  ✓ web/index.html has transcript, input, fetch logic")
-    print("  → Manual test: open browser, type message, watch SSE, reload, see history")
+    print("  ✓ Static route contract includes channel init, chat SSE, and history read")
+    print("  ✓ Static web source includes transcript, input, and fetch wiring")
+    print("  → This test does not claim rendered-browser or reload verification")
 
 
 def test_4_context_window_21_to_20():
@@ -147,16 +184,15 @@ def test_5_no_dispatch_execute_endpoints():
     # Check system prompt
     prompt_lower = SYSTEM_PROMPT.lower()
     assert 'organize' in prompt_lower, "Should mention organize"
-    assert 'never perform' in prompt_lower and 'dispatch' in prompt_lower, \
-        "Should explicitly state never performs or dispatches"
-    assert 'you only organize' in prompt_lower, "Should state organizes only"
+    assert 'never do the task itself' in prompt_lower, \
+        "Should explicitly state it never does the task"
+    assert len(SYSTEM_PROMPT.split()) <= 90, "System prompt should stay short"
 
     print("  ✓ No dispatch endpoints")
     print("  ✓ No launch endpoints")
     print("  ✓ No execute endpoints")
     print("  ✓ No run/complete/stop endpoints")
-    print("  ✓ System prompt: 'You never perform or dispatch the underlying work'")
-    print("  ✓ System prompt: 'you only organize the task'")
+    print("  ✓ System prompt is short and says it never does the task itself")
     print("  → Proof: task operations recorded, no execution attempted")
 
 
@@ -167,7 +203,7 @@ def test_6_old_website_not_served():
 
     # Verify tag exists and points to old site
     result = subprocess.run(
-        ['git', '-C', '/Users/avischaigrau/Developer/coroner', 'show', 'pre-rebuild:web/index.html'],
+        ['git', '-C', str(ROOT), 'show', 'pre-rebuild:web/index.html'],
         capture_output=True,
         text=True
     )
@@ -176,10 +212,10 @@ def test_6_old_website_not_served():
     assert '<!doctype html>' in old_html.lower(), "Old tag should contain HTML"
 
     # Verify new index.html is different
-    with open('/Users/avischaigrau/Developer/coroner/web/index.html', 'r') as f:
+    with (ROOT / 'web' / 'index.html').open() as f:
         new_html = f.read()
 
-    assert 'Task Chat' in new_html, "New UI should have 'Task Chat' title"
+    assert 'Task chat' in new_html, "New UI should have the Task chat navigation"
     assert 'transcript' in new_html.lower(), "New UI should have transcript pane"
     assert 'composer' in new_html.lower(), "New UI should have composer"
     assert len(new_html) != len(old_html), "Old and new UI should be different"
@@ -195,27 +231,23 @@ def test_6_old_website_not_served():
     print("  ✓ GET / serves new task-chat interface")
 
 
-def test_7_no_outward_action():
-    """Criterion 7: Nothing pushed, deployed, or published."""
-    print("\n[7/7] No outward action (push/deploy/publish)")
+def test_7_no_repository_remote():
+    """Criterion 7 evidence available to the suite: this clone has no remote."""
+    print("\n[7/7] Repository publication guard")
     import subprocess
 
     # Verify no push occurred (remote would show these commits)
     # Since there's no remote, we verify by checking the setup
     result = subprocess.run(
-        ['git', '-C', '/Users/avischaigrau/Developer/coroner', 'remote', '-v'],
+        ['git', '-C', str(ROOT), 'remote', '-v'],
         capture_output=True,
         text=True
     )
     # No remote is configured, so no push possible
     assert result.stdout.strip() == '', "Should have no remote configured"
 
-    print("  ✓ No git remote configured (no push possible)")
-    print("  ✓ No Firestore/Cloud Run resources touched (code only)")
-    print("  ✓ No Notion token created or used")
-    print("  ✓ No GitHub push")
-    print("  ✓ No Devpost registration")
-    print("  ✓ No deployment to Cloud Run")
+    print("  ✓ No git remote is configured in this release clone")
+    print("  → This test does not infer cloud, Notion, publication, or submission state")
 
 
 def test_all_together():
@@ -253,8 +285,8 @@ def test_all_together():
     print(f"  ✓ Context window: {len(model_input)} messages available to model")
 
     # Task store works
-    task = task_store.create_task('Test task', 'what to do today')
-    task_store.move_task(task.id, 'what to not do today')
+    task = task_store.create_task('Test task', 'Not started')
+    task_store.move_task(task.id, 'In progress')
     assert len(task_store.operations) == 2, "Operations recorded"
     print(f"  ✓ Task store: {len(task_store.operations)} operations recorded")
 
@@ -298,7 +330,7 @@ def main():
     print("=" * 70)
     print("\nTag: pre-rebuild")
     print("Commit: c166a87")
-    print("Run: cd ~/Developer/coroner && .venv/bin/python test_foundation_complete.py")
+    print("Run from this checkout with a Python environment containing the requirements")
     print("\nReady for Cards 2–5 parallel development")
     return 0
 

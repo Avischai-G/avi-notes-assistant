@@ -27,7 +27,7 @@ def test_adk_agent_single_llm_agent():
             location='global'
         )
 
-        config = TaskOrganizerAgent.get_config()
+        config = agent.get_config()
         assert config['agent_type'] == 'LlmAgent'
         assert config['model'] == 'gemini-3.5-flash'
         assert config['location'] == 'global'
@@ -110,14 +110,14 @@ def test_task_store_operations():
     store = FakeTaskStore()
 
     # Create task
-    task = store.create_task('Buy milk', lane='what to do today')
+    task = store.create_task('Buy milk', lane='Not started')
     assert task.title == 'Buy milk'
-    assert task.lane == 'what to do today'
+    assert task.lane == 'Not started'
 
     # List tasks
-    today = store.list_tasks('what to do today')
-    assert len(today) == 1
-    assert today[0].title == 'Buy milk'
+    not_started = store.list_tasks('Not started')
+    assert len(not_started) == 1
+    assert not_started[0].title == 'Buy milk'
 
     # Rename task
     store.rename_task(task.id, 'Buy organic milk')
@@ -125,10 +125,10 @@ def test_task_store_operations():
     assert tasks[0].title == 'Buy organic milk'
 
     # Move task
-    store.move_task(task.id, 'what to not do today')
-    not_today = store.list_tasks('what to not do today')
-    assert len(not_today) == 1
-    assert not_today[0].title == 'Buy organic milk'
+    store.move_task(task.id, 'In progress')
+    in_progress = store.list_tasks('In progress')
+    assert len(in_progress) == 1
+    assert in_progress[0].title == 'Buy organic milk'
 
     # Verify operations recorded
     assert len(store.operations) == 3
@@ -161,21 +161,24 @@ def test_transcript_persistence_and_recovery():
     assert retrieved[3].content == 'Answer 2'
 
 
-def test_health_endpoint_config():
-    """Test that health endpoint would report correct configuration."""
-    config = {
-        'ok': True,
-        'model': 'gemini-3.5-flash',
-        'location': 'global',
-        'framework': 'Google ADK',
-        'firestore_mode': 'local',
-    }
+def test_health_endpoint_config(monkeypatch, tmp_path):
+    """Exercise the real route and the actual initialized agent values."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app import chat
 
-    # Verify all required fields present
+    monkeypatch.setenv("TASK_STORE_MODE", "fake")
+    monkeypatch.setenv("CORONER_KNOWLEDGE_ROOT", str(tmp_path / "knowledge"))
+    chat.init_chat_stores(use_firestore=False)
+    app = FastAPI()
+    chat.register_chat_routes(app)
+    response = TestClient(app).get("/api/health")
+    assert response.status_code == 200
+    config = response.json()
     assert config['model'] == 'gemini-3.5-flash'
     assert config['location'] == 'global'
     assert config['framework'] == 'Google ADK'
-    assert 'firestore_mode' in config
+    assert config['firestore_mode'] == 'local'
 
 
 def test_no_agent_orchestration_tools():

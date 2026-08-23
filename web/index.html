@@ -1,333 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Chat</title>
-    <style>
-        :root {
-            --panel-bg: #121212;
-            --composer-bg: #2d2d2d;
-            --text: #f4f4f5;
-            --text-2: #e4e4e7;
-            --muted: #a1a1aa;
-            --user-bubble: #1d2b41;
-            --user-border: #253f68;
-            --loader-size: 16px;
-        }
-
-        @media (prefers-color-scheme: light) {
-            [data-theme="light"] {
-                --panel-bg: #ededed;
-                --composer-bg: #c9c9c9;
-                --text: #0a0a0b;
-                --text-2: #19191c;
-                --muted: #585861;
-                --user-bubble: #c3d5f2;
-                --user-border: #a3c2f5;
-            }
-        }
-
-        [data-theme="light"] {
-            --panel-bg: #ededed;
-            --composer-bg: #c9c9c9;
-            --text: #0a0a0b;
-            --text-2: #19191c;
-            --muted: #585861;
-            --user-bubble: #c3d5f2;
-            --user-border: #a3c2f5;
-        }
-
-        * { box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-        body { background: var(--panel-bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-
-        .container { display: flex; flex-direction: column; height: 100%; }
-        .header {
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 { margin: 0; font-size: 16px; font-weight: 600; }
-        .theme-toggle {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: var(--muted);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .transcript {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .message-row { display: flex; }
-        .message-row.user { justify-content: flex-end; }
-        .message-row.assistant { justify-content: flex-start; }
-
-        .message-bubble {
-            max-width: 80%;
-            padding: 10px 12px;
-            border-radius: 12px;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
-        .message-row.user .message-bubble {
-            background: var(--user-bubble);
-            border: 1px solid var(--user-border);
-            border-radius: 12px 12px 0 12px;
-            color: var(--text-2);
-        }
-
-        .message-row.assistant .message-bubble {
-            background: transparent;
-            border: none;
-            color: var(--text);
-            padding: 0;
-        }
-
-        .status-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 0;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
-        .loader {
-            display: inline-block;
-            width: var(--loader-size);
-            height: var(--loader-size);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .composer-dock {
-            padding: 16px 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            justify-content: center;
-        }
-
-        .composer-shell {
-            width: min(100%, 1060px);
-            background: var(--composer-bg);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px;
-            padding: 12px;
-            display: flex;
-            gap: 8px;
-            align-items: flex-end;
-        }
-
-        .composer-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            resize: none;
-            outline: none;
-            min-height: 40px;
-            max-height: 120px;
-            padding: 0;
-            overflow-y: auto;
-        }
-
-        .composer-input::placeholder {
-            color: var(--muted);
-        }
-
-        .send-button {
-            background: var(--text);
-            color: var(--panel-bg);
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            display: grid;
-            place-items: center;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .send-button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .send-button:hover:not(:disabled) {
-            opacity: 0.9;
-        }
-
-        /* Scrollbar */
-        .transcript::-webkit-scrollbar {
-            width: 6px;
-        }
-        .transcript::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .transcript::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 3px;
-        }
-
-        @media (max-width: 760px) {
-            .message-bubble {
-                max-width: 90%;
-                font-size: 13px;
-            }
-            .composer-shell {
-                border-radius: 20px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Avi's notes</title>
+  <script>(function(){var t=localStorage.getItem('agentonomy-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;})();</script>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1>Task Chat</h1>
-        <button class="theme-toggle" onclick="toggleTheme()">Light</button>
-    </div>
-    <div class="transcript" id="transcript"></div>
-    <div class="composer-dock">
-        <div class="composer-shell">
-            <textarea class="composer-input" id="input" placeholder="Ask something..." rows="1"></textarea>
-            <button class="send-button" id="send" onclick="sendMessage()">↑</button>
+  <div class="app-shell">
+    <nav class="product-nav" aria-label="Product navigation">
+      <a class="nav-task-chat active" id="nav-task-chat" href="#task-chat">Task chat</a>
+      <a class="nav-learning" href="/learning">Learning</a>
+      <div id="automation-nav"></div>
+      <button class="theme-button" id="theme" type="button" aria-label="Toggle theme">◐</button>
+    </nav>
+    <main class="chat-pane">
+      <header class="surface-header" id="surface-header" hidden>
+        <div>
+          <h1 id="surface-title"></h1>
+          <p id="surface-schedule"></p>
         </div>
-    </div>
-</div>
-
-<script>
-    const transcript = document.getElementById('transcript');
-    const input = document.getElementById('input');
-    const send = document.getElementById('send');
-    let currentChannelId = null;
-
-    // Initialize
-    (async () => {
-        const response = await fetch('/api/channels/init', { method: 'POST' });
-        const data = await response.json();
-        currentChannelId = data.channel_id;
-        loadTranscript();
-    })();
-
-    // Load existing transcript
-    async function loadTranscript() {
-        const response = await fetch(`/api/channels/${currentChannelId}`);
-        const data = await response.json();
-        transcript.innerHTML = '';
-        for (const msg of data.messages) {
-            appendMessage(msg.role, msg.content);
-        }
-        transcript.scrollTop = transcript.scrollHeight;
-    }
-
-    // Send message
-    async function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-
-        appendMessage('user', text);
-        input.value = '';
-        input.style.height = '40px';
-        send.disabled = true;
-
-        // Stream response
-        const response = await fetch(`/api/channels/${currentChannelId}/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text }),
-        });
-
-        const statusEl = document.createElement('div');
-        statusEl.className = 'status-bar';
-        const msgEl = document.createElement('div');
-        msgEl.className = 'message-row assistant';
-        const contentEl = document.createElement('div');
-        contentEl.className = 'message-bubble';
-        msgEl.appendChild(contentEl);
-        transcript.appendChild(msgEl);
-
-        let fullText = '';
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const text = decoder.decode(value, { stream: true });
-                const lines = text.split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = JSON.parse(line.slice(6));
-                        if (data.text) {
-                            fullText += data.text;
-                            contentEl.textContent = fullText;
-                        }
-                    }
-                }
-            }
-        } catch (e) {
-            contentEl.textContent = `Error: ${e.message}`;
-        }
-
-        send.disabled = false;
-        transcript.scrollTop = transcript.scrollHeight;
-        input.focus();
-    }
-
-    function appendMessage(role, content) {
-        const row = document.createElement('div');
-        row.className = `message-row ${role}`;
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        bubble.textContent = content;
-        row.appendChild(bubble);
-        transcript.appendChild(row);
-        transcript.scrollTop = transcript.scrollHeight;
-    }
-
-    function toggleTheme() {
-        const html = document.documentElement;
-        const current = html.dataset.theme || 'dark';
-        const next = current === 'dark' ? 'light' : 'dark';
-        html.dataset.theme = next;
-        document.querySelector('.theme-toggle').textContent = next === 'dark' ? 'Light' : 'Dark';
-    }
-
-    // Enter to send
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    // Auto-grow textarea
-    input.addEventListener('input', () => {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    });
-</script>
+        <button class="run-button" id="run-now" type="button">Run now</button>
+      </header>
+      <section class="transcript custom-scrollbar" id="transcript" aria-live="polite"></section>
+      <div class="composer-dock">
+        <div class="composer-shell" id="composer-shell">
+          <div class="attachment-chips" id="attachment-chips"></div>
+          <div class="composer-row" id="composer-grid" data-expanded="false">
+            <button class="attach-button" id="attach" type="button" aria-label="Attach a file">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48"/></svg>
+            </button>
+            <textarea class="composer-input custom-scrollbar" id="input" rows="1" maxlength="12000" placeholder="Ask anything" aria-label="Message Avi's assistant"></textarea>
+            <button class="send-button" id="send" type="button" aria-label="Send message" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4 14-3-6-7-1Z"/><path d="m12 13 7-8"/></svg>
+            </button>
+          </div>
+        </div>
+        <input id="file-input" type="file" multiple hidden>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
 </body>
 </html>

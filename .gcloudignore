@@ -2,5 +2,9 @@
 .venv/
 __pycache__/
 *.pyc
-data/cases/
 .env
+.knowledge/
+evidence/
+tests/
+test_*.py
+requirements-dev.txt
