@@ -574,7 +574,7 @@ let liveChannelId = null;
 let liveUserBubble = null;
 let liveAgentBubble = null;
 
-function liveText(role, delta) {
+function liveText(role, delta, replace = false) {
   if (channelId !== liveChannelId) return; // server persists it either way
   $(".empty-state")?.remove();
   let bubble = role === "user" ? liveUserBubble : liveAgentBubble;
@@ -587,7 +587,8 @@ function liveText(role, delta) {
     if (role === "user") liveUserBubble = bubble;
     else liveAgentBubble = bubble;
   }
-  bubble.dataset.liveText += delta;
+  // A finished transcription replaces the streamed deltas outright.
+  bubble.dataset.liveText = replace ? delta : bubble.dataset.liveText + delta;
   if (role === "user") bubble.textContent = bubble.dataset.liveText;
   else bubble.innerHTML = markdown(bubble.dataset.liveText);
   bottom();
@@ -602,8 +603,8 @@ liveToggle.addEventListener("click", async () => {
   try {
     liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
     await window.LiveSession.start(liveChannelId, {
-      onUserText: (text) => liveText("user", text),
-      onAgentText: (text) => liveText("assistant", text),
+      onUserText: (text, replace) => liveText("user", text, replace),
+      onAgentText: (text, replace) => liveText("assistant", text, replace),
       onTurnComplete: () => { liveUserBubble = null; liveAgentBubble = null; },
       onInterrupted: () => { liveAgentBubble = null; },
       onError: (message) => addMessage("assistant", `Live error: ${message}`),

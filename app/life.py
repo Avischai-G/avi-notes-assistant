@@ -264,6 +264,8 @@ class LifeAgent:
                 elif kind == "end":
                     return
 
+        debug = os.environ.get("LIVE_DEBUG") == "1"
+
         async def pump_agent() -> None:
             async for event in self.runner.run_live(
                 user_id=USER_ID,
@@ -271,6 +273,25 @@ class LifeAgent:
                 live_request_queue=queue,
                 run_config=run_config,
             ):
+                if debug:
+                    parts = event.content.parts if event.content and event.content.parts else []
+                    print(
+                        "LIVE_EVT",
+                        {
+                            "inline": [
+                                f"{p.inline_data.mime_type}:{len(p.inline_data.data or b'')}"
+                                for p in parts
+                                if p.inline_data
+                            ],
+                            "text": bool([p for p in parts if p.text]),
+                            "in_t": bool(event.input_transcription),
+                            "out_t": bool(event.output_transcription),
+                            "tc": event.turn_complete,
+                            "int": event.interrupted,
+                            "partial": event.partial,
+                        },
+                        flush=True,
+                    )
                 if event.content and event.content.parts:
                     for part in event.content.parts:
                         if part.inline_data and part.inline_data.data:
@@ -282,16 +303,29 @@ class LifeAgent:
                                     ).decode(),
                                 }
                             )
+                # ADK yields transcription deltas (finished=False) AND a final
+                # aggregated copy (finished=True); treating the final copy as a
+                # replacement keeps the text from doubling.
                 if event.input_transcription and event.input_transcription.text:
-                    user_text.append(event.input_transcription.text)
-                    await websocket.send_json(
-                        {"type": "user_text", "text": event.input_transcription.text}
-                    )
+                    text = event.input_transcription.text
+                    if event.input_transcription.finished:
+                        user_text[:] = [text]
+                        await websocket.send_json(
+                            {"type": "user_text", "text": text, "replace": True}
+                        )
+                    else:
+                        user_text.append(text)
+                        await websocket.send_json({"type": "user_text", "text": text})
                 if event.output_transcription and event.output_transcription.text:
-                    agent_text.append(event.output_transcription.text)
-                    await websocket.send_json(
-                        {"type": "agent_text", "text": event.output_transcription.text}
-                    )
+                    text = event.output_transcription.text
+                    if event.output_transcription.finished:
+                        agent_text[:] = [text]
+                        await websocket.send_json(
+                            {"type": "agent_text", "text": text, "replace": True}
+                        )
+                    else:
+                        agent_text.append(text)
+                        await websocket.send_json({"type": "agent_text", "text": text})
                 if event.interrupted:
                     await websocket.send_json({"type": "interrupted"})
                 if event.turn_complete:
