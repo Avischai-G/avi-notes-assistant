@@ -10,7 +10,7 @@ Avi's pre-existing Notion row.
 | 0:00–0:16 | Product title and empty Task chat | Navigation, composer, attachment control | “This is Avi's notes assistant: say the thought first; organise it second.” |
 | 0:16–0:45 | Type `remind me to call the plumber` | Immediate confirmation: tomorrow, Anywhere, 30 min; one question | Capture happens before clarification and every default is visible. |
 | 0:45–1:00 | Reply `whatever` | Default retained once; no second question | Vague answers do not create an interview loop. |
-| 1:00–1:37 | Type `I will be at Office tomorrow.` | Exactly two plans, heavy-first and light-first, different order, Jerusalem times | Only Office and Anywhere synthetic tasks are eligible. |
+| 1:00–1:37 | Type `I will be at Office tomorrow.` | If the model chooses `plan_tomorrow`, two plans appear, heavy-first and light-first, with different order and Jerusalem times; otherwise capture the model's response and retry the shot | The model decides whether this is a plan request. When it chooses the planning tool, only Office and Anywhere synthetic tasks are eligible. |
 | 1:37–1:51 | Keyboard-focus and activate `Pick Plan A` | Pick confirmation | The pick changes only `When`; the assistant does not execute tasks. |
 | 1:51–2:17 | Switch to dark mode, narrow to mobile | Same navigation and composer, no clipped controls | The same product works at mobile width and in both themes. |
 | 2:17–2:48 | Open Knowledge cleanup; select Run now | First run response remains in its stable channel | Automations reuse the same organiser and durable conversation context. |

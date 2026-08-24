@@ -54,10 +54,12 @@ Defaults: Status=Not started; Place=Anywhere; Minutes=30; Notes=his words; When=
 ## Measured behavior
 
 All routing cases use a mocked ADK model; no Vertex, Notion, or external network
-call occurs. The tests cover the seven required task phrasings, nine plan/place
+call occurs. The tests parameterize seven task phrasings, nine plan/place
 phrasings with punctuation and both apostrophe forms, the exact shot-list
 Office sentence, board-only `Studio`, multi-word `Coffee Shop`, and a plain
-question. Source messages use Unicode escapes; `cat -v` over the core source and
+question. The scripted model discards each message, so these parameters establish
+repeated plumbing coverage for the fixed tool choices, not model routing behavior.
+Source messages use Unicode escapes; `cat -v` over the core source and
 behavior files produced `CAT_V_ASCII=PASS`.
 
 The preserved tests also cover the vague default without a model call or

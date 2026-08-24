@@ -268,11 +268,15 @@ class TaskOrganizerAgent:
         self,
         task_store: TaskStore | None = None,
         query: str = "",
+        include_board_state: bool = True,
     ) -> str:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
-        del task_store  # Board state is available only through gated tools.
+        places = [ANYWHERE]
+        if task_store is not None and include_board_state:
+            places = DayPlanner(task_store, clock=self.clock).recent_places()
+        place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
-        return f"{SYSTEM_PROMPT}{context}"
+        return f"{SYSTEM_PROMPT}{place_hint}{context}"
 
     def get_config(self) -> dict:
         """Return observed runtime values and fail if eligibility has drifted."""
@@ -396,7 +400,14 @@ class TaskOrganizerAgent:
         updated_token = self._updated.set([])
         planned_token = self._planned.set([])
         instruction_token = self._instruction.set(
-            self.get_instruction(task_store, query=user_message)
+            self.get_instruction(
+                task_store,
+                query=user_message,
+                include_board_state=(
+                    existing is not None
+                    and not channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
+                ),
+            )
         )
         try:
             session = await self._new_session(existing)
@@ -429,9 +440,11 @@ class TaskOrganizerAgent:
 
             created = list(self._created.get())
             planned = list(self._planned.get())
-            answer = planned[-1]["text"] if planned else self._final_text(
-                user_message, created, model_text
-            )
+            answer = self._final_text(user_message, created, model_text) if (created or self._updated.get()) else ""
+            if planned:
+                answer = f"{answer}\n\n{planned[-1]['text']}" if answer else planned[-1]["text"]
+            elif not answer:
+                answer = model_text
             channel_store.append_message(
                 channel_id,
                 Message("user", user_message, time.time(), tool_calls=tool_calls),

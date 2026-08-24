@@ -16,11 +16,11 @@ full service-reload persistence passed. A single shared channel gate now refuses
 all five agent tools, including tomorrow planning, in automation or unknown channels without touching Notion.
 Mandatory cleanup proved `remaining_marker_rows=0`.
 
-Rendered-browser QA passed 9/9 at rc3 and was confirmed twice independently on
-that tag. For rc4 it remains `UNVERIFIED` from this executor's position because
-the sandbox denies Chromium Mach bootstrap registration. The Main Orchestrator
-ran the unchanged suite outside this sandbox against the rc4 working tree and
-reported 9/9; that result predates the final commit and is attributed to them.
+Rendered-browser QA passes 9/9 at rc4: the independent verifier and the Main
+Orchestrator each ran the unchanged suite against this tag and both observed
+`UI_BROWSER_SUITE pass=9 fail=0 total=9`. The suite drives a mocked model, so
+this proves browser behavior and wiring only, not natural-language model
+routing.
 
 ## Decision criteria
 

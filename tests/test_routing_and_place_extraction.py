@@ -25,6 +25,7 @@ class ScriptedLlm(BaseLlm):
 
     tool_name: str | None = None
     tool_args: dict = Field(default_factory=dict)
+    tool_sequence: list[tuple[str, dict]] = Field(default_factory=list)
     final_text: str = "Done."
     _calls: list = PrivateAttr(default_factory=list)
 
@@ -35,14 +36,17 @@ class ScriptedLlm(BaseLlm):
     async def generate_content_async(self, llm_request, stream=False):
         del stream
         self._calls.append(llm_request)
-        if self.tool_name and len(self._calls) == 1:
+        sequence_item = self.tool_sequence[len(self._calls) - 1] if len(self._calls) <= len(self.tool_sequence) else None
+        selected = sequence_item[0] if sequence_item else self.tool_name
+        selected_args = sequence_item[1] if sequence_item else self.tool_args
+        if selected and len(self._calls) <= max(1, len(self.tool_sequence)):
             content = types.Content(
                 role="model",
                 parts=[
                     types.Part(
                         function_call=types.FunctionCall(
-                            name=self.tool_name,
-                            args=self.tool_args,
+                            name=selected,
+                            args=selected_args,
                         )
                     )
                 ],
@@ -192,3 +196,39 @@ def test_plain_question_creates_no_row_and_no_plan():
     assert saved == []
     assert "Plan A" not in response["text"]
     assert "controls" not in response
+
+
+def test_created_task_remains_visible_when_model_plans_in_same_turn():
+    store = FakeTaskStore()
+    store.create_task("Office seed", place="Office")
+    channels = LocalChannelStore()
+    channel_id = channels.create_channel()
+    model = ScriptedLlm(
+        model="gemini-3.5-flash",
+        tool_sequence=[
+            ("create_task", {"title": "Buy milk"}),
+            ("plan_tomorrow", {"place": "Office"}),
+        ],
+        final_text="Task written.",
+    )
+    agent = TaskOrganizerAgent(llm=model, clock=lambda: NOW)
+    saved = []
+    agent.configure_planning(DayPlanner(store, clock=lambda: NOW), saved.append)
+
+    chunks = asyncio.run(_turn(agent, "buy milk and plan my day at the office", channels, store, channel_id))
+    response = next(chunk for chunk in chunks if "text" in chunk)
+
+    assert len(store.list_tasks()) == 2
+    assert "Noted — tomorrow, Anywhere, 30 min." in response["text"]
+    assert "Planning tomorrow for Office." in response["text"]
+    assert len(saved) == 1
+
+
+def test_instruction_shows_current_multi_word_board_place():
+    store = FakeTaskStore()
+    store.create_task("Studio task", place="Tel Aviv Office")
+    agent = TaskOrganizerAgent(llm=ScriptedLlm(model="gemini-3.5-flash"), clock=lambda: NOW)
+
+    instruction = agent.get_instruction(store, query="I will be at the office tomorrow")
+
+    assert "Current Place values on Avi's board: Tel Aviv Office, Anywhere." in instruction
