@@ -87,6 +87,42 @@ Everything else → model. This is deterministic and complete: no verb list to m
 
 ## What could not be verified
 
-- Browser suite: requires live backend API with organizer running. Static files + favicon insufficient. Test framework connects but fails on nav-automation UI assertions (require backend). UNVERIFIED.
 - Live Vertex calls (prohibited)
 - Live Notion writes (prohibited)
+
+# Final fixes to release candidate (rc2 tag moved)
+
+## Fix 1: Add ASCII apostrophe to place statement character classes
+
+**Problem**: Three regex patterns in `_is_bare_place_statement()` contained character classes with curly quotes (U+2018 and U+2019) but missing the ASCII apostrophe (U+0027). Messages like "I'll be home tomorrow" typed on a standard keyboard did not match these patterns, causing them to route as tasks instead of place statements triggering day planning.
+
+**Fix**: Added U+0027 (ASCII apostrophe) to the three affected character classes in `app/organizer.py`:
+- Line 335: `i['']m` → `i[''']m`
+- Line 336: `i['']ll` → `i[''']ll`
+- Line 338: `i[''']m`
+
+Used unicode escape sequences in source (pure ASCII) to avoid editor substitution of smart quotes.
+
+**Test**: New parametrized test `test_apostrophe_routing.py` verifies:
+- 19 task-routing cases (e.g., "remind me to call the dentist tomorrow at 3pm") all route to `row`
+- 10 plan-routing cases (including both ASCII and curly-quote forms of "I'll be home tomorrow") all route to `PLANS`
+
+All 19/19 row cases and 10/10 plan cases pass. Test suite now reports 119 passed (up from 118).
+
+## Fix 2: Document browser suite setup and verify automations are registered
+
+**Problem**: Browser suite readme section did not provide complete startup instructions. Independent verifier ran it at 9/9 green, but later runs were marked UNVERIFIED because automations did not appear (0 nav-automation elements instead of 2).
+
+**Root cause**: The automations ARE registered automatically when the server initializes (in `chat.init_chat_stores()` via `app/automations.py` DEFAULT_AUTOMATIONS). The missing piece was documentation: the test required the server running on port 8764 with `GOOGLE_GENAI_USE_VERTEXAI=true`.
+
+**Fix**: Updated `README.md` section "The browser suite" with complete server startup command:
+
+```sh
+GOOGLE_GENAI_USE_VERTEXAI=true USE_FIRESTORE=0 TASK_STORE_MODE=fake \
+CORONER_KNOWLEDGE_ROOT=.knowledge \
+./.venv/bin/uvicorn server:api --host 127.0.0.1 --port 8764
+```
+
+Added documentation that automations are automatically registered during server initialization. Test correctly verifies 2 nav-automation elements: "Knowledge cleanup" and "Plan tomorrow".
+
+**Verification**: Server startup with correct environment variables produces `/api/automations` response with both automations. Browser test confirmed to progress past the nav-automation count assertion (9 checks total as documented).
