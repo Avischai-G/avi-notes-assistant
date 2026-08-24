@@ -11,7 +11,7 @@ flowchart LR
     B[Browser\nChat · Automations · Settings · Learning]
     API[Cloud Run · us-central1\nFastAPI service]
     A[One Google ADK\nLlmAgent]
-    V[Vertex AI\ngemini-3.7-flash · global]
+    V[Vertex AI\ngemini-3.5-flash · global]
     T[Five gated agent tools\n4 TaskStore · plan tomorrow]
     M[Local stdio Notion MCP\nexactly five operations]
     N[(Agent Task Board Root\nexisting Notion database)]
@@ -36,7 +36,7 @@ flowchart LR
 
 The deployed model-backed request path is:
 
-`browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.7-flash (global) -> twelve gated tools -> TaskStore/Notion MCP -> the configured database`.
+`browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.5-flash (global) -> five gated tools -> TaskStore/Notion MCP -> the configured database`.
 
 The model uses its language understanding to distinguish tasks, ordinary chat,
 and tomorrow planning; there is no regex pre-router. Its tools are create,
