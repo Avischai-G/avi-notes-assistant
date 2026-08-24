@@ -82,7 +82,6 @@ def main():
         print("\nEligibility guard verified:")
         print("  ✓ Agent FAILS if model != gemini-3.5-flash")
         print("  ✓ Agent FAILS if location != global")
-        print("  ✓ /api/health reports actual agent values")
         print("  ✓ Exit code: 0")
         return 0
     else:

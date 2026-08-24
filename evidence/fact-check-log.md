@@ -3,7 +3,8 @@
 | Claim | Status | Evidence / resolution condition |
 |---|---|---|
 | The full merged offline suite passes. | PASS | Final suite with the Firestore and automation-gate safeguards: `88 passed, 1 skipped`; the skip is the credential-gated isolation test exercised in the live preflight. Python compilation, JavaScript syntax, and diff checks passed. |
-| Model, location, and framework drift each fail eligibility. | PASS | `test_foundation_complete.py` mutates all three independently and requires `RuntimeError`. |
+| Model and location drift fail eligibility. | PASS | `test_foundation_complete.py` mutates both independently and requires `RuntimeError`. |
+| Framework drift detection is present but weaker than claimed. | NEEDS CLOSURE | The `isinstance(self.agent, LlmAgent)` check at startup can be fooled by an impostor class with the same name; it should check module provenance instead. See app/organizer.py:248 and the two eligibility-guard tests for required fixes. |
 | `test_chat_foundation.py` is a real, passing test. | PASS | It now instantiates the agent correctly and calls the registered FastAPI health route. |
 | Card 3 mission files retain the authorized hash boundary. | PASS | `scripts/notion_board_setup.py` has the explicitly authorized old/new hash delta; the other three mission-defined Notion files and two additional Card 3 artifacts remain byte-identical. See `card3-hashes.md`. |
 | Unfiltered Notion isolation admits only the configured lineage. | PASS live | The authorized regression observed exactly one matching data source, only its page lineage, and `has_more=false`; foreign structures remain hard-fail cases in focused tests. |

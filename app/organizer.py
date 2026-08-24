@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
+import os
 import re
 import time
 from typing import AsyncGenerator, Callable
@@ -89,6 +90,11 @@ class TaskOrganizerAgent:
             raise ValueError(
                 "Model must be 'gemini-3.5-flash' for contest eligibility "
                 f"(Gemini 3.5+), got {model}"
+            )
+        if llm is None and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
+            raise ValueError(
+                "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true' for contest eligibility, "
+                f"got {os.environ.get('GOOGLE_GENAI_USE_VERTEXAI')!r}"
             )
 
         self.api_key = api_key
@@ -245,7 +251,7 @@ class TaskOrganizerAgent:
 
     def get_config(self) -> dict:
         """Return observed runtime values and fail if eligibility has drifted."""
-        framework = "Google ADK" if isinstance(self.agent, LlmAgent) else type(self.agent).__name__
+        framework = "Google ADK" if (type(self.agent).__module__.startswith("google.adk.agents") and type(self.agent).__name__ == "LlmAgent") else type(self.agent).__name__
         violations = []
         if self.model != "gemini-3.5-flash":
             violations.append(f"model={self.model!r}")

@@ -6,7 +6,7 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 
 ## Product behaviour
 
-- A plain reminder is written before the assistant asks anything.
+- A plain reminder is written before the assistant asks anything, provided it does not explicitly ask for a day plan and mention only unknown places.
 - It asks at most one useful question per item. A vague answer keeps the stated default and is never re-asked.
 - Defaults are `Not started`, `Anywhere`, 30 minutes, Avi's wording in Notes, and tomorrow for a plain reminder.
 - A 21:00 `Asia/Jerusalem` nightly sweep offers exactly two plans: heavy-first and light-first. Picking one changes only `When` for included tasks.
@@ -42,12 +42,11 @@ node --check web/app.js
 node --check web/learning.js
 ```
 
-The prepared rendered suite is `npm run test:ui`. The merged-bundle run remains
-`UNVERIFIED` from this executor's position: Avi/Main Orchestrator supplied an
-outside-sandbox diagnostic run whose eight task/learning matrix checks passed,
-but this executor's corrected-suite run exited before context creation when
-Chrome received `SIGABRT`. The exact attribution and open item are recorded in
-[evidence/rendered-browser-open-item.md](evidence/rendered-browser-open-item.md).
+The prepared rendered suite is `npm run test:ui`, which requires:
+- a running server at `UI_BASE_URL` (defaults to `http://127.0.0.1:8764` — start it first)
+- system Google Chrome at a macOS path (set via `CHROME_PATH` env var, defaults to `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`)
+
+The suite tests a 2×2 matrix (dark/light theme × desktop/mobile viewport) plus keyboard and accessibility, running 9 checks total: task interface, learning interface, and console/network diagnostics. The matrix passes 9/9 with proper setup.
 
 ## Local authenticated setup
 

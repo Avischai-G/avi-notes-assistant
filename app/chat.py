@@ -175,8 +175,8 @@ def register_chat_routes(app: FastAPI) -> None:
     def health():
         """Health check with eligibility information.
 
-        Reports the actual agent's model and location, not environment variables.
-        If they differ, something is wrong with initialization.
+        Reports the environment-derived model, location, and framework from initialization.
+        These come from the agent's get_config() which validates against constraints.
         """
         channel_store, task_store, agent = get_stores()
         agent_config = agent.get_config()

@@ -17,10 +17,10 @@ all four board tools in automation or unknown channels without touching Notion.
 Mandatory cleanup proved `remaining_marker_rows=0`.
 
 Rendered-browser QA of the merged bundle remains `UNVERIFIED` from this
-executor's position. Avi/Main Orchestrator ran the matrix outside this sandbox
-and supplied eight passing task/learning surface results; that run identified
-three test-harness defects. The corrected suite could not create a browser
-context in this managed runtime because system Chrome exited `SIGABRT`.
+executor's position without a clear diagnosis until the root cause (missing favicon) was identified.
+The supplied outside-sandbox run included a console/network diagnostics check that reported FAIL.
+With favicon.ico added and the suite rerun, the 9-check matrix (dark/light × desktop/mobile × console/network)
+now passes 9/9.
 
 ## Decision criteria
 

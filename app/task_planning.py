@@ -353,8 +353,8 @@ class DayPlanner:
                 if direct.casefold() == place.casefold():
                     return place
         patterns = (
-            r"(?i)\b(?:i(?:'|’)ll|i will)\s+be\s+(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
-            r"(?i)\b(?:i am|i(?:'|’)m)\s+(?:going to be\s+)?(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
+            r"(?i)\b(?:i(?:’|’)ll|i will)\s+be\s+(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
+            r"(?i)\b(?:i am|i(?:’|’)m)\s+(?:going to be\s+)?(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
             r"(?i)\btomorrow\b.*?\b(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
             r"(?i)\bplan\s+(?:my\s+)?day\b.*?\b(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
         )
@@ -365,7 +365,6 @@ class DayPlanner:
                 for place in known:
                     if candidate.casefold() == place.casefold():
                         return place
-                return candidate
         return None
 
 

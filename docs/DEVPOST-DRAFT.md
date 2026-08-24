@@ -48,11 +48,13 @@ otherwise perform Avi's underlying work.
 ## Safety and privacy boundaries
 
 The Notion token is never placed in a prompt or command argument. Startup fails
-closed when model, location, task-store mode, credentials, database ID, discovery,
-or isolation drift. The browser receives aggregate learning figures only; there
-is no raw-log route. The integration can still read and mutate every row shared
-with its configured Notion connection, so connection access remains a meaningful
-residual trust boundary.
+closed when model, location, task-store mode, credentials, or database ID drift.
+Discovery at startup validates the exact MCP tool set and five-operation allowlist.
+The browser receives aggregate learning figures only; there is no raw-log route.
+The integration can still read and mutate every row shared with its configured Notion
+connection, so connection access remains a meaningful residual trust boundary.
+Isolation (filtering searches to one account) is a manual preflight step, not a
+runtime startup guard.
 
 ## Accomplishments
 
