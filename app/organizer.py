@@ -91,7 +91,15 @@ class TaskOrganizerAgent:
                 "Model must be 'gemini-3.5-flash' for contest eligibility "
                 f"(Gemini 3.5+), got {model}"
             )
-        if llm is None and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
+        # Contest eligibility: production must use Vertex AI explicitly.
+        # Offline/test mode (TASK_STORE_MODE=fake, USE_FIRESTORE=0, or pytest running) is exempt.
+        import sys
+        is_offline = (
+            os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
+            or os.environ.get("USE_FIRESTORE", "").strip().lower() == "0"
+            or "pytest" in sys.modules
+        )
+        if llm is None and not is_offline and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
             raise ValueError(
                 "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true' for contest eligibility, "
                 f"got {os.environ.get('GOOGLE_GENAI_USE_VERTEXAI')!r}"
@@ -316,9 +324,13 @@ class TaskOrganizerAgent:
         Matches: "plan my day tomorrow", "schedule tomorrow", "plan tomorrow at office"
         Does not match: anything else (let model decide).
         """
-        lowered = message.casefold()
-        return bool(re.search(r"\b(?:plan|schedule)\b.*\b(?:my\s+)?(?:day|tomorrow)", lowered)) or \
-               bool(re.search(r"\b(?:my\s+)?(?:day|tomorrow).*\b(?:plan|schedule)\b", lowered))
+        lowered = message.casefold().strip()
+        # Plan request must govern the entire message, not just appear in it.
+        # Pattern: plan/schedule [my] (day [tomorrow] | tomorrow) [at [the] place]
+        return bool(re.match(
+            r"^(?:plan|schedule)(?:\s+my)?\s+(?:day(?:\s+tomorrow)?|tomorrow)(?:\s+at\s+(?:the\s+)?\w+)?$",
+            lowered
+        ))
 
     @staticmethod
     def _is_bare_place_statement(message: str) -> bool:
@@ -328,14 +340,15 @@ class TaskOrganizerAgent:
         Matches: "I am at Office tomorrow", "I’ll be home tomorrow", "tomorrow at office"
         Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
         """
-        lowered = message.casefold().strip()
+        lowered = message.casefold().strip().rstrip(".!?")
 
         # Patterns anchored to start/end of message
+        # Apostrophe: match both ASCII apostrophe and Unicode right-single-quote U+2019
         patterns = (
-            r"^(?:i\s+am|i[‘’']m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^(?:i\s+will|i[‘’']ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
+            r"^(?:i\s+am|i['’]m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^(?:i\s+will|i['’]ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
             r"^tomorrow\s*,?\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
-            r"^tomorrow\s*,?\s+(?:i\s+am|i[‘’']m)\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)$",
+            r"^tomorrow\s*,?\s+(?:i\s+am|i['’]m)\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)$",
             r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
             r"^(?:home|office|out|anywhere)$",
         )

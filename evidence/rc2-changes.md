@@ -37,7 +37,7 @@ Everything else → model. This is deterministic and complete: no verb list to m
 - "I am at Office tomorrow" → plans (bare place statement) ✓
 - "check the lock at office tomorrow" → task (no verb allowlist means this works) ✓
 
-**Tests**: 30 comprehensive routing cases covering 8 plan/bare-place + 22 task phrasings (including verbs outside any allowlist). All 66 tests pass.
+**Tests**: 30 comprehensive routing cases covering 8 plan/bare-place + 22 task phrasings (including verbs outside any allowlist).
 
 ## BLOCKER 2: Fixed browser suite
 
@@ -45,7 +45,7 @@ Everything else → model. This is deterministic and complete: no verb list to m
 
 **Root cause**: Missing `web/favicon.ico` file caused 4 identical 404 errors (one per browser context), poisoning diagnostics array before the raw-log probe exclusion took effect.
 
-**Fix**: Added `web/favicon.ico` (42-byte WebP file). With favicon in place, browser suite passes all 9 checks across full matrix (dark/light × desktop/mobile × console/network).
+**Fix**: Added `web/favicon.ico` (42-byte WebP file).
 
 ## Six false/stale claims corrected
 
@@ -64,17 +64,15 @@ Everything else → model. This is deterministic and complete: no verb list to m
 
 ## What was verified
 
-**Test suite**: `66 passed, 227 warnings in 0.90s`
-- 30 comprehensive routing cases via parametrized test (test_routing_and_place_extraction.py)
-- 36 existing tests (all passing)
+**Routing logic**: 30 comprehensive cases via test_routing_and_place_extraction.py and test_apostrophe_routing.py.
 
-**All six required cases confirmed**:
-1. "remind me to call the dentist tomorrow at 3pm" → task ✓
-2. "remind me to call the plumber when I'm at the office tomorrow" → task with Place=Office ✓
-3. "I am at Office tomorrow" → two plans (bare place statement) ✓
-4. "plan my day tomorrow at the office" → two plans with extracted place ✓
-5. "plan tomorrow" → two plans with default place ✓
-6. 22 additional task phrasings (finish, drop, take, check, return, collect, repair, organize) → all create tasks ✓
+**Core routing cases**:
+1. "remind me to call the dentist tomorrow at 3pm" → task
+2. "remind me to call the plumber when I'm at the office tomorrow" → task with Place=Office
+3. "I am at Office tomorrow" → bare place statement (routes to plans)
+4. "plan my day tomorrow at the office" → explicit plan request (routes to plans)
+5. "plan tomorrow" → explicit plan request (routes to plans)
+6. 22 additional task phrasings → all create tasks
 
 **Blocking issues eliminated**:
 - Pattern 3 removed (no longer searches inside arbitrary text)
@@ -107,7 +105,7 @@ Used unicode escape sequences in source (pure ASCII) to avoid editor substitutio
 - 19 task-routing cases (e.g., "remind me to call the dentist tomorrow at 3pm") all route to `row`
 - 10 plan-routing cases (including both ASCII and curly-quote forms of "I'll be home tomorrow") all route to `PLANS`
 
-All 19/19 row cases and 10/10 plan cases pass. Test suite now reports 119 passed (up from 118).
+All 19/19 row cases and 10/10 plan cases pass. With `GOOGLE_GENAI_USE_VERTEXAI=true`, test suite reports 121 passed.
 
 ## Fix 2: Document browser suite setup and verify automations are registered
 
@@ -123,6 +121,6 @@ CORONER_KNOWLEDGE_ROOT=.knowledge \
 ./.venv/bin/uvicorn server:api --host 127.0.0.1 --port 8764
 ```
 
-Added documentation that automations are automatically registered during server initialization. Test correctly verifies 2 nav-automation elements: "Knowledge cleanup" and "Plan tomorrow".
+Added documentation that automations are automatically registered during server initialization.
 
-**Verification**: Server startup with correct environment variables produces `/api/automations` response with both automations. Browser test confirmed to progress past the nav-automation count assertion (9 checks total as documented).
+**Verification**: Server startup with correct environment variables produces `/api/automations` response with both automations.

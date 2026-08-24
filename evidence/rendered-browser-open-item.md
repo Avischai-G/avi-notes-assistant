@@ -22,4 +22,4 @@ Add `web/favicon.ico` — a 70-byte minimal WebP file is sufficient. With the fa
 
 ## Verification
 
-With the favicon added to the repository and the suite unchanged, the suite passes 9/9 across the full matrix.
+The favicon fix resolves the 404 issue. The suite can then proceed to run the full matrix.

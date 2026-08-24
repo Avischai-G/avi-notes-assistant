@@ -19,8 +19,7 @@ Mandatory cleanup proved `remaining_marker_rows=0`.
 Rendered-browser QA of the merged bundle remains `UNVERIFIED` from this
 executor's position without a clear diagnosis until the root cause (missing favicon) was identified.
 The supplied outside-sandbox run included a console/network diagnostics check that reported FAIL.
-With favicon.ico added and the suite rerun, the 9-check matrix (dark/light × desktop/mobile × console/network)
-now passes 9/9.
+The favicon fix addresses the root cause.
 
 ## Decision criteria
 
