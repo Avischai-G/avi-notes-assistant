@@ -39,6 +39,68 @@ For current events, facts you are not sure of, or anything worth looking up, cal
 APP_NAME = "life"
 
 
+def _install_live_probes() -> None:
+    """LIVE_DEBUG=1 only: print compact per-message shapes at the genai and
+    ADK layers so Cloud Run logs show exactly where audio stops."""
+    from google.genai import live as genai_live
+    from google.adk.models import gemini_llm_connection as adk_conn
+
+    if getattr(genai_live.AsyncSession, "_live_probe", False):
+        return
+    genai_live.AsyncSession._live_probe = True
+
+    wire_receive = genai_live.AsyncSession.receive
+
+    async def wire_wrapped(self, *args, **kwargs):
+        async for message in wire_receive(self, *args, **kwargs):
+            sc = message.server_content
+            print(
+                "LIVE_WIRE",
+                {
+                    "inline": bool(
+                        sc and sc.model_turn and any(p.inline_data for p in sc.model_turn.parts or [])
+                    ),
+                    "text": bool(
+                        sc and sc.model_turn and any(p.text for p in sc.model_turn.parts or [])
+                    ),
+                    "in_t": bool(sc and sc.input_transcription),
+                    "out_t": bool(sc and sc.output_transcription),
+                    "tc": bool(sc and sc.turn_complete),
+                    "gc": bool(sc and sc.generation_complete),
+                    "tool": bool(message.tool_call),
+                },
+                flush=True,
+            )
+            yield message
+
+    genai_live.AsyncSession.receive = wire_wrapped
+
+    adk_receive = adk_conn.GeminiLlmConnection.receive
+
+    async def adk_wrapped(self, *args, **kwargs):
+        async for response in adk_receive(self, *args, **kwargs):
+            content = response.content
+            print(
+                "LIVE_RSP",
+                {
+                    "inline": bool(
+                        content and content.parts and any(p.inline_data for p in content.parts)
+                    ),
+                    "text": bool(
+                        content and content.parts and any(p.text for p in content.parts)
+                    ),
+                    "partial": response.partial,
+                    "in_t": bool(response.input_transcription),
+                    "out_t": bool(response.output_transcription),
+                    "tc": response.turn_complete,
+                },
+                flush=True,
+            )
+            yield response
+
+    adk_conn.GeminiLlmConnection.receive = adk_wrapped
+
+
 class LifeAgent:
     """A thin runner around one read-only, search-capable ADK ``LlmAgent``."""
 
@@ -265,6 +327,8 @@ class LifeAgent:
                     return
 
         debug = os.environ.get("LIVE_DEBUG") == "1"
+        if debug:
+            _install_live_probes()
 
         async def pump_agent() -> None:
             async for event in self.runner.run_live(
