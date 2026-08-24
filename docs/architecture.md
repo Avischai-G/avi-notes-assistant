@@ -1,12 +1,15 @@
 # Architecture
 
-This is the intended release topology. It is configuration documentation, not
-evidence that anything has been deployed.
+![Avi's Notes Assistant architecture diagram](./architecture-diagram.png)
+
+This is the deployed release topology for Avi's Notes Assistant. The public
+Cloud Run service runs in `us-central1`; its Vertex AI model and embedding
+requests use the `global` location.
 
 ```mermaid
 flowchart LR
     B[Browser\nTask chat · Automations · Learning]
-    API[Cloud Run\nFastAPI service]
+    API[Cloud Run · us-central1\nFastAPI service]
     A[One Google ADK\nLlmAgent]
     V[Vertex AI\ngemini-3.5-flash · global]
     T[Five gated agent tools\n4 TaskStore · plan tomorrow]
@@ -16,8 +19,10 @@ flowchart LR
     K[Markdown knowledge store\n/knowledge filesystem contract]
     G[(Cloud Storage\nmounted at /knowledge)]
     E[Vertex AI embeddings\ngemini-embedding-001 · global]
+    S[Secret Manager\n2 Notion configuration secrets\ninjected by reference]
 
     B -->|HTTPS / SSE| API
+    S -->|secret references| API
     API --> A
     A --> V
     A --> T
@@ -29,7 +34,7 @@ flowchart LR
     K --> E
 ```
 
-The one model-backed request path is:
+The deployed model-backed request path is:
 
 `browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.5-flash (global) -> five gated tools -> TaskStore/Notion MCP -> the configured database`.
 
@@ -47,8 +52,12 @@ task channels, refuses all five tools in automation channels, and fails closed
 when channel identity is unavailable. Refusals are tool results the same model
 can read and route around; no second agent or Runner exists.
 
-Firestore stores durable browser channels, the two stable automation records,
-aggregate source metadata, and embedding-cache metadata. Markdown bodies use the
-`/knowledge` filesystem contract; an approved Cloud Run deployment would mount a
-dedicated Cloud Storage volume there. No deployment or cloud-resource mutation is
-part of this release candidate.
+Cloud Run receives two Notion configuration secrets from Secret Manager through
+secret references, never as literal environment values. Access is limited to the
+compute runtime identity with `roles/secretmanager.secretAccessor`.
+
+Firestore runs in Native mode and stores durable browser channels, the two stable
+automation records, aggregate source metadata, and embedding-cache metadata.
+Markdown bodies use the `/knowledge` filesystem contract; the deployed Cloud Run
+service mounts a dedicated Cloud Storage volume there. This document reflects the
+live release topology.

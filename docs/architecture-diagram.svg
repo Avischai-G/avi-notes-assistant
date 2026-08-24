@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Reproduce the PNG with: cairosvg architecture-diagram.svg -o architecture-diagram.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" viewBox="0 0 2400 1600" role="img" aria-labelledby="title desc">
+  <title id="title">Avi's Notes Assistant — system architecture</title>
+  <desc id="desc">A code-grounded architecture diagram showing the browser request entering a Cloud Run FastAPI service in us-central1, one Google ADK Runner and LlmAgent using Gemini 3.5 Flash on Vertex AI in global, a model-selected tool call passing through one channel gate and a five-operation Notion MCP allowlist, and reaching one Notion task database. Secret Manager injects two Notion configuration secrets into Cloud Run by reference. Supporting Firestore, knowledge retrieval, and deterministic nightly planning paths are shown separately.</desc>
+
+  <defs>
+    <marker id="arrow" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 13 6.5 L 0 13 z" fill="#243746"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 13 6.5 L 0 13 z" fill="#194F86"/>
+    </marker>
+    <marker id="arrow-soft" markerWidth="11" markerHeight="11" refX="2" refY="5.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 11 0 L 0 5.5 L 11 11 z" fill="#60717E"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="13" markerHeight="13" refX="11" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 13 6.5 L 0 13 z" fill="#315B3C"/>
+    </marker>
+    <style>
+      .base { font-family: Arial, Helvetica, sans-serif; }
+      .title { font-size: 58px; font-weight: 700; letter-spacing: -1px; }
+      .subtitle { font-size: 27px; font-weight: 400; }
+      .takeaway { font-size: 25px; font-weight: 700; letter-spacing: .2px; }
+      .group-title { font-size: 27px; font-weight: 700; letter-spacing: 2px; }
+      .group-subtitle { font-size: 20px; font-weight: 400; }
+      .node-title { font-size: 31px; font-weight: 700; }
+      .node-subtitle { font-size: 23px; font-weight: 700; }
+      .node-body { font-size: 22px; font-weight: 400; }
+      .node-small { font-size: 19px; font-weight: 400; }
+      .node-mono { font-family: Menlo, Consolas, monospace; font-size: 18px; font-weight: 600; }
+      .step-number { font-size: 21px; font-weight: 700; fill: #FFFFFF; text-anchor: middle; dominant-baseline: middle; }
+      .edge-label { font-size: 19px; font-weight: 700; }
+      .footer-main { font-size: 26px; font-weight: 700; }
+      .footer-note { font-size: 19px; font-weight: 400; }
+      .flow { fill: none; stroke: #243746; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .flow-blue { fill: none; stroke: #194F86; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-blue); }
+      .flow-soft { fill: none; stroke: #60717E; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; marker-start: url(#arrow-soft); marker-end: url(#arrow); }
+      .flow-dashed { fill: none; stroke: #525E66; stroke-width: 4; stroke-dasharray: 12 10; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .flow-secret { fill: none; stroke: #315B3C; stroke-width: 4; stroke-dasharray: 10 8; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-green); }
+    </style>
+  </defs>
+
+  <!-- Page -->
+  <rect x="0" y="0" width="2400" height="1600" fill="#F6F8FA"/>
+  <rect x="0" y="0" width="2400" height="165" fill="#172A3A"/>
+  <text class="base title" x="65" y="75" fill="#FFFFFF">Avi's Notes Assistant</text>
+  <text class="base subtitle" x="65" y="122" fill="#DDE7EF">Code-grounded architecture • organises one Notion task board • never performs the underlying errands</text>
+
+  <!-- Five-second takeaway -->
+  <rect x="65" y="190" width="2270" height="68" rx="14" fill="#FFF3C4" stroke="#6B5313" stroke-width="2"/>
+  <text class="base takeaway" x="1200" y="233" text-anchor="middle">
+    MODEL DECIDES  •  EVERY MODEL TOOL CALL PASSES ONE GATE  •  EVERY NOTION OP PASSES ONE 5-OP ALLOWLIST
+  </text>
+
+  <!-- Google Cloud grouping -->
+  <rect x="420" y="290" width="1510" height="1140" rx="28" fill="#EDF3FA" stroke="#315F8A" stroke-width="4"/>
+  <rect x="445" y="307" width="258" height="46" rx="23" fill="#315F8A"/>
+  <text class="base group-title" x="574" y="339" fill="#FFFFFF" text-anchor="middle">GOOGLE CLOUD</text>
+  <text class="base group-subtitle" x="725" y="338">Cloud Run runtime + managed data and AI services</text>
+
+  <!-- Browser -->
+  <rect x="45" y="375" width="325" height="270" rx="22" fill="#FFFFFF" stroke="#344955" stroke-width="4"/>
+  <rect x="45" y="375" width="325" height="64" rx="22" fill="#344955"/>
+  <rect x="45" y="417" width="325" height="22" fill="#344955"/>
+  <circle cx="78" cy="407" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="78" y="407">1</text>
+  <text class="base node-title" x="112" y="418" fill="#FFFFFF">Browser chat UI</text>
+  <text class="base node-body" x="74" y="482">Static <tspan font-family="Menlo, Consolas, monospace">web/</tspan> surface</text>
+  <text class="base node-body" x="74" y="520">Plain-language message</text>
+  <text class="base node-body" x="74" y="558">HTTPS POST • SSE stream</text>
+  <text class="base node-body" x="74" y="596">Plan A / Plan B controls</text>
+  <text class="base node-small" x="74" y="626" fill="#56646E">Shows status; executes no errands</text>
+
+  <!-- FastAPI / Cloud Run -->
+  <rect x="470" y="375" width="340" height="270" rx="22" fill="#FFFFFF" stroke="#315F8A" stroke-width="4"/>
+  <rect x="470" y="375" width="340" height="64" rx="22" fill="#315F8A"/>
+  <rect x="470" y="417" width="340" height="22" fill="#315F8A"/>
+  <circle cx="504" cy="407" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="504" y="407">2</text>
+  <text class="base node-title" x="538" y="418" fill="#FFFFFF">server.py</text>
+  <text class="base node-subtitle" x="500" y="480">FastAPI on Cloud Run</text>
+  <text class="base node-body" x="500" y="520">Containerized by Dockerfile</text>
+  <text class="base node-body" x="500" y="558">Static UI + API routes</text>
+  <text class="base node-body" x="500" y="596">SSE response streaming</text>
+  <rect x="500" y="607" width="165" height="29" rx="14" fill="#EDF3FA" stroke="#315F8A" stroke-width="2"/>
+  <text class="base node-small" x="582.5" y="627" text-anchor="middle" font-size="16" font-weight="700" fill="#315F8A">region: us-central1</text>
+  <text class="base node-small" x="680" y="627" font-size="16" fill="#56646E">fails closed</text>
+
+  <!-- Google ADK -->
+  <rect x="850" y="375" width="430" height="270" rx="22" fill="#FFFFFF" stroke="#315F8A" stroke-width="4"/>
+  <rect x="850" y="375" width="430" height="64" rx="22" fill="#315F8A"/>
+  <rect x="850" y="417" width="430" height="22" fill="#315F8A"/>
+  <circle cx="884" cy="407" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="884" y="407">3</text>
+  <text class="base node-title" x="918" y="418" fill="#FFFFFF">Google ADK</text>
+  <text class="base node-subtitle" x="880" y="480">Exactly 1 <tspan font-family="Menlo, Consolas, monospace">LlmAgent</tspan></text>
+  <text class="base node-subtitle" x="880" y="518">Exactly 1 <tspan font-family="Menlo, Consolas, monospace">Runner</tspan></text>
+  <text class="base node-body" x="880" y="560">Conversation + retrieved context</text>
+  <text class="base node-body" x="880" y="598">Five wrapped board tools</text>
+  <text class="base node-small" x="880" y="628" fill="#56646E">No regex pre-router</text>
+
+  <!-- Gemini -->
+  <rect x="1320" y="375" width="550" height="270" rx="22" fill="#DCE9F6" stroke="#194F86" stroke-width="6"/>
+  <rect x="1320" y="375" width="550" height="64" rx="22" fill="#194F86"/>
+  <rect x="1320" y="417" width="550" height="22" fill="#194F86"/>
+  <circle cx="1354" cy="407" r="18" fill="#FFFFFF" opacity="0.22"/>
+  <text class="base step-number" x="1354" y="407">4</text>
+  <text class="base node-title" x="1388" y="418" fill="#FFFFFF">Vertex AI model</text>
+  <text class="base node-title" x="1355" y="492" fill="#123D67">Gemini 3.5 Flash</text>
+  <text class="base node-mono" x="1355" y="528" fill="#123D67">gemini-3.5-flash</text>
+  <rect x="1611" y="463" width="221" height="56" rx="28" fill="#FFFFFF" stroke="#194F86" stroke-width="3"/>
+  <text class="base node-subtitle" x="1722" y="499" text-anchor="middle" fill="#123D67">location: global</text>
+  <text class="base node-subtitle" x="1355" y="574">MODEL DECIDES</text>
+  <text class="base node-body" x="1355" y="610">chat vs task vs planning • tool + arguments</text>
+
+  <!-- Primary request arrows -->
+  <path class="flow-soft" d="M 370 492 L 470 492"/>
+  <text class="base edge-label" x="420" y="473" text-anchor="middle">message →</text>
+  <text class="base node-small" x="420" y="530" text-anchor="middle" fill="#56646E">← SSE</text>
+  <path class="flow" d="M 810 510 L 850 510"/>
+  <path class="flow" d="M 1280 510 L 1320 510"/>
+
+  <!-- Tools -->
+  <rect x="470" y="735" width="530" height="280" rx="22" fill="#FFFFFF" stroke="#3C5566" stroke-width="4"/>
+  <rect x="470" y="735" width="530" height="64" rx="22" fill="#3C5566"/>
+  <rect x="470" y="777" width="530" height="22" fill="#3C5566"/>
+  <circle cx="504" cy="767" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="504" y="767">5</text>
+  <text class="base node-title" x="538" y="778" fill="#FFFFFF">Model-facing board tools (5)</text>
+  <text class="base node-mono" x="500" y="844">create_task</text>
+  <text class="base node-mono" x="745" y="844">rename_task</text>
+  <text class="base node-mono" x="500" y="884">move_task</text>
+  <text class="base node-mono" x="745" y="884">list_tasks</text>
+  <text class="base node-mono" x="500" y="924">plan_tomorrow</text>
+  <line x1="500" y1="948" x2="970" y2="948" stroke="#AAB4BB" stroke-width="2"/>
+  <text class="base node-small" x="500" y="980" fill="#4F5C65">Organises board records; never does the task</text>
+
+  <!-- Channel gate -->
+  <rect x="1040" y="735" width="300" height="280" rx="22" fill="#FFF3C4" stroke="#735A15" stroke-width="5"/>
+  <rect x="1040" y="735" width="300" height="64" rx="22" fill="#735A15"/>
+  <rect x="1040" y="777" width="300" height="22" fill="#735A15"/>
+  <circle cx="1074" cy="767" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="1074" y="767">6</text>
+  <text class="base node-title" x="1108" y="778" fill="#FFFFFF">ONE GATE</text>
+  <text class="base node-subtitle" x="1070" y="842">Channel gate</text>
+  <text class="base node-body" x="1070" y="882">wraps all 5 tools</text>
+  <text class="base node-body" x="1070" y="922">task channel → allow</text>
+  <text class="base node-body" x="1070" y="962">automation / unknown</text>
+  <text class="base node-body" x="1070" y="992">→ model-readable refusal</text>
+
+  <!-- Notion MCP -->
+  <rect x="1380" y="735" width="490" height="280" rx="22" fill="#E8F0E9" stroke="#315B3C" stroke-width="5"/>
+  <rect x="1380" y="735" width="490" height="64" rx="22" fill="#315B3C"/>
+  <rect x="1380" y="777" width="490" height="22" fill="#315B3C"/>
+  <circle cx="1414" cy="767" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="1414" y="767">7</text>
+  <text class="base node-title" x="1448" y="778" fill="#FFFFFF">Notion MCP adapter</text>
+  <text class="base node-small" x="1410" y="829">TaskStore boundary → local stdio MCP child</text>
+  <text class="base node-small" x="1410" y="856" font-weight="700">EXACT 5-OP ALLOWLIST</text>
+  <text class="base node-mono" x="1410" y="890">create_page</text>
+  <text class="base node-mono" x="1634" y="890">set_page_title</text>
+  <text class="base node-mono" x="1410" y="925">set_page_property</text>
+  <text class="base node-mono" x="1410" y="960">query_database</text>
+  <text class="base node-mono" x="1634" y="960">archive_page</text>
+  <line x1="1410" y1="976" x2="1840" y2="976" stroke="#9AA9A0" stroke-width="2"/>
+  <text class="base node-small" x="1410" y="1002" fill="#46554B">All other Notion operations rejected</text>
+
+  <!-- Gemini selects a tool: emphasized U-turn -->
+  <path class="flow-blue" d="M 1595 645 L 1595 684 L 735 684 L 735 735"/>
+  <rect x="895" y="654" width="465" height="48" rx="24" fill="#FFFFFF" stroke="#194F86" stroke-width="2"/>
+  <text class="base edge-label" x="1128" y="685" text-anchor="middle" fill="#194F86">MODEL SELECTS THE TOOL CALL</text>
+
+  <path class="flow" d="M 1000 875 L 1040 875"/>
+  <path class="flow" d="M 1340 875 L 1380 875"/>
+
+  <!-- Notion outside Google Cloud -->
+  <rect x="1970" y="735" width="385" height="280" rx="22" fill="#FFFFFF" stroke="#20272C" stroke-width="5"/>
+  <rect x="1970" y="735" width="385" height="64" rx="22" fill="#20272C"/>
+  <rect x="1970" y="777" width="385" height="22" fill="#20272C"/>
+  <circle cx="2004" cy="767" r="18" fill="#FFFFFF" opacity="0.2"/>
+  <text class="base step-number" x="2004" y="767">8</text>
+  <text class="base node-title" x="2038" y="778" fill="#FFFFFF">Task board (Notion)</text>
+  <text class="base node-subtitle" x="2000" y="844">One existing database</text>
+  <text class="base node-body" x="2000" y="884">Six fixed properties:</text>
+  <text class="base node-body" x="2000" y="924">Name • Status • When</text>
+  <text class="base node-body" x="2000" y="962">Place • Minutes • Notes</text>
+  <text class="base node-small" x="2000" y="993" fill="#56646E">Task records only</text>
+  <path class="flow" d="M 1870 875 L 1970 875"/>
+  <rect x="1873" y="830" width="94" height="32" rx="16" fill="#F6F8FA"/>
+  <text class="base node-small" x="1920" y="853" text-anchor="middle">scoped op</text>
+
+  <!-- Secret Manager injects Notion configuration by reference into Cloud Run -->
+  <path class="flow-secret" d="M 470 1059 L 445 1059 L 445 620 L 470 620"/>
+  <rect x="470" y="1028" width="530" height="62" rx="20" fill="#E8F0E9" stroke="#315B3C" stroke-width="4"/>
+  <text class="base node-subtitle" x="500" y="1067" fill="#315B3C">Secret Manager</text>
+  <text class="base node-small" x="710" y="1054" font-size="17" fill="#46554B">2 Notion configuration secrets</text>
+  <text class="base node-small" x="710" y="1078" font-size="17" font-weight="700" fill="#315B3C">Cloud Run: injected by reference</text>
+
+  <!-- Secondary scheduled lane -->
+  <rect x="45" y="1130" width="325" height="205" rx="22" fill="#FFFFFF" stroke="#606C74" stroke-width="3" stroke-dasharray="10 8"/>
+  <text class="base node-subtitle" x="74" y="1182">Scheduled trigger</text>
+  <text class="base node-body" x="74" y="1222">Deployment requirement</text>
+  <text class="base node-body" x="74" y="1260">21:00 Asia/Jerusalem</text>
+  <text class="base node-mono" x="74" y="1300">POST /api/automations/tick</text>
+
+  <rect x="470" y="1100" width="555" height="285" rx="22" fill="#F8F4E9" stroke="#685F48" stroke-width="4"/>
+  <text class="base node-title" x="500" y="1150">Nightly planning automation</text>
+  <text class="base node-body" x="500" y="1192">AutomationRunner + deterministic DayPlanner</text>
+  <text class="base node-subtitle" x="500" y="1234">No Gemini call</text>
+  <text class="base node-body" x="500" y="1275">Reads open, place-matched board tasks</text>
+  <text class="base node-body" x="500" y="1315">Outputs 2 choices: heavy-first / light-first</text>
+  <text class="base node-body" x="500" y="1355">Picking one changes only <tspan font-weight="700">When</tspan></text>
+  <path class="flow-dashed" d="M 370 1233 L 470 1233"/>
+
+  <!-- Supporting Google Cloud services -->
+  <rect x="1070" y="1100" width="350" height="285" rx="22" fill="#FFFFFF" stroke="#315F8A" stroke-width="4"/>
+  <text class="base node-title" x="1100" y="1150">Firestore</text>
+  <text class="base node-body" x="1100" y="1195">Channel transcripts</text>
+  <text class="base node-body" x="1100" y="1235">Automation state</text>
+  <text class="base node-body" x="1100" y="1275">Learning-event metadata</text>
+  <text class="base node-body" x="1100" y="1315">Embedding cache</text>
+  <text class="base node-small" x="1100" y="1353" fill="#56646E">Not Markdown bodies</text>
+
+  <rect x="1460" y="1100" width="410" height="285" rx="22" fill="#FFFFFF" stroke="#315F8A" stroke-width="4"/>
+  <text class="base node-title" x="1490" y="1150">Knowledge retrieval</text>
+  <text class="base node-body" x="1490" y="1195">Markdown at <tspan font-family="Menlo, Consolas, monospace">/knowledge</tspan></text>
+  <text class="base node-body" x="1490" y="1235">Cloud Storage mount*</text>
+  <text class="base node-body" x="1490" y="1275">Vertex AI embeddings</text>
+  <text class="base node-mono" x="1490" y="1315">gemini-embedding-001</text>
+  <text class="base node-body" x="1490" y="1355">location: global</text>
+
+  <!-- Nightly direct data path: bypasses model-tool gate, still uses allowlist -->
+  <path class="flow-dashed" d="M 1025 1075 L 1025 1052 L 1625 1052 L 1625 1015"/>
+  <rect x="1110" y="1028" width="430" height="47" rx="23" fill="#F6F8FA" stroke="#606C74" stroke-width="2"/>
+  <text class="base edge-label" x="1325" y="1059" text-anchor="middle">query + picked When via allowlist</text>
+
+  <!-- Footer / legend -->
+  <rect x="0" y="1480" width="2400" height="120" fill="#172A3A"/>
+  <text class="base footer-main" x="65" y="1529" fill="#FFFFFF">The assistant organises task records. It never executes the underlying task.</text>
+  <text class="base footer-note" x="65" y="1570" fill="#DDE7EF">Solid arrows: model-backed request path  •  Dashed arrows: deterministic scheduled path  •  * deployment requirement documented by the repository</text>
+</svg>
