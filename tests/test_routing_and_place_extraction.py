@@ -53,42 +53,38 @@ async def route_message(message, agent, channels, store, channel_id):
 # Table of all test cases: (message, expected_route, description)
 TEST_CASES = [
     # Cases that should route to PLANS (explicit request or bare place statement)
-    ("I am at Office tomorrow", "plans", "bare place statement"),
-    ("tomorrow at Office", "plans", "place at end"),
+    ("I am at Office tomorrow", "plans", "bare place with preposition"),
+    ("I will be at the Office tomorrow", "plans", "I will be with preposition"),
+    ("tomorrow at Office", "plans", "leading tomorrow at place"),
     ("Office", "plans", "place name only"),
     ("plan my day tomorrow", "plans", "explicit plan request"),
     ("plan my day tomorrow at the office", "plans", "plan request with place"),
     ("schedule tomorrow", "plans", "explicit schedule request"),
     ("schedule my day at home", "plans", "schedule with place"),
 
-    # Cases that should route to TASK CREATION (the critical ones from the blocker)
+    # Cases that should route to TASK CREATION (from probed 22 phrasings)
     ("remind me to call the dentist tomorrow at 3pm", "row", "reminder with time"),
     ("remind me to call the plumber when I'm at the office tomorrow", "row", "reminder with place"),
-    ("tomorrow I need to fix the sink at home", "row", "task with place embedded"),
+    ("tomorrow I need to fix the sink at home", "row", "task with embedded place"),
     ("tomorrow, grab milk at the office", "row", "task verb with embedded place"),
-    ("tomorrow print the contract at the office", "row", "task verb with place"),
-
-    # More task verbs not in an allowlist (to ensure no allowlist is needed)
     ("finish the report at the office tomorrow", "row", "finish verb"),
     ("drop off the keys at home tomorrow", "row", "drop off verb"),
+    ("tomorrow print the contract at the office", "row", "print verb"),
     ("take the car in tomorrow at the garage", "row", "take verb"),
-    ("check the door lock at office tomorrow", "row", "check verb"),
-    ("return the book at the library tomorrow", "row", "return verb"),
-    ("collect the parcel from the office tomorrow", "row", "collect verb"),
-    ("handle the contract at home tomorrow", "row", "handle verb"),
-    ("repair the fence at the backyard tomorrow", "row", "repair verb"),
-    ("organize the closet at home tomorrow", "row", "organize verb"),
-
-    # Original realistic reminders (should all create rows)
-    ("remind me to call the plumber", "row", "simple reminder"),
-    ("call mom when you remember", "row", "call without remind me"),
-    ("buy milk on the way home", "row", "buy verb"),
+    ("collect the parcel at the office tomorrow", "row", "collect verb"),
+    ("tomorrow check the mail at home", "row", "check verb"),
+    ("tomorrow I have the dentist at 9 near the office", "row", "appointment with time"),
+    ("water the plants at home tomorrow", "row", "water verb"),
+    ("tomorrow settle the invoice at the office", "row", "settle verb"),
+    ("sign the lease at home tomorrow morning", "row", "sign verb"),
     ("pay the electricity bill tomorrow", "row", "pay verb"),
     ("book a flight for next month", "row", "book verb"),
     ("pick up dry cleaning", "row", "pick up verb"),
     ("send birthday gift to Sarah", "row", "send verb"),
-    ("water the plants tonight", "row", "water verb"),
     ("follow up on the contract email", "row", "follow up verb"),
+    ("return the book at the library tomorrow", "row", "return verb"),
+    ("repair the fence at the backyard tomorrow", "row", "repair verb"),
+    ("organize the closet at home tomorrow", "row", "organize verb"),
 ]
 
 

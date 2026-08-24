@@ -325,7 +325,7 @@ class TaskOrganizerAgent:
         """Check if message is ENTIRELY a statement of where Avi will be.
 
         Anchored to the whole message, not searching inside arbitrary text.
-        Matches: "I am at Office tomorrow", "I'll be home tomorrow", "tomorrow at office"
+        Matches: "I am at Office tomorrow", "I’ll be home tomorrow", "tomorrow at office"
         Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
         """
         lowered = message.casefold().strip()
@@ -333,8 +333,9 @@ class TaskOrganizerAgent:
         # Patterns anchored to start/end of message
         patterns = (
             r"^i\s+(?:am|i’m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^i\s+(?:will|i’ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
-            r"^tomorrow\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
+            r"^i\s+(?:will|i’ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?\s*(\w+)\s+tomorrow$",
+            r"^tomorrow\s*,?\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
+            r"^tomorrow\s*,?\s+i(?:\s+am|[‘’]m)\s+(?:at|in)?\s+(?:the\s+)?(\w+)$",
             r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
             r"^(?:home|office|out|anywhere)$",
         )
