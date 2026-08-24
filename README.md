@@ -96,6 +96,17 @@ TASK_STORE_MODE=notion \
 
 An authenticated model or embedding call may bill the configured Google Cloud account. Notion writes persist. Run the live acceptance story only after the separate explicit approval described in `docs/LIVE-ACCEPTANCE.md`.
 
+## Deploying
+
+`gcloud run deploy --source .` uploads whatever is on disk at that second, not
+the last commit. On 2026-08-24 a deploy landed between two edits of the same
+change and shipped revision `00004-mzw` with a new `web/index.html` against the
+previous `web/app.css`, which left the live page unstyled. So: commit first,
+confirm `git status` is clean, run `pytest` and `npm run test:ui`, and only then
+deploy — and never start a deploy while another session is mid-edit.
+
+The live revision is behind `main` until the next deploy runs.
+
 ## Cloud Run configuration
 
 The container is prepared for the existing Cloud Run/FastAPI shape, but this repository does not create or change cloud resources.
