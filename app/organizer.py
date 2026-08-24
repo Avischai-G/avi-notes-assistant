@@ -340,8 +340,9 @@ class TaskOrganizerAgent:
         Anchored to the whole message, not searching inside arbitrary text.
         Matches: "I am at Office tomorrow", "I’ll be home tomorrow", "tomorrow at office"
         Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
+        Assumes message is already normalized (whitespace and punctuation stripped).
         """
-        lowered = message.casefold().strip().rstrip(".!?")
+        lowered = message.casefold()
 
         # Patterns anchored to start/end of message
         # Apostrophe: match both ASCII apostrophe and Unicode right-single-quote U+2019
@@ -414,9 +415,9 @@ class TaskOrganizerAgent:
             yield {"done": True}
             return
 
-        # Normalize message for routing: strip trailing sentence punctuation once,
+        # Normalize message for routing: strip trailing whitespace and sentence punctuation once,
         # so both plan and place predicates work with the same normalized text.
-        normalized_message = user_message.rstrip(".!?")
+        normalized_message = user_message.strip().rstrip(".!?")
 
         if (
             self.day_planner is not None
