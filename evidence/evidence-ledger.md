@@ -43,6 +43,9 @@ Raw secrets and local credential contents are never recorded here.
 | Final marker cleanup | Marker-scoped cleanup after reload; one transient pre-archive query failure, then one identical retry | `archived_marker_rows=0 remaining_marker_rows=0`; the earlier cleanup had archived all three created rows | `evidence/live-acceptance-2026-08-24.md` |
 | Final pre-commit verification | Full Python suite, Python compilation, JavaScript syntax, diff whitespace, architecture count | `88 passed, 1 skipped`; syntax/diff passed; one LlmAgent, one Runner, four gated tools, 90 prompt words | terminal output; `evidence/fact-check-log.md` |
 | Final pre-commit secret scan | 85 worktree/local-data files and reachable history | Initial scan rejected a token-shaped test sentinel; after replacement: PASS over 2,897,027 history bytes, 5 exact values, and 4 generic patterns | `tools/secret_scan.py` stdout |
+| Final clean checkout | Commit `ab54c93f1f4d1a4226035e860facf712c1d11cd1`; no-hardlink clone with remote removed | Setup completed on Python 3.12.12; npm audited 173 packages with 0 vulnerabilities; `88 passed, 1 skipped`; syntax/diff and clean status passed | `evidence/final-release-verification.md` |
+| Clean-checkout secret and boundary verification | 81 committed worktree files, reachable history, Card 3 comparisons | Secret scan PASS over 3,316,835 history bytes; Card 3 hashes matched; one agent, one Runner, four tools, 90 prompt words | `evidence/final-release-verification.md` |
+| Local release freeze | Final evidence commit, no remote | Local tag `avi-notes-assistant-rc1`; no push or publication | local git refs; `evidence/final-release-verification.md` |
 
 Matching Playwright browsers are installed, but this managed run still cannot
 create a context. A complete run of the corrected suite outside this sandbox is

@@ -15,5 +15,5 @@
 | Chat, automation histories, learning, and knowledge survive reload. | PASS | Reload matched the saved task chat, automation channel/history and definitions, Learning periods, knowledge manifest/hash, and empty marker-row view. |
 | Clean-checkout setup and offline verification pass. | PASS | `setup.sh` completed with Python 3.12.12, npm reported zero vulnerabilities, `69 passed, 1 skipped`, compilation/JS/diff checks passed, tracked files stayed clean, and all six Card 3 comparisons matched at `5a05d51`. |
 | No secret appears in worktree or reachable git history. | PASS pre-commit final tree | Scanner inspected 85 worktree/local-data files, 2,897,027 reachable-history bytes, five exact sensitive values, and four generic credential patterns. The first scan correctly rejected a token-shaped test sentinel; it was replaced with a non-token value before this PASS. |
-| Release candidate is locally tagged. | PENDING FINAL CLOSURE | Live acceptance now passes. Create `avi-notes-assistant-rc1` only after the final commit and clean-checkout verification. |
+| Release candidate is locally tagged. | PASS at release handoff | Local-only `avi-notes-assistant-rc1` identifies the final evidence commit; no remote exists. |
 | Any cloud deployment, remote push, publication, recording, or submission occurred. | NO | Prohibited and not attempted. |

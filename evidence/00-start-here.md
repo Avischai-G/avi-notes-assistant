@@ -46,8 +46,9 @@ open item; no weaker check is treated as equivalent.
 - The pre-existing board row is excluded from all model, planner, cleanup, and test counts.
 - No deployment, remote push, publication, recording, registration, submission, or scope cut.
 
-## Release closure
+## Release identity
 
-Run final offline, clean-checkout, hash, and secret verification; commit the live
-evidence; then create local tag `avi-notes-assistant-rc1`. No remote or outward
-action is part of that closure. See `live-acceptance-2026-08-24.md`.
+The final source/evidence tree passed clean-checkout, hash, and secret
+verification and is frozen by local tag `avi-notes-assistant-rc1`. No remote or
+outward action is part of this release. See `final-release-verification.md` and
+`live-acceptance-2026-08-24.md`.
