@@ -316,6 +316,29 @@ class TaskOrganizerAgent:
         return bool(re.search(r"\b(?:plan|schedule)\b.*\b(?:my\s+)?(?:day|tomorrow)", lowered)) or \
                bool(re.search(r"\b(?:my\s+)?(?:day|tomorrow).*\b(?:plan|schedule)\b", lowered))
 
+    @staticmethod
+    def _looks_like_task_capture(message: str) -> bool:
+        """Check if message looks like it's trying to capture a task/reminder.
+
+        Task captures start with action verbs (call, buy, send, pick, etc.)
+        or contain "remind me". Excludes plan/schedule requests like "schedule my day".
+        Bare place statements (I'll be, I am, etc.) return False.
+        """
+        lowered = message.casefold().strip()
+        # Explicit task-capture patterns
+        if "remind me" in lowered:
+            return True
+        # Action verbs that indicate task capture (not comprehensive, but covers common cases)
+        # Exclude verbs when followed by plan/day/schedule keywords (those are plan requests)
+        task_verbs = (
+            "call", "send", "buy", "pick", "book", "pay", "remember",
+            "follow up", "water", "email", "text", "message"
+        )
+        for verb in task_verbs:
+            if lowered.startswith(verb):
+                return True
+        return False
+
     def _confirmation(self, task: Task) -> str:
         now = local_now(self.clock)
         return (
@@ -371,7 +394,11 @@ class TaskOrganizerAgent:
             yield {"done": True}
             return
 
-        if self.day_planner is not None and self._is_asking_for_plan(user_message):
+        if (
+            self.day_planner is not None
+            and not self._looks_like_task_capture(user_message)
+            and (self._is_asking_for_plan(user_message) or self.day_planner.extract_place(user_message))
+        ):
             place = self.day_planner.extract_place(user_message)
             sweep = self.day_planner.build(place)
             sweep["channel_id"] = channel_id
