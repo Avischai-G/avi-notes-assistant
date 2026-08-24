@@ -39,6 +39,7 @@ otherwise perform Avi's underlying work.
 - FastAPI serves a no-build responsive browser UI and streams chat events over SSE.
 - One Google ADK `LlmAgent` runs `gemini-3.5-flash` on Vertex AI in `global`.
 - Four typed board tools sit above a fail-closed Notion adapter.
+- One channel-scoped gate refuses every board tool in automation channels.
 - A pinned local stdio MCP child exposes only five operations against one existing database.
 - Firestore persists chats, automation state, learning-event metadata, and embedding metadata.
 - Markdown knowledge uses a `/knowledge` filesystem contract intended for a dedicated Cloud Storage mount.

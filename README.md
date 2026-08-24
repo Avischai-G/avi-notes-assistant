@@ -11,6 +11,9 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 - Defaults are `Not started`, `Anywhere`, 30 minutes, Avi's wording in Notes, and tomorrow for a plain reminder.
 - A 21:00 `Asia/Jerusalem` nightly sweep offers exactly two plans: heavy-first and light-first. Picking one changes only `When` for included tasks.
 - Knowledge cleanup consolidates pending Markdown dream notes in one persistent automation channel. A no-work run is deterministic and makes no Gemini call.
+- Automation channels cannot access any board tool. One shared channel gate
+  returns a model-readable refusal without calling Notion; unknown channel
+  identity also denies.
 - Learning shows day/week/month aggregates. The complete learning event log is available only in-process to the organiser; there is no raw-log browser route.
 
 ## Architecture
@@ -39,11 +42,11 @@ node --check web/app.js
 node --check web/learning.js
 ```
 
-The prepared rendered suite is `npm run test:ui`. It needs browser binaries that
-match the pinned `playwright-core` plus a runtime allowed to create a browser
-context. The merged-bundle rendered run is currently `UNVERIFIED` in this managed
-sandbox: Chrome exited `SIGABRT` before context creation even after the matching
-binaries were installed. The exact open item is recorded in
+The prepared rendered suite is `npm run test:ui`. The merged-bundle run remains
+`UNVERIFIED` from this executor's position: Avi/Main Orchestrator supplied an
+outside-sandbox diagnostic run whose eight task/learning matrix checks passed,
+but this executor's corrected-suite run exited before context creation when
+Chrome received `SIGABRT`. The exact attribution and open item are recorded in
 [evidence/rendered-browser-open-item.md](evidence/rendered-browser-open-item.md).
 
 ## Local authenticated setup
@@ -66,6 +69,7 @@ set +a
 GOOGLE_CLOUD_PROJECT=gen-lang-client-0256233370 \
 GOOGLE_CLOUD_LOCATION=global \
 GOOGLE_GENAI_USE_VERTEXAI=true \
+FIRESTORE_DATABASE=coroner \
 USE_FIRESTORE=0 \
 TASK_STORE_MODE=notion \
 ./.venv/bin/uvicorn server:api --host 127.0.0.1 --port 8000
@@ -80,7 +84,8 @@ The container is prepared for the existing Cloud Run/FastAPI shape, but this rep
 An approved deployment must provide:
 
 - project `gen-lang-client-0256233370` and `GOOGLE_CLOUD_LOCATION=global`;
-- one Firestore database for channels, automation state, embedding metadata, and private learning-event metadata;
+- `FIRESTORE_DATABASE=coroner`, selecting the existing Firestore Native database
+  for channels, automation state, embedding metadata, and private learning-event metadata;
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
 - `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.5-flash`;
@@ -100,7 +105,7 @@ The database already exists. Its frozen properties are `Name`, `Status`, `When`,
 
 The pinned local MCP child exposes exactly `create_page`, `set_page_title`, `set_page_property`, `query_database`, and `archive_page`. The organiser itself receives only four TaskStore tools and never receives raw MCP or archive access.
 
-This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent isolation regression therefore hard-fails unless search returns exactly one object—the configured database's data source—with `has_more: false`. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
+This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent unfiltered-search regression therefore hard-fails unless it returns exactly one configured data source, every other result is a page parented to that same data source, and `has_more` is false. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
 
 ## Demo materials
 

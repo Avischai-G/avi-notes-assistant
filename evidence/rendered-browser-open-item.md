@@ -33,12 +33,20 @@ The complete launch call log is preserved in `evidence/browser/report.json`.
 ## Claim boundary
 
 Card 2's and Card 4's rendered checks passed individually earlier in the project.
-They are not evidence that this merged bundle renders correctly. Merged
-desktop/mobile, dark/light, keyboard, accessibility, console, and network QA is
-therefore `UNVERIFIED`—not failed, passed, or verified by another means.
+Separately, Avi/Main Orchestrator executed a temporary diagnostic copy of the
+merged suite outside this sandbox. Its eight task/learning matrix checks passed
+and it isolated three harness defects: an already-focused composer, a wait for a
+hidden element to become visible, and expected raw-log 404s poisoning final
+console diagnostics. That execution was not observed by this executor and did
+not run the final corrected repository file. Its supplied JSON and screenshots
+are preserved in `evidence/browser-orchestrator/`.
+
+Merged desktop/mobile, dark/light, keyboard, accessibility, console, and network
+QA is therefore `UNVERIFIED` from this executor's position—not claimed as a
+first-party pass.
 
 ## Exact next verification
 
-Run the prepared, unchanged `npm run test:ui` outside this managed sandbox, where
-Avi already proved matching browser launch works. No launch option, browser engine,
-retry, or fallback was attempted after the final `SIGABRT` result.
+Run the corrected repository's unchanged `npm run test:ui` outside this managed
+sandbox. No launch option, browser engine, retry, or fallback was attempted after
+the final `SIGABRT` result.

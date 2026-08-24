@@ -169,6 +169,7 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   assert.deepEqual(styles.send, mobile ? [40, 40] : [48, 48]);
   assert.ok(styles.scrollWidth <= styles.viewport[0], "task page overflows horizontally");
 
+  await page.evaluate(() => document.activeElement?.blur());
   const beforeFocus = await page.locator(".composer-shell").evaluate((element) => ({
     border: getComputedStyle(element).borderColor,
     rect: element.getBoundingClientRect().toJSON(),
@@ -222,7 +223,8 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
 
     await page.getByRole("link", { name: "Task chat" }).focus();
     await page.keyboard.press("Enter");
-    await page.waitForSelector("#surface-header[hidden]");
+    await page.waitForSelector("#surface-header[hidden]", { state: "attached" });
+    assert.equal(await page.locator("#surface-header").getAttribute("hidden"), "");
     await resetTabOrder(page);
     assert.match(await tabUntil(page, /^Attach a file$/), /^Attach a file$/);
     const chooserPromise = page.waitForEvent("filechooser");
@@ -292,7 +294,7 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
 }
 
 
-async function exerciseLearningSurface(page, theme, mobile, functional) {
+async function exerciseLearningSurface(page, theme, mobile, functional, beforeRawLogProbes) {
   await page.goto(`${baseURL}/learning`, { waitUntil: "networkidle" });
   await page.waitForSelector(".metrics");
   assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
@@ -321,6 +323,7 @@ async function exerciseLearningSurface(page, theme, mobile, functional) {
     assert.match(await accessibleName(page), /^Month$/);
     await page.keyboard.press("Space");
     assert.equal(await page.getByRole("button", { name: "Month" }).getAttribute("aria-pressed"), "true");
+    await beforeRawLogProbes();
     for (const endpoint of ["raw", "events", "log"]) {
       const status = await page.evaluate(async (name) => (await fetch(`/api/learning/${name}`)).status, endpoint);
       assert.equal(status, 404, `raw Learning surface ${endpoint} must fail`);
@@ -351,14 +354,24 @@ async function main() {
       const context = await browser.newContext({ viewport: entry.viewport, locale: "en-US", timezoneId: "Asia/Jerusalem" });
       await context.addInitScript((theme) => localStorage.setItem("agentonomy-theme", theme), entry.theme);
       const page = await context.newPage();
+      let captureConsoleErrors = true;
       page.on("console", (message) => {
-        if (message.type() === "error") diagnostics.push(`console:${message.text()}`);
+        if (captureConsoleErrors && message.type() === "error") diagnostics.push(`console:${message.text()}`);
       });
       page.on("pageerror", (error) => diagnostics.push(`pageerror:${error.message}`));
       page.on("requestfailed", (request) => diagnostics.push(`requestfailed:${request.url()}:${request.failure()?.errorText}`));
       const functional = entry.theme === "dark" && entry.mobile === false;
       await check(`task-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseTaskSurface(page, entry.theme, entry.mobile, functional));
-      await check(`learning-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseLearningSurface(page, entry.theme, entry.mobile, functional));
+      await check(`learning-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseLearningSurface(
+        page,
+        entry.theme,
+        entry.mobile,
+        functional,
+        async () => {
+          assert.deepEqual(diagnostics, [], "unexpected diagnostics before intentional raw-log 404 probes");
+          captureConsoleErrors = false;
+        },
+      ));
       await context.close();
     }
     await check("browser-console-and-network", async () => {

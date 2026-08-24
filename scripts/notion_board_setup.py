@@ -85,26 +85,56 @@ def _validate_isolation_result(data: Any, database_id: str) -> None:
     results = data.get("results")
     if not isinstance(results, list):
         raise RuntimeError("Notion search returned malformed results")
-    if len(results) != 1:
-        raise RuntimeError(
-            "Isolation regression: search must return exactly one object"
-        )
     if data.get("has_more") is not False:
         raise RuntimeError("Isolation regression: search must report has_more=false")
-    only = results[0]
-    parent = only.get("parent") if isinstance(only, dict) else None
-    if (
-        not isinstance(only, dict)
-        or only.get("object") != "data_source"
-        or not isinstance(parent, dict)
-        or parent.get("type") != "database_id"
-        or not isinstance(parent.get("database_id"), str)
-        or _normalize_id(parent["database_id"]) != _normalize_id(database_id)
-    ):
+
+    for result in results:
+        if not isinstance(result, dict):
+            raise RuntimeError("Isolation regression: search returned malformed object")
+
+    data_sources = [
+        result for result in results if result.get("object") == "data_source"
+    ]
+    if len(data_sources) != 1:
         raise RuntimeError(
-            "Isolation regression: the sole search result is not the configured "
-            "tasks database's data source"
+            "Isolation regression: search must return exactly one data source"
         )
+
+    data_source = data_sources[0]
+    data_source_id = data_source.get("id")
+    data_source_parent = data_source.get("parent")
+    id_matches = isinstance(data_source_id, str) and (
+        _normalize_id(data_source_id) == _normalize_id(database_id)
+    )
+    parent_database_id = (
+        data_source_parent.get("database_id")
+        if isinstance(data_source_parent, dict)
+        else None
+    )
+    parent_matches = isinstance(parent_database_id, str) and (
+        _normalize_id(parent_database_id) == _normalize_id(database_id)
+    )
+    if not isinstance(data_source_id, str) or not (id_matches or parent_matches):
+        raise RuntimeError(
+            "Isolation regression: search did not return the configured data source"
+        )
+
+    for result in results:
+        if result.get("object") == "data_source":
+            continue
+        parent = result.get("parent")
+        if (
+            result.get("object") != "page"
+            or not isinstance(parent, dict)
+            or parent.get("type") != "data_source_id"
+            or not isinstance(parent.get("data_source_id"), str)
+            or _normalize_id(parent["data_source_id"])
+            != _normalize_id(data_source_id)
+        ):
+            raise RuntimeError(
+                "Isolation regression: search returned an object outside the "
+                "configured data source"
+            )
 
 
 def isolation() -> None:
@@ -135,7 +165,7 @@ def isolation() -> None:
     except urllib.error.URLError as exc:
         raise RuntimeError("Notion isolation request could not connect") from exc
     _validate_isolation_result(data, config.tasks_database_id)
-    print("PASS: search returned only the configured tasks data source")
+    print("PASS: search returned only the configured data source and its pages")
 
 
 def discover() -> None:

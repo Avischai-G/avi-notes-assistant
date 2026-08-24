@@ -41,6 +41,21 @@ _agent: Optional[TaskOrganizerAgent] = None
 _knowledge: Optional[OrganizerKnowledge] = None
 _automation_store: Optional[object] = None
 _automation_runner: Optional[AutomationRunner] = None
+DEFAULT_FIRESTORE_DATABASE = "coroner"
+
+
+def _create_firestore_client():
+    if firestore is None:
+        raise RuntimeError("Firestore support is unavailable in production mode")
+    database = os.environ.get(
+        "FIRESTORE_DATABASE", DEFAULT_FIRESTORE_DATABASE
+    ).strip()
+    if not database:
+        raise RuntimeError("FIRESTORE_DATABASE must be non-empty")
+    return firestore.Client(
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT") or None,
+        database=database,
+    )
 
 
 def init_chat_stores(
@@ -70,9 +85,7 @@ def init_chat_stores(
     # Channel store
     db = None
     if use_firestore:
-        if firestore is None:
-            raise RuntimeError("Firestore support is unavailable in production mode")
-        db = firestore.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT") or None)
+        db = _create_firestore_client()
         _channel_store = FirestoreChannelStore(db)
         _automation_store = FirestoreAutomationStore(db)
     else:

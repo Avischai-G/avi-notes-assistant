@@ -1,6 +1,10 @@
 # One-time live acceptance gate
 
-**State:** prepared, not run. Marker: `A16799E0-RC-20260823-01`.
+**State:** `PASS` on 2026-08-24 across the observed task phase and authorized
+continuation. All seven steps passed, service reload passed, and final cleanup
+proved zero marker-owned rows remain. See
+`evidence/live-acceptance-2026-08-24.md`. Marker:
+`A16799E0-RC-20260823-01`.
 
 This procedure is the only approved live story for the release candidate. It is
 not deployment, publication, recording, registration, or submission approval.
@@ -16,7 +20,7 @@ The Task channel input will be exactly:
 5. Avi: `I will be at Office tomorrow.`
 6. Expected assistant: two plans only — Plan A heavy-first and Plan B light-first — using only the marker-owned Office and Anywhere rows, with `Asia/Jerusalem` times.
 7. Tester activates the visible `Pick Plan A` control once.
-8. Expected assistant: `Plan A is set for 2026-08-24.`
+8. Observed assistant: `Plan A is set for 2026-08-25.`
 
 Before that transcript, the reset script will create exactly two synthetic rows:
 

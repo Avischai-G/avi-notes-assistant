@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from datetime import datetime
+from functools import wraps
 import re
 import time
 from typing import AsyncGenerator, Callable
@@ -48,6 +49,11 @@ _VAGUE = {
     "no preference",
     "up to you",
 }
+_AUTOMATION_CHANNEL_PREFIX = "automation-"
+_BOARD_TOOL_REFUSAL = (
+    "Board tools are unavailable in automation channels. Continue this "
+    "automation using only its supplied context; do not retry a board tool."
+)
 
 
 def _task_dict(task: Task) -> dict:
@@ -92,6 +98,9 @@ class TaskOrganizerAgent:
         self.knowledge = knowledge
         self._store: ContextVar[TaskStore] = ContextVar("task_store")
         self._message: ContextVar[str] = ContextVar("user_message", default="")
+        self._channel_id: ContextVar[str | None] = ContextVar(
+            "organizer_channel_id", default=None
+        )
         self._created: ContextVar[list[Task]] = ContextVar("created_tasks")
         self._updated: ContextVar[list[Task]] = ContextVar("updated_tasks")
         self._instruction: ContextVar[str] = ContextVar(
@@ -199,7 +208,26 @@ class TaskOrganizerAgent:
                 ]
             }
 
-        return [create_task, rename_task, move_task, list_tasks]
+        return [
+            self._gate_board_tool(tool)
+            for tool in (create_task, rename_task, move_task, list_tasks)
+        ]
+
+    def _gate_board_tool(self, tool: Callable) -> Callable:
+        """Refuse every board tool unless its current channel is known and safe."""
+
+        @wraps(tool)
+        def guarded(*args, **kwargs):
+            channel_id = self._channel_id.get()
+            if (
+                not isinstance(channel_id, str)
+                or not channel_id
+                or channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
+            ):
+                return {"refused": True, "reason": _BOARD_TOOL_REFUSAL}
+            return tool(*args, **kwargs)
+
+        return guarded
 
     def _instruction_for_turn(self, _context) -> str:
         """Resolve the one cached instruction string for the current ADK turn."""
@@ -349,6 +377,7 @@ class TaskOrganizerAgent:
 
         store_token = self._store.set(task_store)
         message_token = self._message.set(user_message)
+        channel_token = self._channel_id.set(channel_id)
         created_token = self._created.set([])
         updated_token = self._updated.set([])
         instruction_token = self._instruction.set(
@@ -406,6 +435,7 @@ class TaskOrganizerAgent:
             self._instruction.reset(instruction_token)
             self._updated.reset(updated_token)
             self._created.reset(created_token)
+            self._channel_id.reset(channel_token)
             self._message.reset(message_token)
             self._store.reset(store_token)
 

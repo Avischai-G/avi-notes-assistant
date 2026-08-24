@@ -340,6 +340,130 @@ def run_story(probe: Probe, state_path: Path) -> None:
     )
 
 
+def resume_story(probe: Probe, state_path: Path, task_channel_id: str) -> None:
+    """Resume after the proven task phase and exercise every remaining step."""
+    assert probe.rows() == []
+    task_history = probe.request("GET", f"/api/channels/{task_channel_id}")
+    assert len(task_history["messages"]) == 8
+
+    automation_before = probe.request(
+        "GET", "/api/channels/automation-knowledge-cleanup"
+    )
+    baseline_learning = probe.learning()
+    baseline_totals = _period_totals(baseline_learning)
+
+    seeded_dream = probe.request("POST", "/__acceptance__/seed-dream")
+    assert seeded_dream["status"] == "seeded"
+    after_dream = probe.learning()
+    assert all(
+        _period_totals(after_dream)[period] == baseline_totals[period] + 1
+        for period in ("day", "week", "month")
+    )
+
+    first_cleanup = probe.request(
+        "POST", "/api/automations/knowledge-cleanup/run"
+    )
+    assert first_cleanup["status"] == "ran"
+    assert first_cleanup["model_called"] is True
+    assert first_cleanup["consolidation"]["learning_event"] is True
+    assert any(chunk.get("text") for chunk in first_cleanup["chunks"])
+    assert not any(chunk.get("error") for chunk in first_cleanup["chunks"])
+    assert probe.rows() == []
+
+    after_cleanup = probe.learning()
+    after_cleanup_totals = _period_totals(after_cleanup)
+    assert all(
+        after_cleanup_totals[period] == baseline_totals[period] + 2
+        for period in ("day", "week", "month")
+    )
+    for period in ("day", "week", "month"):
+        assert (
+            after_cleanup["periods"][period]["dreams_consolidated"]
+            == baseline_learning["periods"][period]["dreams_consolidated"] + 1
+        )
+
+    history_after_first = probe.request(
+        "GET", "/api/channels/automation-knowledge-cleanup"
+    )
+    assert history_after_first["messages"][: len(automation_before["messages"])] == (
+        automation_before["messages"]
+    )
+    new_first_messages = history_after_first["messages"][
+        len(automation_before["messages"]):
+    ]
+    assert [message["role"] for message in new_first_messages] == [
+        "user",
+        "assistant",
+    ]
+    for message in new_first_messages:
+        for result in message.get("tool_results") or []:
+            if result.get("name") in {
+                "create_task",
+                "rename_task",
+                "move_task",
+                "list_tasks",
+            }:
+                assert result["response"]["refused"] is True
+
+    second_cleanup = probe.request(
+        "POST", "/api/automations/knowledge-cleanup/run"
+    )
+    assert second_cleanup == {
+        "status": "no-work",
+        "automation_id": "knowledge-cleanup",
+        "channel_id": "automation-knowledge-cleanup",
+        "model_called": False,
+        "text": "No dream notes to consolidate.",
+    }
+    after_second = probe.learning()
+    assert _period_totals(after_second) == after_cleanup_totals
+
+    automation_history = probe.request(
+        "GET", "/api/channels/automation-knowledge-cleanup"
+    )
+    assert automation_history["messages"][: len(history_after_first["messages"])] == (
+        history_after_first["messages"]
+    )
+    assert automation_history["messages"][-1]["content"] == (
+        "No dream notes to consolidate."
+    )
+    automations = probe.request("GET", "/api/automations")["automations"]
+    assert {item["id"] for item in automations} == {
+        "knowledge-cleanup",
+        "nightly-plan",
+    }
+    for endpoint in ("raw", "events", "log"):
+        assert probe.request(
+            "GET", f"/api/learning/{endpoint}", expected=404
+        )["status"] == 404
+
+    manifest = probe.request("GET", "/__acceptance__/knowledge-manifest")
+    assert manifest["skill_exists"] is True
+    assert manifest["skill_sha256"]
+    assert manifest["pending"] is False
+    assert probe.rows() == []
+
+    state = {
+        "marker": probe.marker,
+        "task_channel_id": task_channel_id,
+        "task_history": task_history,
+        "automation_history": automation_history,
+        "automations": automations,
+        "learning_periods": after_second["periods"],
+        "knowledge_manifest": manifest,
+        "rows": [],
+        "resumed_after_proven_task_phase": True,
+        "http_raw_learning_statuses": {
+            endpoint: 404 for endpoint in ("raw", "events", "log")
+        },
+    }
+    _write_state(state_path, state)
+    print(
+        "LIVE_STORY_RESUME_PRE_RELOAD=PASS "
+        "cleanup_runs=2 learning_periods=3 raw_http_routes=404 marker_rows=0"
+    )
+
+
 def verify_reload(probe: Probe, state_path: Path) -> None:
     if not state_path.is_file() or stat.S_IMODE(state_path.stat().st_mode) != 0o600:
         raise RuntimeError("live state file must exist with mode 0600")
@@ -367,10 +491,11 @@ def verify_reload(probe: Probe, state_path: Path) -> None:
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
-    result.add_argument("phase", choices=("run", "reload"))
+    result.add_argument("phase", choices=("run", "resume", "reload"))
     result.add_argument("--base-url", default="http://127.0.0.1:8765")
     result.add_argument("--marker", required=True)
     result.add_argument("--state", type=Path, default=Path("evidence/live/state.json"))
+    result.add_argument("--task-channel-id")
     result.add_argument("--approved-live-test", action="store_true")
     return result
 
@@ -384,6 +509,10 @@ def main() -> int:
     probe = Probe(args.base_url, args.marker)
     if args.phase == "run":
         run_story(probe, args.state)
+    elif args.phase == "resume":
+        if not args.task_channel_id:
+            raise RuntimeError("resume requires --task-channel-id")
+        resume_story(probe, args.state, args.task_channel_id)
     else:
         verify_reload(probe, args.state)
     return 0
