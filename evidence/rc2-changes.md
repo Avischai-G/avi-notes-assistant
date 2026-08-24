@@ -2,33 +2,32 @@
 
 ## BLOCKER 1: Fixed routing logic
 
-**Problem**: Routing logic had two independent defects:
-1. `extract_place()` returned ANY captured text (e.g., "3pm" from "tomorrow at 3pm"), not just known places
-2. Routing decision only checked if place was extracted, not whether user asked for a plan
+**The problem**: Three layers of confusion broke the routing:
+1. `extract_place()` returned ANY captured text (e.g., "3pm"), not just known places → false triggers
+2. Initial fix: routing checked BOTH `day_planner AND _is_asking_for_plan()`, missing the bare place-statement case
+3. That fix broke the feature: "I am at Office tomorrow" should trigger plans, but didn't because it doesn't have the word "plan"
 
-Combined effect: Reminders like "remind me tomorrow at 3pm" would extract "3pm" as a place and route to day-planning, silently discarding the task creation.
+**Root cause**: The fix was too strict. The actual rule is:
+- **Task capture wins over place**: "remind me to call the plumber when I'm at the office" → creates row with Place=Office, NO plans
+- **Bare place statements trigger plans**: "I am at Office tomorrow" (no task words) → two plans
+- **Explicit plan requests trigger plans**: "plan my day tomorrow" → two plans
+- **Reminders always create tasks**: any "remind me" or task verb (call, send, buy, etc.) → task creation path
 
 **Fixes applied**:
 1. **`app/task_planning.py`**:
    - Added `KNOWN_PLACES = frozenset(("Home", "Office", "Out", "Anywhere"))`
-   - Added `_is_known_place()` method to validate candidates against known set only
-   - Fixed `extract_place()` to return None if candidate is not in KNOWN_PLACES
-   - Fixed corrupted regex patterns (had backspace characters `\x08`) by removing them
+   - Added `_is_known_place()` to validate extracted places (rejects "3pm")
+   - Fixed regex patterns (corruption: backspace chars → removed)
 
 2. **`app/organizer.py`**:
-   - Added `_is_asking_for_plan()` method to detect explicit plan requests
-   - Fixed routing logic to check: `if day_planner is not None AND _is_asking_for_plan(message)`
-   - Now reminders route to task creation, only plan requests route to day planning
+   - Added `_looks_like_task_capture()`: detects "remind me", action verbs like call/send/buy, NOT plan/schedule requests
+   - Fixed routing: `if NOT task_capture AND (explicit_plan_request OR has_known_place) → plans`
+   - Now:
+     * "remind me..." → always task (capture wins)
+     * "I am at Office..." → plans (bare place, no capture)
+     * "plan my day..." → plans (explicit request)
 
-**Test coverage**: Created `tests/test_routing_and_place_extraction.py` with 6 end-to-end routing tests:
-- Test 1: Reminder with unknown time → no plan (routes to task creation)
-- Test 2: Reminder with known place → no plan (routes to task creation)
-- Test 3: Plan request without place → yes plan (uses default "Anywhere")
-- Test 4: Plan request with place → yes plan (extracts place correctly)
-- Test 5: Plan verb variations → all trigger planner correctly
-- Test 6: Twelve realistic reminder phrasings → none trigger planner incorrectly
-
-All 6 routing tests pass (verified extraction of "Office" from "plan my day tomorrow at the office")
+**Tests**: 6 end-to-end routing tests via TaskOrganizerAgent with mocked LLM, covering all four cases plus 10 realistic reminders. All 42 tests pass.
 
 ## BLOCKER 2: Fixed browser suite
 
@@ -55,23 +54,23 @@ All 6 routing tests pass (verified extraction of "Office" from "plan my day tomo
 
 ## What was verified
 
-**Test suite**: 42 tests pass (`GOOGLE_GENAI_USE_VERTEXAI=true pytest tests/`)
+**Test suite**: `42 passed, 164 warnings in 0.83s`
 - 6 new routing tests (test_routing_and_place_extraction.py)
 - 36 existing tests (all passing)
+- All four required cases pass:
+  1. Reminder with unknown time → task only ✓
+  2. Reminder with place → task with Place=Office ✓
+  3. Bare place statement "I am at Office" → two plans ✓
+  4. Explicit plan request → two plans with extracted place ✓
+  5. 10+ realistic reminder phrasings → all create tasks ✓
 
-**Routing logic verification**:
-- Direct testing: `extract_place("plan my day tomorrow at the office")` returns "Office" ✓
-- Direct testing: `extract_place("remind me tomorrow at 3pm")` returns None ✓
-- Router correctly selects plan path for `_is_asking_for_plan()` matches ✓
-- Router correctly selects task path for non-plan requests ✓
-
-**Eligibility validations**:
-- Model check: rejects model != "gemini-3.5-flash" ✓
-- Location check: rejects location != "global" ✓
-- Framework check: verifies agent.__module__.startswith("google.adk.agents") ✓
+**Eligibility mutations (all fail correctly)**:
+- Model != "gemini-3.5-flash": rejected ✓
+- Location != "global": rejected ✓
+- Framework check: validates real google.adk.agents module ✓
 
 ## What could not be verified
 
-- Browser suite (9/9 matrix): requires backend API running (static files not sufficient); favicon.ico confirmed present and valid
+- Browser suite (9/9 matrix): requires running backend API server; static files + favicon insufficient. Test framework connects correctly but fails on nav-automation UI assertions that require live backend. Marked UNVERIFIED.
 - Live Vertex calls (prohibited by instructions)
 - Live Notion writes (prohibited by instructions)
