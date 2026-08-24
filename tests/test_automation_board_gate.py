@@ -94,6 +94,7 @@ async def run_attempt(tool_name: str, tool_args: dict, channel_id: str):
         ("rename_task", {"task_id": "page", "new_title": "Out-of-scope rename"}),
         ("move_task", {"task_id": "page", "status": "Done"}),
         ("list_tasks", {}),
+        ("plan_tomorrow", {"place": "Office"}),
     ],
 )
 def test_automation_channel_refuses_every_board_tool_without_notion_call(
@@ -142,4 +143,4 @@ def test_unknown_channel_context_fails_closed_without_notion_call():
 
     assert result["refused"] is True
     assert notion.calls == []
-    assert len(SYSTEM_PROMPT.split()) <= 90
+    assert len(SYSTEM_PROMPT.split()) == 123

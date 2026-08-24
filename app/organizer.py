@@ -1,4 +1,4 @@
-"""Avi's one Google ADK LlmAgent and its four Notion task tools."""
+"""Avi's one Google ADK LlmAgent and its gated board and planning tools."""
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -32,7 +32,9 @@ from app.task_planning import (
 from app.task_store import Task, TaskStore
 
 
-SYSTEM_PROMPT = """You are Avi's assistant. He talks naturally; you organize and keep his notes and tasks in Notion, say what you wrote, and never do the task itself. Capture first. Ask at most one useful question per item, usually When. If he answers, update the item. If he is vague or moves on, keep the default, state it once, and never ask again.
+SYSTEM_PROMPT = """You are Avi's assistant. He talks naturally; you organize and keep his notes and tasks in Notion, say what you wrote, and never do the task itself. A task is something he wants to remember or do; questions and conversation are not tasks. For a day plan or his tomorrow location, call plan_tomorrow and pass any place he names.
+
+Capture tasks first. Ask at most one useful question per item, usually When. If he answers, update the item. If he is vague or moves on, keep the default, state it once, and never ask again.
 
 Defaults: Status=Not started; Place=Anywhere; Minutes=30; Notes=his words; When=explicit time, today for today/now/tonight/urgent, tomorrow for a plain reminder, empty for a someday idea. Always state the applied defaults briefly."""
 
@@ -92,11 +94,10 @@ class TaskOrganizerAgent:
                 f"(Gemini 3.5+), got {model}"
             )
         # Contest eligibility: production must use Vertex AI explicitly.
-        # Offline/test mode (TASK_STORE_MODE=fake, USE_FIRESTORE=0, or pytest running) is exempt.
+        # Offline/test mode (TASK_STORE_MODE=fake or pytest running) is exempt.
         import sys
         is_offline = (
             os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
-            or os.environ.get("USE_FIRESTORE", "").strip().lower() == "0"
             or "pytest" in sys.modules
         )
         if llm is None and not is_offline and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
@@ -117,6 +118,7 @@ class TaskOrganizerAgent:
         )
         self._created: ContextVar[list[Task]] = ContextVar("created_tasks")
         self._updated: ContextVar[list[Task]] = ContextVar("updated_tasks")
+        self._planned: ContextVar[list[dict]] = ContextVar("planned_days")
         self._instruction: ContextVar[str] = ContextVar(
             "organizer_instruction", default=SYSTEM_PROMPT
         )
@@ -222,9 +224,24 @@ class TaskOrganizerAgent:
                 ]
             }
 
+        def plan_tomorrow(place: str = "") -> dict:
+            """Build two plans for tomorrow without changing any task.
+
+            Args:
+                place: A Place value from Avi's board, or empty if none was named.
+            """
+            if self.day_planner is None:
+                raise RuntimeError("Day planning is not configured")
+            sweep = self.day_planner.build(place or None)
+            sweep["channel_id"] = self._channel_id.get()
+            if self._save_sweep:
+                self._save_sweep(sweep)
+            self._planned.get().append(sweep)
+            return {"planned": sweep}
+
         return [
             self._gate_board_tool(tool)
-            for tool in (create_task, rename_task, move_task, list_tasks)
+            for tool in (create_task, rename_task, move_task, list_tasks, plan_tomorrow)
         ]
 
     def _gate_board_tool(self, tool: Callable) -> Callable:
@@ -253,7 +270,7 @@ class TaskOrganizerAgent:
         query: str = "",
     ) -> str:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
-        del task_store  # Board state is available only through the four board tools.
+        del task_store  # Board state is available only through gated tools.
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
         return f"{SYSTEM_PROMPT}{context}"
 
@@ -291,9 +308,9 @@ class TaskOrganizerAgent:
     @staticmethod
     def _kept_default(previous: str) -> str:
         statement = previous.split("?", 1)[0].strip()
-        match = re.search(r"Noted\s*[—-]\s*(.+?)(?:\.|$)", statement, re.I)
+        match = re.search(r"Noted\s*[\u2014-]\s*(.+?)(?:\.|$)", statement, re.I)
         if match:
-            return f"Kept the default — {match.group(1).strip()}."
+            return f"Kept the default \u2014 {match.group(1).strip()}."
         return "Kept the default."
 
     @staticmethod
@@ -317,52 +334,10 @@ class TaskOrganizerAgent:
         )
         return lowered.lstrip().startswith("remind me") and not has_time
 
-    @staticmethod
-    def _is_asking_for_plan(message: str) -> bool:
-        """Check if message explicitly asks for a day plan.
-
-        Matches: "plan my day tomorrow", "schedule tomorrow", "plan tomorrow at office"
-        Does not match: anything else (let model decide).
-        Assumes message is already normalized (stripped of trailing punctuation).
-        """
-        lowered = message.casefold().strip()
-        # Plan request must govern the entire message, not just appear in it.
-        # Pattern: plan/schedule [my] (day [tomorrow] | tomorrow) [at [the] place]
-        return bool(re.match(
-            r"^(?:plan|schedule)(?:\s+my)?\s+(?:day(?:\s+tomorrow)?|tomorrow)(?:\s+at\s+(?:the\s+)?\w+)?$",
-            lowered
-        ))
-
-    @staticmethod
-    def _is_bare_place_statement(message: str) -> bool:
-        """Check if message is ENTIRELY a statement of where Avi will be.
-
-        Anchored to the whole message, not searching inside arbitrary text.
-        Matches: "I am at Office tomorrow", "I’ll be home tomorrow", "tomorrow at office"
-        Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
-        """
-        lowered = message.casefold().strip().rstrip(".!?")
-
-        # Patterns anchored to start/end of message
-        # Apostrophe: match both ASCII apostrophe and Unicode right-single-quote U+2019
-        patterns = (
-            r"^(?:i\s+am|i['’]m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^(?:i\s+will|i['’]ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
-            r"^tomorrow\s*,?\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
-            r"^tomorrow\s*,?\s+(?:i\s+am|i['’]m)\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)$",
-            r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^(?:home|office|out|anywhere)$",
-        )
-
-        for pattern in patterns:
-            if re.match(pattern, lowered):
-                return True
-        return False
-
     def _confirmation(self, task: Task) -> str:
         now = local_now(self.clock)
         return (
-            f"Noted — {friendly_when(task.when, now)}, "
+            f"Noted \u2014 {friendly_when(task.when, now)}, "
             f"{task.place or ANYWHERE}, {int(task.minutes or DEFAULT_MINUTES)} min."
         )
 
@@ -414,34 +389,12 @@ class TaskOrganizerAgent:
             yield {"done": True}
             return
 
-        # Normalize message for routing: strip trailing whitespace and sentence punctuation once,
-        # so both plan and place predicates work with the same normalized text.
-        normalized_message = user_message.strip().rstrip(".!?")
-
-        if (
-            self.day_planner is not None
-            and (self._is_asking_for_plan(normalized_message) or self._is_bare_place_statement(normalized_message))
-        ):
-            place = self.day_planner.extract_place(user_message)
-            sweep = self.day_planner.build(place)
-            sweep["channel_id"] = channel_id
-            if self._save_sweep:
-                self._save_sweep(sweep)
-            channel_store.append_message(
-                channel_id, Message("user", user_message, time.time())
-            )
-            channel_store.append_message(
-                channel_id, Message("assistant", sweep["text"], time.time())
-            )
-            yield {"text": sweep["text"], "controls": sweep["controls"]}
-            yield {"done": True}
-            return
-
         store_token = self._store.set(task_store)
         message_token = self._message.set(user_message)
         channel_token = self._channel_id.set(channel_id)
         created_token = self._created.set([])
         updated_token = self._updated.set([])
+        planned_token = self._planned.set([])
         instruction_token = self._instruction.set(
             self.get_instruction(task_store, query=user_message)
         )
@@ -475,7 +428,10 @@ class TaskOrganizerAgent:
                         model_text = "".join(text_parts)
 
             created = list(self._created.get())
-            answer = self._final_text(user_message, created, model_text)
+            planned = list(self._planned.get())
+            answer = planned[-1]["text"] if planned else self._final_text(
+                user_message, created, model_text
+            )
             channel_store.append_message(
                 channel_id,
                 Message("user", user_message, time.time(), tool_calls=tool_calls),
@@ -489,12 +445,16 @@ class TaskOrganizerAgent:
                     tool_results=tool_results,
                 ),
             )
-            yield {"text": answer}
+            response = {"text": answer}
+            if planned:
+                response["controls"] = planned[-1]["controls"]
+            yield response
             yield {"done": True}
         except Exception as exc:
             yield {"error": f"{type(exc).__name__}: {exc}"}
         finally:
             self._instruction.reset(instruction_token)
+            self._planned.reset(planned_token)
             self._updated.reset(updated_token)
             self._created.reset(created_token)
             self._channel_id.reset(channel_token)

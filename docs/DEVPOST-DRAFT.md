@@ -39,7 +39,7 @@ otherwise perform Avi's underlying work.
 - FastAPI serves a no-build responsive browser UI and streams chat events over SSE.
 - One Google ADK `LlmAgent` runs `gemini-3.5-flash` on Vertex AI in `global`.
 - Four typed board tools sit above a fail-closed Notion adapter.
-- One channel-scoped gate refuses every board tool in automation channels.
+- One channel-scoped gate refuses every board and planning tool in automation channels.
 - A pinned local stdio MCP child exposes only five operations against one existing database.
 - Firestore persists chats, automation state, learning-event metadata, and embedding metadata.
 - Markdown knowledge uses a `/knowledge` filesystem contract intended for a dedicated Cloud Storage mount.
@@ -58,7 +58,7 @@ runtime startup guard.
 
 ## Accomplishments
 
-- Capture-before-question with a 90-word system prompt.
+- Capture-before-question with a 123-word system prompt.
 - Exactly one eligible ADK model agent and a deliberately narrow tool surface.
 - Deterministic planning, vague-answer handling, and no-work cleanup paths.
 - Persistent task and automation channels without a history sidebar.
@@ -67,9 +67,9 @@ runtime startup guard.
 
 ## What we learned
 
-The strongest assistant behavior often comes from deterministic boundaries around
-the model: capture policy, defaults, planning order, task ownership, and no-work
-decisions are code, while the model handles natural language inside that envelope.
+The strongest assistant behavior comes from narrow deterministic tools around
+the model. Defaults, planning order, task ownership, and no-work decisions stay
+in code; the model handles the natural distinction between tasks, chat, and plans.
 We also learned to keep deployment, publication, submission, and live-account
 verification as separate evidence claims.
 

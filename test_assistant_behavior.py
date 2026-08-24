@@ -17,9 +17,11 @@ from app.task_planning import DayPlanner, infer_when, nightly_due
 from app.task_store import FakeTaskStore
 
 
-class CreateTaskLlm(BaseLlm):
-    """One tool call followed by one ordinary model response."""
+class ScriptedToolLlm(BaseLlm):
+    """One configured tool call followed by one ordinary model response."""
 
+    tool_name: str = "create_task"
+    tool_args: dict = {"title": "Call the accountant"}
     _calls: int = PrivateAttr(default=0)
 
     @property
@@ -35,8 +37,8 @@ class CreateTaskLlm(BaseLlm):
                     parts=[
                         types.Part(
                             function_call=types.FunctionCall(
-                                name="create_task",
-                                args={"title": "Call the accountant"},
+                                name=self.tool_name,
+                                args=self.tool_args,
                             )
                         )
                     ],
@@ -63,17 +65,18 @@ def _fixed_now():
     return datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
 
 
-def test_prompt_is_short_and_agent_has_exactly_four_tools():
+def test_prompt_is_short_and_agent_has_five_gated_tools():
     agent = TaskOrganizerAgent(
         api_key="offline",
-        llm=CreateTaskLlm(model="gemini-3.5-flash"),
+        llm=ScriptedToolLlm(model="gemini-3.5-flash"),
     )
-    assert len(SYSTEM_PROMPT.split()) <= 90
+    assert len(SYSTEM_PROMPT.split()) == 123
     assert [tool.__name__ for tool in agent.agent.tools] == [
         "create_task",
         "rename_task",
         "move_task",
         "list_tasks",
+        "plan_tomorrow",
     ]
 
 
@@ -83,7 +86,7 @@ def test_bare_reminder_is_captured_before_question_with_stated_defaults():
     channels.ensure_channel("task-chat")
     agent = TaskOrganizerAgent(
         api_key="offline",
-        llm=CreateTaskLlm(model="gemini-3.5-flash"),
+        llm=ScriptedToolLlm(model="gemini-3.5-flash"),
         clock=_fixed_now,
     )
 
@@ -105,7 +108,7 @@ def test_bare_reminder_is_captured_before_question_with_stated_defaults():
     assert task.notes == "Remind me to call the accountant"
     text = next(chunk["text"] for chunk in chunks if "text" in chunk)
     assert text == (
-        "Noted — tomorrow, Anywhere, 30 min. "
+        "Noted \u2014 tomorrow, Anywhere, 30 min. "
         "Would a specific time tomorrow help?"
     )
     assert text.count("?") == 1
@@ -115,7 +118,7 @@ def test_vague_non_answer_keeps_default_and_never_reasks():
     tasks = FakeTaskStore()
     channels = LocalChannelStore()
     channels.ensure_channel("task-chat")
-    llm = CreateTaskLlm(model="gemini-3.5-flash")
+    llm = ScriptedToolLlm(model="gemini-3.5-flash")
     agent = TaskOrganizerAgent(api_key="offline", llm=llm, clock=_fixed_now)
     asyncio.run(
         _turn(
@@ -132,7 +135,7 @@ def test_vague_non_answer_keeps_default_and_never_reasks():
     assert llm.calls == calls_after_capture
     assert len(tasks.list_tasks()) == 1
     text = next(chunk["text"] for chunk in chunks if "text" in chunk)
-    assert text == "Kept the default — tomorrow, Anywhere, 30 min."
+    assert text == "Kept the default \u2014 tomorrow, Anywhere, 30 min."
     assert "?" not in text
 
 
@@ -167,7 +170,7 @@ def test_silent_sweep_returns_two_different_plans_and_pick_only_sets_when():
     assert result["status"] == "ran"
     assert result["model_called"] is False
     assert result["place"] == "Office"
-    assert result["text"].startswith("Where will you be tomorrow —")
+    assert result["text"].startswith("Where will you be tomorrow \u2014")
     assert "I used Office by default." in result["text"]
     assert set(result["plans"]) == {"A", "B"}
     assert [control["label"] for control in result["controls"]] == [
@@ -199,7 +202,11 @@ def test_saying_a_place_in_chat_starts_the_same_two_plan_flow():
     tasks.create_task("Quick email", place="Anywhere", minutes=15)
     channels = LocalChannelStore()
     channels.ensure_channel("task-chat")
-    llm = CreateTaskLlm(model="gemini-3.5-flash")
+    llm = ScriptedToolLlm(
+        model="gemini-3.5-flash",
+        tool_name="plan_tomorrow",
+        tool_args={"place": "Office"},
+    )
     agent = TaskOrganizerAgent(api_key="offline", llm=llm, clock=_fixed_now)
     saved = []
     agent.configure_planning(
@@ -210,11 +217,11 @@ def test_saying_a_place_in_chat_starts_the_same_two_plan_flow():
         _turn(agent, "I am at Office tomorrow", channels, tasks)
     )
 
-    assert llm.calls == 0
+    assert llm.calls == 2
     assert len(saved) == 1 and saved[0]["place"] == "Office"
     response = next(chunk for chunk in chunks if "text" in chunk)
-    assert "Plan A — heavy first" in response["text"]
-    assert "Plan B — light first" in response["text"]
+    assert "Plan A \u2014 heavy first" in response["text"]
+    assert "Plan B \u2014 light first" in response["text"]
     assert [control["label"] for control in response["controls"]] == [
         "Pick Plan A",
         "Pick Plan B",

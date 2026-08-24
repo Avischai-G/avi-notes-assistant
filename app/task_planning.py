@@ -196,9 +196,6 @@ class TaskFieldWriter:
         return [task for task, _ in resolved]
 
 
-KNOWN_PLACES = frozenset(("Home", "Office", "Out", ANYWHERE))
-
-
 class DayPlanner:
     """Build two felt-different, eight-hour plans from open place-matched tasks."""
 
@@ -225,13 +222,6 @@ class DayPlanner:
             if place and place.casefold() != ANYWHERE.casefold() and place not in seen:
                 seen.append(place)
         return [*seen, ANYWHERE]
-
-    def _is_known_place(self, candidate: str) -> str | None:
-        """Return the canonical form of a known place, or None if unknown."""
-        for known in KNOWN_PLACES:
-            if candidate.casefold() == known.casefold():
-                return known
-        return None
 
     def default_place(self) -> str:
         places = [(task.place or "").strip() for task in self._open_recent()]
@@ -289,19 +279,24 @@ class DayPlanner:
 
     @staticmethod
     def _render_plan(label: str, subtitle: str, items: list[dict]) -> list[str]:
-        lines = [f"Plan {label} — {subtitle}"]
+        lines = [f"Plan {label} \u2014 {subtitle}"]
         if not items:
             return [*lines, "No matching open tasks."]
         for item in items:
             start = item["when"][11:16]
-            lines.append(f"{start} · {item['title']} · {item['minutes']} min")
+            lines.append(f"{start} \u00b7 {item['title']} \u00b7 {item['minutes']} min")
         return lines
 
     def build(self, place: str | None = None) -> dict:
         now = local_now(self.clock)
         target = now.date() + timedelta(days=1)
         offered = self.recent_places()
-        chosen_place = (place or self.default_place()).strip() or ANYWHERE
+        requested = (place or "").strip()
+        known_place = next(
+            (known for known in offered if requested.casefold() == known.casefold()),
+            None,
+        )
+        chosen_place = known_place or self.default_place()
         fitted = self._fit_day(self._eligible(chosen_place))
 
         heavy = sorted(fitted, key=self._duration, reverse=True)
@@ -316,9 +311,9 @@ class DayPlanner:
             item["task_id"] for item in plan_b
         ]
 
-        if place is None:
+        if known_place is None:
             opening = (
-                f"Where will you be tomorrow — {', '.join(offered)}?\n"
+                f"Where will you be tomorrow \u2014 {', '.join(offered)}?\n"
                 f"I used {chosen_place} by default."
             )
         else:
@@ -352,40 +347,6 @@ class DayPlanner:
         if not isinstance(plans, dict) or plan not in plans:
             raise ValueError("No pending plan to pick")
         return self.writer.set_plan_times(plans[plan])
-
-    def extract_place(self, message: str) -> str | None:
-        """Extract a known place from a plan-request or place-statement message.
-
-        Only called after routing confirms it’s an explicit plan request or bare place statement.
-        Anchored patterns only; never searches inside arbitrary text.
-        """
-        clean = message.strip()
-        lowered = clean.casefold()
-
-        # Direct match: message is just a place name
-        known_place = self._is_known_place(clean)
-        if known_place:
-            return known_place
-
-        # Anchored patterns for plan requests and place statements
-        patterns = (
-            r"^i\s+(?:am|[‘’]m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^i\s+(?:will|[‘’]ll)\s+be\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^tomorrow\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
-            r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"plan\s+(?:my\s+)?day(?:\s+tomorrow)?\s+(?:at|in)\s+(?:the\s+)?(\w+)",
-            r"schedule\s+(?:my\s+)?day(?:\s+tomorrow)?\s+(?:at|in)\s+(?:the\s+)?(\w+)",
-        )
-
-        for pattern in patterns:
-            match = re.search(pattern, lowered)
-            if match:
-                candidate = match.group(1).strip()
-                known_place = self._is_known_place(candidate)
-                if known_place:
-                    return known_place
-
-        return None
 
 
 def next_jerusalem_nine_pm(epoch: float) -> float:

@@ -5,6 +5,7 @@ import { chromium } from "playwright-core";
 
 
 const baseURL = process.env.UI_BASE_URL || "http://127.0.0.1:8764";
+const expectedRevision = process.env.UI_EXPECTED_BUILD_REVISION || "avi-notes-assistant-rc4-ui";
 const chromePath = process.env.CHROME_PATH
   || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const evidenceDirectory = path.resolve(
@@ -32,6 +33,23 @@ async function check(name, action) {
     fail(name, error);
     throw error;
   }
+}
+
+
+async function assertExpectedServer() {
+  const response = await fetch(`${baseURL}/api/health`);
+  const contentType = response.headers.get("content-type") || "unknown content type";
+  if (response.status !== 200 || !contentType.includes("application/json")) {
+    throw new Error(
+      `${baseURL} is not the expected app: GET /api/health returned ${response.status} (${contentType}). Free its port and start the documented browser-test server.`,
+    );
+  }
+  const health = await response.json();
+  assert.equal(health.build_revision, expectedRevision, `port serves ${health.build_revision}, expected ${expectedRevision}`);
+  assert.equal(health.model, "gemini-3.5-flash");
+  assert.equal(health.location, "global");
+  assert.equal(health.framework, "Google ADK");
+  assert.equal(health.firestore_mode, "local");
 }
 
 
@@ -241,11 +259,15 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     await page.keyboard.type("I will be at Office tomorrow.");
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: "Pick Plan A" }).waitFor();
+    const replyBubble = page.locator(".message-row.assistant .message-bubble").last();
+    const replyText = await replyBubble.innerText();
+    assert.match(replyText, /Planning tomorrow for Office\./);
+    assert.equal(replyText.includes("?"), false, `place reply asked again: ${replyText}`);
     assert.equal(await page.locator(".plan-control").count(), 2);
     assert.deepEqual(await page.locator(".plan-control").allTextContents(), ["Pick Plan A", "Pick Plan B"]);
 
     const user = page.locator(".message-row.user .message-bubble").last();
-    const assistant = page.locator(".message-row.assistant .message-bubble").last();
+    const assistant = replyBubble;
     const userStyle = await user.evaluate((element) => {
       const value = getComputedStyle(element);
       return {
@@ -337,6 +359,7 @@ async function exerciseLearningSurface(page, theme, mobile, functional, beforeRa
 
 
 async function main() {
+  await assertExpectedServer();
   await fs.mkdir(evidenceDirectory, { recursive: true });
   const browser = await chromium.launch({
     executablePath: chromePath,
@@ -393,7 +416,7 @@ async function main() {
   };
   await fs.writeFile(path.join(evidenceDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`UI_BROWSER_SUITE pass=${report.pass} fail=${report.fail} total=${report.total}`);
-  for (const item of checks) console.log(`${item.status} ${item.name}${item.detail ? ` — ${item.detail}` : ""}`);
+  for (const item of checks) console.log(`${item.status} ${item.name}${item.detail ? ` \u2014 ${item.detail}` : ""}`);
   if (report.fail) process.exitCode = 1;
 }
 

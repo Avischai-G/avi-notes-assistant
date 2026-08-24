@@ -1,6 +1,6 @@
 # RC3 — Release Candidate 3
 
-## Four routing and eligibility regressions fixed at tag `avi-notes-assistant-rc3` (`983fe59d`)
+## Four routing and eligibility regressions fixed at tag `avi-notes-assistant-rc3` (`3c43254c`)
 
 ### REPAIR 1: Trailing punctuation in place statements
 
@@ -16,7 +16,7 @@
 
 **Fix**: Anchor pattern to require plan/schedule to govern the whole message: `^(?:plan|schedule)(?:\s+my)?\s+(?:day(?:\s+tomorrow)?|tomorrow)(?:\s+at\s+(?:the\s+)?\w+)?$`.
 
-**Test**: All 35 task cases (29 original + 6 new) create rows. None hijacked.
+**Test**: All 35 task cases in that rc3 probe (29 original + 6 new) create rows. None of those 35 were hijacked; the probe did not cover every possible phrasing.
 
 ### REPAIR 3: Eligibility check broke documented offline setup
 
@@ -64,7 +64,7 @@ PASS task-light-mobile        PASS learning-light-mobile
 PASS browser-console-and-network — no console errors, page errors, or failed requests
 ```
 
-**Routing probe:** 35/35 tasks kept, 18/18 plans fired
+**Routing probe (only the cases in that rc3 probe):** 35/35 tasks kept, 18/18 plans fired
 
 ## What survived intact
 
@@ -77,8 +77,9 @@ PASS browser-console-and-network — no console errors, page errors, or failed r
 ## Limitations and future work
 
 - **Optional:** `isinstance` hardening against __module__ spoofing (skipped to prioritize the four required repairs)
-- **Unverified:** Live Vertex, live Notion, cloud deployment, secret scan (prohibited/not attempted)
+- **Verified independently after the rc3 freeze:** the secret scan found zero exact sensitive-value hits across 88 tracked files, the worktree outside dependency trees, and reachable git objects.
+- **Unverified:** Live Vertex, live Notion, and cloud deployment were prohibited and not attempted.
 
 ## Summary
 
-This is the first complete fix of all four blockers and regressions. The routing logic is deterministic and consistent: both punctuated and unpunctuated inputs behave the same way. The browser matrix passes 9/9 at this tag, confirmed independently. The documented offline setup works verbatim. No Notion was touched, no Vertex was called, no cloud resources were deployed.
+The browser matrix passes 9/9 at this tag, confirmed independently. The documented offline setup works verbatim. No Notion was touched, no Vertex was called, and no cloud resources were deployed.

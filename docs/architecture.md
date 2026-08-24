@@ -9,7 +9,7 @@ flowchart LR
     API[Cloud Run\nFastAPI service]
     A[One Google ADK\nLlmAgent]
     V[Vertex AI\ngemini-3.5-flash · global]
-    T[Four TaskStore tools]
+    T[Five gated agent tools\n4 TaskStore · plan tomorrow]
     M[Local stdio Notion MCP\nexactly five operations]
     N[(Agent Task Board Root\nexisting Notion database)]
     F[(Firestore\nchannels · automation state\nlearning metadata · embedding cache)]
@@ -29,17 +29,21 @@ flowchart LR
     K --> E
 ```
 
-The one model-backed task path is:
+The one model-backed request path is:
 
-`browser → Cloud Run/FastAPI → one Google ADK LlmAgent → Vertex gemini-3.5-flash (global) → four TaskStore tools → Notion MCP → the configured database`.
+`browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.5-flash (global) -> five gated tools -> TaskStore/Notion MCP -> the configured database`.
 
-The four tools available to the agent are create, rename, change fields/Status,
-and list. The adapter beneath them compiles to exactly five MCP operations:
+The model uses its language understanding to distinguish tasks, ordinary chat,
+and tomorrow planning; there is no regex pre-router. Its tools are create,
+rename, change fields/Status, list, and plan tomorrow. The planning tool accepts
+an optional Place, canonicalizes it against recent board values plus `Anywhere`,
+and returns the existing deterministic two-plan sweep. The adapter beneath the
+four TaskStore tools still compiles to exactly five MCP operations:
 `create_page`, `set_page_title`, `set_page_property`, `query_database`, and
 `archive_page`. The agent has no raw MCP access and no archive tool.
 
-One channel-scoped gate wraps that complete four-tool list. It permits ordinary
-task channels, refuses all four tools in automation channels, and fails closed
+One channel-scoped gate wraps that complete five-tool list. It permits ordinary
+task channels, refuses all five tools in automation channels, and fails closed
 when channel identity is unavailable. Refusals are tool results the same model
 can read and route around; no second agent or Runner exists.
 

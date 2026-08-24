@@ -7,10 +7,36 @@ and location=global. It is not asserting constants.
 
 import sys
 import os
+from pathlib import Path
+import subprocess
 import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.organizer import TaskOrganizerAgent
+
+
+ROOT = Path(__file__).resolve().parent
+CONSTRUCTION_PROBE = """\
+from app.organizer import TaskOrganizerAgent
+try:
+    TaskOrganizerAgent()
+except Exception as exc:
+    print(f"{type(exc).__name__}: {exc}")
+    raise SystemExit(3)
+print("CONSTRUCTED")
+"""
+
+
+def _probe_construction(extra_env):
+    return subprocess.run(
+        [sys.executable, "-c", CONSTRUCTION_PROBE],
+        cwd=ROOT,
+        env=extra_env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
 
 
 def test_wrong_model_fails():
@@ -51,6 +77,47 @@ def test_correct_config_succeeds():
     print("  ✓ PASS: Agent created with correct config")
     print(f"    - model: {config['model']}")
     print(f"    - location: {config['location']}")
+
+
+@pytest.mark.parametrize(
+    "name,env,constructs",
+    [
+        ("fake_without_vertex", {"TASK_STORE_MODE": "fake"}, True),
+        (
+            "notion_without_vertex",
+            {"TASK_STORE_MODE": "notion", "USE_FIRESTORE": "0"},
+            False,
+        ),
+        (
+            "notion_with_vertex",
+            {
+                "TASK_STORE_MODE": "notion",
+                "USE_FIRESTORE": "0",
+                "GOOGLE_GENAI_USE_VERTEXAI": "true",
+            },
+            True,
+        ),
+        (
+            "cloud_run_without_vertex",
+            {"TASK_STORE_MODE": "notion", "K_SERVICE": "avi-notes"},
+            False,
+        ),
+    ],
+)
+def test_vertex_eligibility_combinations(name, env, constructs):
+    result = _probe_construction(env)
+
+    if constructs:
+        assert result.returncode == 0, f"{name}: {result.stdout}"
+        assert result.stdout.strip() == "CONSTRUCTED"
+    else:
+        assert result.returncode == 3, f"{name}: {result.stdout}"
+        assert "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true'" in result.stdout
+
+
+def test_production_chat_never_injects_an_llm_override():
+    source = (ROOT / "app" / "chat.py").read_text(encoding="utf-8")
+    assert "llm=" not in source
 
 
 def main():

@@ -123,7 +123,7 @@ This is strong grant scoping, not perfect isolation. Today, search proves that
 the token can see only the configured database. Within that database, the
 connection can see its fixed schema and every current or future row and can
 create, rename, change Status, and archive rows through the allowed server
-operations. The organiser receives only the four TaskStore tools, so it does
-not receive raw MCP or archive access. Someone who can edit the Notion
-connection could later widen Content access; the permanent isolation regression
-is intended to detect that change.
+operations. The organiser receives the four TaskStore tools plus the gated
+tomorrow-planning tool, so it does not receive raw MCP or archive access.
+Someone who can edit the Notion connection could later widen Content access;
+the permanent isolation regression is intended to detect that change.
