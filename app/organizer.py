@@ -271,10 +271,10 @@ class TaskOrganizerAgent:
         include_board_state: bool = True,
     ) -> str:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
-        places = [ANYWHERE]
+        place_hint = ""
         if task_store is not None and include_board_state:
             places = DayPlanner(task_store, clock=self.clock).recent_places()
-        place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
+            place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
         return f"{SYSTEM_PROMPT}{place_hint}{context}"
 
@@ -403,9 +403,8 @@ class TaskOrganizerAgent:
             self.get_instruction(
                 task_store,
                 query=user_message,
-                include_board_state=(
-                    existing is not None
-                    and not channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
+                include_board_state=not channel_id.startswith(
+                    _AUTOMATION_CHANNEL_PREFIX
                 ),
             )
         )
@@ -439,12 +438,15 @@ class TaskOrganizerAgent:
                         model_text = "".join(text_parts)
 
             created = list(self._created.get())
+            updated = list(self._updated.get())
             planned = list(self._planned.get())
-            answer = self._final_text(user_message, created, model_text) if (created or self._updated.get()) else ""
+            answer = self._final_text(user_message, created, model_text)
             if planned:
-                answer = f"{answer}\n\n{planned[-1]['text']}" if answer else planned[-1]["text"]
-            elif not answer:
-                answer = model_text
+                answer = (
+                    f"{answer}\n\n{planned[-1]['text']}"
+                    if created or updated
+                    else planned[-1]["text"]
+                )
             channel_store.append_message(
                 channel_id,
                 Message("user", user_message, time.time(), tool_calls=tool_calls),

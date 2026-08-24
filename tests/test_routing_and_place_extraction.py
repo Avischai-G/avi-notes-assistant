@@ -70,7 +70,14 @@ async def _turn(agent, message, channels, store, channel_id):
     ]
 
 
-def _exercise(message, *, tool_name=None, tool_args=None, places=()):
+def _exercise(
+    message,
+    *,
+    tool_name=None,
+    tool_args=None,
+    places=(),
+    final_text="Conversation only; nothing was written.",
+):
     store = FakeTaskStore()
     for index, place in enumerate(places):
         store.create_task(f"Seed {index}", place=place, minutes=30 + index)
@@ -81,7 +88,7 @@ def _exercise(message, *, tool_name=None, tool_args=None, places=()):
         model="gemini-3.5-flash",
         tool_name=tool_name,
         tool_args=tool_args or {},
-        final_text="Conversation only; nothing was written.",
+        final_text=final_text,
     )
     agent = TaskOrganizerAgent(llm=model, clock=lambda: NOW)
     saved = []
@@ -147,6 +154,7 @@ def test_model_chosen_plan_tool_produces_two_plans_and_no_row(message, place):
     assert len(store.list_tasks()) == before
     assert len(saved) == 1
     assert len(model.calls) == 2
+    assert response["text"] == saved[0]["text"]
     assert "Plan A \u2014 heavy first" in response["text"]
     assert "Plan B \u2014 light first" in response["text"]
     assert [control["label"] for control in response["controls"]] == [
@@ -188,14 +196,35 @@ def test_board_owned_and_multi_word_places_are_used_without_literal_lists(place)
     assert "?" not in response["text"]
 
 
-def test_plain_question_creates_no_row_and_no_plan():
-    store, before, model, saved, response = _exercise("How are you today?")
+def test_task_only_reply_is_the_existing_confirmation():
+    _, _, _, saved, response = _exercise(
+        "remind me to call the dentist tomorrow",
+        tool_name="create_task",
+        tool_args={"title": "Call the dentist"},
+    )
+
+    assert saved == []
+    assert response["text"] == "Noted — tomorrow, Anywhere, 30 min."
+
+
+def test_plain_chat_reply_passes_through_one_question_guard():
+    store, before, model, saved, response = _exercise(
+        "How are you today?",
+        final_text="I am well. What are you working on? What is most urgent?",
+    )
 
     assert len(store.list_tasks()) == before == 0
     assert len(model.calls) == 1
     assert saved == []
-    assert "Plan A" not in response["text"]
+    assert response["text"] == "I am well. What are you working on?"
     assert "controls" not in response
+
+
+def test_empty_plain_chat_reply_uses_done_fallback():
+    _, _, _, saved, response = _exercise("Hello", final_text="")
+
+    assert saved == []
+    assert response["text"] == "Done."
 
 
 def test_created_task_remains_visible_when_model_plans_in_same_turn():
@@ -219,9 +248,10 @@ def test_created_task_remains_visible_when_model_plans_in_same_turn():
     response = next(chunk for chunk in chunks if "text" in chunk)
 
     assert len(store.list_tasks()) == 2
-    assert "Noted — tomorrow, Anywhere, 30 min." in response["text"]
-    assert "Planning tomorrow for Office." in response["text"]
     assert len(saved) == 1
+    assert response["text"] == (
+        "Noted — tomorrow, Anywhere, 30 min.\n\n" + saved[0]["text"]
+    )
 
 
 def test_instruction_shows_current_multi_word_board_place():
@@ -232,3 +262,49 @@ def test_instruction_shows_current_multi_word_board_place():
     instruction = agent.get_instruction(store, query="I will be at the office tomorrow")
 
     assert "Current Place values on Avi's board: Tel Aviv Office, Anywhere." in instruction
+
+
+def test_first_turn_in_new_normal_channel_reads_real_board_places():
+    class MissingChannelReturnsNone(LocalChannelStore):
+        def get_channel(self, channel_id):
+            return self.channels.get(channel_id)
+
+    class FirstTurnOrganizer(TaskOrganizerAgent):
+        @staticmethod
+        def _last_question(messages):
+            return TaskOrganizerAgent._last_question(messages or [])
+
+    store = FakeTaskStore()
+    store.create_task("Studio task", place="Tel Aviv Office")
+    channels = MissingChannelReturnsNone()
+    model = ScriptedLlm(model="gemini-3.5-flash", final_text="Hello.")
+    agent = FirstTurnOrganizer(llm=model, clock=lambda: NOW)
+
+    asyncio.run(_turn(agent, "Hello", channels, store, "fresh-normal-chat"))
+
+    instruction = model.calls[0].config.system_instruction
+    assert "Current Place values on Avi's board: Tel Aviv Office, Anywhere." in instruction
+
+
+def test_automation_turn_neither_reads_nor_claims_board_places():
+    class BoardReadForbidden(FakeTaskStore):
+        def list_tasks(self, lane=None):
+            raise AssertionError("automation instruction must not read the board")
+
+    store = BoardReadForbidden()
+    channels = LocalChannelStore()
+    model = ScriptedLlm(model="gemini-3.5-flash", final_text="Cleanup complete.")
+    agent = TaskOrganizerAgent(llm=model, clock=lambda: NOW)
+
+    asyncio.run(
+        _turn(
+            agent,
+            "Clean up knowledge.",
+            channels,
+            store,
+            "automation-knowledge-cleanup",
+        )
+    )
+
+    instruction = model.calls[0].config.system_instruction
+    assert "Current Place values on Avi's board:" not in instruction
