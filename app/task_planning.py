@@ -354,26 +354,37 @@ class DayPlanner:
         return self.writer.set_plan_times(plans[plan])
 
     def extract_place(self, message: str) -> str | None:
-        """Extract a known place from message, or None if no known place is mentioned."""
+        """Extract a known place from a plan-request or place-statement message.
+
+        Only called after routing confirms it’s an explicit plan request or bare place statement.
+        Anchored patterns only; never searches inside arbitrary text.
+        """
         clean = message.strip()
-        direct = re.sub(r"(?i)\s+tomorrow\s*$", "", clean).strip()
-        direct = re.sub(r"(?i)^the\s+", "", direct).strip()
-        known_place = self._is_known_place(direct)
+        lowered = clean.casefold()
+
+        # Direct match: message is just a place name
+        known_place = self._is_known_place(clean)
         if known_place:
             return known_place
+
+        # Anchored patterns for plan requests and place statements
         patterns = (
-            r"(?i)(?:i['’]ll|i will)\s+be\s+(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow",
-            r"(?i)(?:i am|i['’]m)\s+(?:going to be\s+)?(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow",
-            r"(?i)tomorrow.*?(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
-            r"(?i)plan\s+(?:my\s+)?day.*?(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
+            r"^i\s+(?:am|[‘’]m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^i\s+(?:will|[‘’]ll)\s+be\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^tomorrow\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
+            r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"plan\s+(?:my\s+)?day(?:\s+tomorrow)?\s+(?:at|in)\s+(?:the\s+)?(\w+)",
+            r"schedule\s+(?:my\s+)?day(?:\s+tomorrow)?\s+(?:at|in)\s+(?:the\s+)?(\w+)",
         )
+
         for pattern in patterns:
-            match = re.search(pattern, clean)
+            match = re.search(pattern, lowered)
             if match:
                 candidate = match.group(1).strip()
                 known_place = self._is_known_place(candidate)
                 if known_place:
                     return known_place
+
         return None
 
 

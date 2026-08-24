@@ -311,31 +311,36 @@ class TaskOrganizerAgent:
 
     @staticmethod
     def _is_asking_for_plan(message: str) -> bool:
-        """Check if message is explicitly asking for a day plan."""
+        """Check if message explicitly asks for a day plan.
+
+        Matches: "plan my day tomorrow", "schedule tomorrow", "plan tomorrow at office"
+        Does not match: anything else (let model decide).
+        """
         lowered = message.casefold()
         return bool(re.search(r"\b(?:plan|schedule)\b.*\b(?:my\s+)?(?:day|tomorrow)", lowered)) or \
                bool(re.search(r"\b(?:my\s+)?(?:day|tomorrow).*\b(?:plan|schedule)\b", lowered))
 
     @staticmethod
-    def _looks_like_task_capture(message: str) -> bool:
-        """Check if message looks like it's trying to capture a task/reminder.
+    def _is_bare_place_statement(message: str) -> bool:
+        """Check if message is ENTIRELY a statement of where Avi will be.
 
-        Task captures start with action verbs (call, buy, send, pick, etc.)
-        or contain "remind me". Excludes plan/schedule requests like "schedule my day".
-        Bare place statements (I'll be, I am, etc.) return False.
+        Anchored to the whole message, not searching inside arbitrary text.
+        Matches: "I am at Office tomorrow", "I'll be home tomorrow", "tomorrow at office"
+        Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
         """
         lowered = message.casefold().strip()
-        # Explicit task-capture patterns
-        if "remind me" in lowered:
-            return True
-        # Action verbs that indicate task capture (not comprehensive, but covers common cases)
-        # Exclude verbs when followed by plan/day/schedule keywords (those are plan requests)
-        task_verbs = (
-            "call", "send", "buy", "pick", "book", "pay", "remember",
-            "follow up", "water", "email", "text", "message"
+
+        # Patterns anchored to start/end of message
+        patterns = (
+            r"^i\s+(?:am|i’m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^i\s+(?:will|i’ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
+            r"^tomorrow\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
+            r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^(?:home|office|out|anywhere)$",
         )
-        for verb in task_verbs:
-            if lowered.startswith(verb):
+
+        for pattern in patterns:
+            if re.match(pattern, lowered):
                 return True
         return False
 
@@ -396,8 +401,7 @@ class TaskOrganizerAgent:
 
         if (
             self.day_planner is not None
-            and not self._looks_like_task_capture(user_message)
-            and (self._is_asking_for_plan(user_message) or self.day_planner.extract_place(user_message))
+            and (self._is_asking_for_plan(user_message) or self._is_bare_place_statement(user_message))
         ):
             place = self.day_planner.extract_place(user_message)
             sweep = self.day_planner.build(place)
