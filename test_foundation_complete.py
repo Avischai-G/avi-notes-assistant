@@ -215,7 +215,7 @@ def test_6_old_website_not_served():
     with (ROOT / 'web' / 'index.html').open() as f:
         new_html = f.read()
 
-    assert 'Task chat' in new_html, "New UI should have the Task chat navigation"
+    assert '>Home</a>' in new_html, "New UI should have the Home navigation"
     assert 'transcript' in new_html.lower(), "New UI should have transcript pane"
     assert 'composer' in new_html.lower(), "New UI should have composer"
     assert len(new_html) != len(old_html), "Old and new UI should be different"

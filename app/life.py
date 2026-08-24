@@ -7,6 +7,8 @@ built-in search grounding with function tools in a single agent).
 """
 from __future__ import annotations
 
+import asyncio
+import base64
 import os
 import time
 from contextvars import ContextVar
@@ -46,10 +48,14 @@ class LifeAgent:
         location: str = "global",
         *,
         llm: BaseLlm | None = None,
+        research_model: str = DEFAULT_MODEL,
     ) -> None:
         if location != "global":
             raise ValueError(f"Location must be 'global', got {location}")
-        if not _eligible_model(model):
+        # Live-audio models (gemini-live-*) carry their own naming scheme and
+        # are accepted alongside the gemini-3.5+ text family.
+        is_live_model = model.startswith("gemini-") and "live" in model
+        if not (_eligible_model(model) or is_live_model):
             raise ValueError(
                 "Model must be gemini-3.5-flash or newer (Gemini 3.5+), "
                 f"got {model}"
@@ -72,7 +78,7 @@ class LifeAgent:
 
         web_agent = LlmAgent(
             name="web_research",
-            model=llm or model,
+            model=llm or research_model,
             instruction=(
                 "You are a web research assistant. Use Google Search to find "
                 "current, reliable information for the request. Return a "
@@ -199,4 +205,119 @@ class LifeAgent:
         except Exception as exc:
             yield {"error": f"{type(exc).__name__}: {exc}"}
         finally:
+            self._store.reset(store_token)
+
+    async def live_bridge(
+        self,
+        websocket,
+        channel_store: ChannelStore,
+        task_store: TaskStore,
+        channel_id: str,
+    ) -> None:
+        """Bridge one browser WebSocket to a bidirectional live-audio session.
+
+        Client frames: {type:"audio", data:<b64 pcm16@16k>} and {type:"end"}.
+        Server frames: audio (b64 pcm16@24k), user_text / agent_text
+        transcription deltas, interrupted, turn_complete, error.
+        Finished turns are persisted to the channel like typed ones.
+        """
+        from google.adk.agents.live_request_queue import LiveRequestQueue
+        from google.adk.agents.run_config import RunConfig, StreamingMode
+
+        queue = LiveRequestQueue()
+        run_config = RunConfig(
+            response_modalities=["AUDIO"],
+            streaming_mode=StreamingMode.BIDI,
+            input_audio_transcription=types.AudioTranscriptionConfig(),
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+        )
+        session = await self._new_session(channel_store.get_channel(channel_id))
+        store_token = self._store.set(task_store)
+        user_text: list[str] = []
+        agent_text: list[str] = []
+
+        def flush_turn() -> None:
+            spoken = "".join(user_text).strip()
+            answered = "".join(agent_text).strip()
+            user_text.clear()
+            agent_text.clear()
+            if spoken:
+                channel_store.append_message(
+                    channel_id, Message("user", spoken, time.time())
+                )
+            if answered:
+                channel_store.append_message(
+                    channel_id, Message("assistant", answered, time.time())
+                )
+
+        async def pump_client() -> None:
+            while True:
+                frame = await websocket.receive_json()
+                kind = frame.get("type")
+                if kind == "audio":
+                    queue.send_realtime(
+                        types.Blob(
+                            data=base64.b64decode(frame.get("data", "")),
+                            mime_type="audio/pcm;rate=16000",
+                        )
+                    )
+                elif kind == "end":
+                    return
+
+        async def pump_agent() -> None:
+            async for event in self.runner.run_live(
+                user_id=USER_ID,
+                session_id=session.id,
+                live_request_queue=queue,
+                run_config=run_config,
+            ):
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if part.inline_data and part.inline_data.data:
+                            await websocket.send_json(
+                                {
+                                    "type": "audio",
+                                    "data": base64.b64encode(
+                                        part.inline_data.data
+                                    ).decode(),
+                                }
+                            )
+                if event.input_transcription and event.input_transcription.text:
+                    user_text.append(event.input_transcription.text)
+                    await websocket.send_json(
+                        {"type": "user_text", "text": event.input_transcription.text}
+                    )
+                if event.output_transcription and event.output_transcription.text:
+                    agent_text.append(event.output_transcription.text)
+                    await websocket.send_json(
+                        {"type": "agent_text", "text": event.output_transcription.text}
+                    )
+                if event.interrupted:
+                    await websocket.send_json({"type": "interrupted"})
+                if event.turn_complete:
+                    flush_turn()
+                    await websocket.send_json({"type": "turn_complete"})
+
+        client_task = asyncio.ensure_future(pump_client())
+        agent_task = asyncio.ensure_future(pump_agent())
+        try:
+            done, _ = await asyncio.wait(
+                {client_task, agent_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                exc = task.exception()
+                if exc is not None:
+                    raise exc
+        except Exception as exc:
+            try:
+                await websocket.send_json(
+                    {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
+                )
+            except Exception:
+                pass
+        finally:
+            for task in (client_task, agent_task):
+                task.cancel()
+            queue.close()
+            flush_turn()
             self._store.reset(store_token)

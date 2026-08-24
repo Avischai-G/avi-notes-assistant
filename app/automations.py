@@ -8,10 +8,30 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
+import re
 import time
 
 from app.channel_store import Message
-from app.task_planning import DayPlanner, next_jerusalem_nine_pm, nightly_due
+from app.task_planning import (
+    DayPlanner,
+    next_jerusalem_daily,
+    next_jerusalem_nine_pm,
+    nightly_due,
+)
+
+
+_AT_TIME = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
+
+
+def next_run_from_schedule(schedule: str, now: float) -> float:
+    """A trigger is free text; an explicit HH:MM makes it a real daily time.
+
+    Anything else is a plain daily cadence from the last run.
+    """
+    found = _AT_TIME.search(schedule or "")
+    if not found:
+        return now + 86400
+    return next_jerusalem_daily(now, int(found.group(1)), int(found.group(2)))
 
 
 @dataclass
@@ -57,6 +77,7 @@ class AutomationStore:
     def list(self) -> list[Automation]: raise NotImplementedError
     def get(self, automation_id: str) -> Automation | None: raise NotImplementedError
     def save(self, automation: Automation) -> None: raise NotImplementedError
+    def delete(self, automation_id: str) -> None: raise NotImplementedError
 
 
 class LocalAutomationStore(AutomationStore):
@@ -72,6 +93,9 @@ class LocalAutomationStore(AutomationStore):
 
     def save(self, automation: Automation) -> None:
         self.automations[automation.id] = automation
+
+    def delete(self, automation_id: str) -> None:
+        self.automations.pop(automation_id, None)
 
 
 class FirestoreAutomationStore(AutomationStore):
@@ -90,6 +114,9 @@ class FirestoreAutomationStore(AutomationStore):
 
     def save(self, automation: Automation) -> None:
         self.collection.document(automation.id).set(automation.to_dict())
+
+    def delete(self, automation_id: str) -> None:
+        self.collection.document(automation_id).delete()
 
 
 class KnowledgeAdapter:
@@ -161,7 +188,7 @@ class AutomationRunner:
         consolidation = None
         if a.id == KNOWLEDGE_CLEANUP.id:
             if not self.knowledge.has_dreams():
-                a.last_run_at, a.next_run_at = now, now + 86400
+                a.last_run_at, a.next_run_at = now, next_run_from_schedule(a.schedule, now)
                 self.store.save(a)
                 message = "No dream notes to consolidate."
                 self.channel_store.append_message(
@@ -177,7 +204,7 @@ class AutomationRunner:
         chunks = []
         async for chunk in self.agent.chat(user_message, self.channel_store, self.task_store, a.channel_id):
             chunks.append(chunk)
-        a.last_run_at, a.next_run_at = now, now + 86400
+        a.last_run_at, a.next_run_at = now, next_run_from_schedule(a.schedule, now)
         self.store.save(a)
         return {"status": "ran", "automation_id": a.id, "channel_id": a.channel_id,
                 "model_called": True, "chunks": chunks, "consolidation": consolidation}

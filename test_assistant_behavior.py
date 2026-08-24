@@ -143,6 +143,45 @@ def test_vague_answer_goes_to_the_model_and_writes_nothing_new():
     assert text == "Saved it."
 
 
+def test_attachments_reach_the_model_as_inline_parts():
+    class CapturingLlm(ScriptedToolLlm):
+        _requests: list = PrivateAttr(default_factory=list)
+
+        async def generate_content_async(self, llm_request, stream=False):
+            self._requests.append(llm_request)
+            async for response in super().generate_content_async(llm_request, stream):
+                yield response
+
+    tasks = FakeTaskStore()
+    channels = LocalChannelStore()
+    channels.ensure_channel("task-chat")
+    llm = CapturingLlm(model="gemini-3.5-flash")
+    agent = TaskOrganizerAgent(api_key="offline", llm=llm, clock=_fixed_now)
+
+    async def run():
+        return [
+            chunk
+            async for chunk in agent.chat(
+                "Save the attached receipt",
+                channels,
+                tasks,
+                "task-chat",
+                attachments=[("image/png", b"\x89PNG-fake-bytes")],
+            )
+        ]
+
+    asyncio.run(run())
+
+    request = llm._requests[0]
+    user_contents = [c for c in request.contents if c.role == "user"]
+    parts = user_contents[-1].parts
+    assert any(
+        part.inline_data and part.inline_data.mime_type == "image/png"
+        for part in parts
+    )
+    assert any(part.text == "Save the attached receipt" for part in parts)
+
+
 def _task_fields(task):
     return (task.id, task.title, task.status, task.place, task.minutes, task.notes)
 

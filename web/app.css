@@ -297,14 +297,15 @@ button { border: 0; color: inherit; }
 .composer-shell:focus-within { border-color: rgb(var(--ink) / 0.16); }
 .composer-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 8px;
 }
 .composer-row[data-expanded="true"] { grid-template-rows: auto auto; }
 .composer-row[data-expanded="true"] .composer-input { grid-column: 1 / -1; grid-row: 1; padding-inline: 8px; }
 .composer-row[data-expanded="true"] .attach-button { grid-column: 1; grid-row: 2; }
-.composer-row[data-expanded="true"] .send-button { grid-column: 3; grid-row: 2; }
+.composer-row[data-expanded="true"] .live-toggle { grid-column: 3; grid-row: 2; }
+.composer-row[data-expanded="true"] .send-button { grid-column: 4; grid-row: 2; }
 .composer-input {
   width: 100%;
   min-width: 0;
@@ -322,23 +323,46 @@ button { border: 0; color: inherit; }
 }
 .composer-input::placeholder { color: var(--muted); }
 .composer-input.capped { overflow-y: auto; }
-.attach-button, .send-button {
+.attach-button, .send-button, .live-toggle {
   display: grid;
   place-items: center;
   flex: none;
   border-radius: 50%;
   cursor: pointer;
   transition: background var(--motion-fast) ease, color var(--motion-fast) ease,
-    transform var(--motion-fast) ease, opacity var(--motion-fast) ease;
+    transform var(--motion-fast) ease, opacity var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
-.attach-button {
+.attach-button, .live-toggle {
   width: 44px;
   height: 44px;
   background: rgb(var(--ink) / 0.03);
   border: 1px solid rgb(var(--ink) / 0.07);
   color: var(--muted);
 }
-.attach-button:hover { background: rgb(var(--ink) / 0.08); color: var(--text); }
+.attach-button:hover, .live-toggle:hover:not(.active) { background: rgb(var(--ink) / 0.08); color: var(--text); }
+.live-toggle.active {
+  background: var(--accent-active-bg);
+  border-color: var(--accent-border-strong);
+  color: var(--on-accent);
+  animation: live-pulse 2000ms ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0.4); }
+  50% { box-shadow: 0 0 14px 3px rgb(59 130 246 / 0.55); }
+}
+.live-toggle:disabled { opacity: 0.5; cursor: default; }
+.live-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Full-viewport lightning overlay; never intercepts input. */
+.live-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
 .send-button { width: 48px; height: 48px; background: var(--button-invert-bg); color: var(--button-invert-fg); }
 .send-button:hover:not(:disabled) { transform: scale(1.05); }
 .send-button:active:not(:disabled) { transform: scale(0.95); }
@@ -391,6 +415,7 @@ button { border: 0; color: inherit; }
 .theme-button:focus-visible,
 .run-button:focus-visible,
 .attach-button:focus-visible,
+.live-toggle:focus-visible,
 .send-button:focus-visible,
 .plan-control:focus-visible,
 .load-more:focus-visible,
@@ -436,7 +461,7 @@ button { border: 0; color: inherit; }
   .transcript { padding: 16px; }
   .composer-dock { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
   .composer-shell { padding: 8px; border-radius: 22px; }
-  .attach-button { width: 36px; height: 36px; }
+  .attach-button, .live-toggle { width: 36px; height: 36px; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
   .message-bubble, .assistant-stack { max-width: 92%; }

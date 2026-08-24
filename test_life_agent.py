@@ -101,9 +101,18 @@ def test_life_turn_reads_the_board_and_writes_nothing():
     assert messages[-1].content == "Your board has one task."
 
 
-def test_life_endpoint_is_registered():
+def test_live_voice_route_is_registered_and_live_models_construct():
     from app import chat
 
     source = inspect.getsource(chat.register_chat_routes)
-    assert "def life_chat(" in source
-    assert '"/api/channels/{channel_id}/life"' in source
+    assert "def live_session(" in source
+    assert '"/api/live/{channel_id}"' in source
+
+    # The live-audio model family passes the guard; the research sub-agent
+    # stays on the text model.
+    agent = LifeAgent(
+        model="gemini-live-2.5-flash",
+        llm=ScriptedLifeLlm(model="gemini-live-2.5-flash"),
+    )
+    assert agent.model == "gemini-live-2.5-flash"
+    assert hasattr(agent, "live_bridge")

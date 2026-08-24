@@ -124,6 +124,8 @@ class TaskOrganizerAgent:
         self._instruction: ContextVar[str] = ContextVar(
             "organizer_instruction", default=SYSTEM_PROMPT
         )
+        # Settings can replace the base prompt; chat.py points this at the store.
+        self.prompt_source: Callable[[], str] = lambda: SYSTEM_PROMPT
         self.day_planner: DayPlanner | None = None
         self._save_sweep: Callable[[dict], None] | None = None
 
@@ -341,7 +343,7 @@ class TaskOrganizerAgent:
             places = DayPlanner(task_store, clock=self.clock).recent_places()
             place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
-        return f"{SYSTEM_PROMPT}{place_hint}{context}"
+        return f"{self.prompt_source()}{place_hint}{context}"
 
     def get_config(self) -> dict:
         """Return observed runtime values and fail if eligibility has drifted."""
@@ -406,6 +408,7 @@ class TaskOrganizerAgent:
         channel_store: ChannelStore,
         task_store: TaskStore,
         channel_id: str,
+        attachments: list[tuple[str, bytes]] | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Run one ADK turn and persist the visible transcript."""
         existing = channel_store.get_channel(channel_id)
@@ -429,12 +432,17 @@ class TaskOrganizerAgent:
             model_text = ""
             tool_calls: list[dict] = []
             tool_results: list[dict] = []
+            message_parts = [types.Part(text=user_message)]
+            for mime_type, blob in attachments or []:
+                message_parts.append(
+                    types.Part(
+                        inline_data=types.Blob(mime_type=mime_type, data=blob)
+                    )
+                )
             async for event in self.runner.run_async(
                 user_id=USER_ID,
                 session_id=session.id,
-                new_message=types.Content(
-                    role="user", parts=[types.Part(text=user_message)]
-                ),
+                new_message=types.Content(role="user", parts=message_parts),
             ):
                 calls = event.get_function_calls()
                 responses = event.get_function_responses()

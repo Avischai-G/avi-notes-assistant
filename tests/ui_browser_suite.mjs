@@ -234,8 +234,7 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     await page.locator("#input").fill("");
 
     await resetTabOrder(page);
-    assert.match(await tabUntil(page, /^Task chat$/i), /^Task chat$/i);
-    assert.match(await tabUntil(page, /^Learning$/), /^Learning$/);
+    assert.match(await tabUntil(page, /^Home$/i), /^Home$/i);
     assert.match(await tabUntil(page, /^Knowledge cleanup$/), /^Knowledge cleanup$/);
     await page.keyboard.press("Enter");
     await page.waitForSelector("#surface-header:not([hidden])");
@@ -244,7 +243,7 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     await page.waitForFunction(() => document.querySelector("#transcript")?.textContent.includes("No dream notes to consolidate."));
     await page.screenshot({ path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-automation.png`) });
 
-    await page.getByRole("link", { name: "Task chat" }).focus();
+    await page.getByRole("link", { name: "Home" }).focus();
     await page.keyboard.press("Enter");
     await page.waitForSelector("#surface-header[hidden]", { state: "attached" });
     assert.equal(await page.locator("#surface-header").getAttribute("hidden"), "");
@@ -254,11 +253,11 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     await page.keyboard.press("Enter");
     const chooser = await chooserPromise;
     await chooser.setFiles({
-      name: "synthetic-attachment.txt",
-      mimeType: "text/plain",
+      name: "synthetic-attachment.pdf",
+      mimeType: "application/pdf",
       buffer: Buffer.from("synthetic browser fixture"),
     });
-    await page.getByRole("button", { name: "Remove synthetic-attachment.txt" }).waitFor();
+    await page.getByRole("button", { name: "Remove synthetic-attachment.pdf" }).waitFor();
 
     await page.locator("#input").focus();
     await page.keyboard.type("I will be at Office tomorrow.");

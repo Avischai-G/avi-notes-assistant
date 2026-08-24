@@ -15,9 +15,7 @@
         <span class="nav-title">Avi's notes</span>
       </div>
       <div class="nav-links">
-        <a class="nav-task-chat active" id="nav-task-chat" href="#task-chat">Task chat</a>
-        <a class="nav-life-chat" id="nav-life-chat" href="#life-chat">Life chat</a>
-        <a class="nav-learning" href="/learning">Learning</a>
+        <a class="nav-task-chat active" id="nav-task-chat" href="#task-chat">Home</a>
         <div id="automation-nav"></div>
       </div>
       <button class="theme-button" id="theme" type="button" aria-label="Toggle theme">◐</button>
@@ -39,15 +37,20 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48"/></svg>
             </button>
             <textarea class="composer-input custom-scrollbar" id="input" rows="1" maxlength="12000" placeholder="Ask anything" aria-label="Message Avi's assistant"></textarea>
+            <button class="live-toggle" id="live-toggle" type="button" aria-label="Start live conversation">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v4"/></svg>
+            </button>
             <button class="send-button" id="send" type="button" aria-label="Send message" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4 14-3-6-7-1Z"/><path d="m12 13 7-8"/></svg>
             </button>
           </div>
         </div>
-        <input id="file-input" type="file" multiple hidden>
+        <input id="file-input" type="file" accept="image/*,application/pdf" multiple hidden>
       </div>
     </main>
   </div>
+  <script src="live-fx.js"></script>
+  <script src="live.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

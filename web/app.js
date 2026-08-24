@@ -4,7 +4,6 @@ const input = $("#input");
 const send = $("#send");
 const chips = $("#attachment-chips");
 const taskNav = $("#nav-task-chat");
-const lifeNav = $("#nav-life-chat");
 const automationNav = $("#automation-nav");
 const surfaceHeader = $("#surface-header");
 const surfaceTitle = $("#surface-title");
@@ -12,11 +11,10 @@ const surfaceSchedule = $("#surface-schedule");
 const runNow = $("#run-now");
 const composerGrid = $("#composer-grid");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
-const LIFE_CHANNEL_KEY = "avi-notes-life-channel";
 const PAGE = 30;
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 let channelId = null;
-let chatEndpoint = "chat";
 let attachments = [];
 let streaming = false;
 let automations = [];
@@ -145,18 +143,32 @@ function renderChips() {
 
 function addFiles(files) {
   for (const file of files) {
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    if (!isImage && !isPdf) continue;
+    const total = attachments.reduce((sum, item) => sum + item.size, 0);
+    if (total + file.size > MAX_ATTACHMENT_BYTES) {
+      addMessage("assistant", `“${file.name}” would push attachments past 15 MB — send it separately.`);
+      continue;
+    }
     if (!attachments.some((item) => item.name === file.name && item.size === file.size)) attachments.push(file);
   }
   renderChips();
   resize();
 }
 
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function emptyState() {
   if (activeAutomation) {
     return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>Run it here or continue its conversation.</div></div>`;
-  }
-  if (chatEndpoint === "life") {
-    return "<div class=\"empty-state\"><h1>What’s on your mind?</h1><div>Ask about your board or anything else — I can search the web and dig into things for you.</div></div>";
   }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
@@ -234,25 +246,14 @@ function setActiveNav(target) {
 
 async function showTaskChat() {
   activeAutomation = null;
-  chatEndpoint = "chat";
   surfaceHeader.hidden = true;
   setActiveNav(taskNav);
   await loadChannel(await ensureChannel(TASK_CHANNEL_KEY));
   input.focus();
 }
 
-async function showLifeChat() {
-  activeAutomation = null;
-  chatEndpoint = "life";
-  surfaceHeader.hidden = true;
-  setActiveNav(lifeNav);
-  await loadChannel(await ensureChannel(LIFE_CHANNEL_KEY));
-  input.focus();
-}
-
 async function showAutomation(automation, link) {
   activeAutomation = automation;
-  chatEndpoint = "chat";
   surfaceTitle.textContent = automation.name;
   surfaceSchedule.textContent = automation.schedule;
   runNow.setAttribute("aria-label", `Run ${automation.name} now`);
@@ -263,7 +264,6 @@ async function showAutomation(automation, link) {
 }
 
 async function route() {
-  if (location.hash === "#life-chat") return showLifeChat();
   const match = location.hash.match(/^#automation\/(.+)$/);
   if (match) {
     const automation = automations.find((item) => item.id === decodeURIComponent(match[1]));
@@ -296,10 +296,24 @@ async function sendMessage() {
   streaming = true;
   send.disabled = true;
   $(".empty-state")?.remove();
-  const submitted = text || "Attached files";
+  let submitted = text || "Attached files";
+  if (attachments.length) {
+    submitted += `\n[Attached: ${attachments.map((file) => file.name).join(", ")}]`;
+  }
   addMessage("user", submitted, null, { animate: true });
   input.value = "";
   resize();
+
+  let filePayloads = [];
+  try {
+    filePayloads = await Promise.all(attachments.map(async (file) => ({
+      name: file.name,
+      type: file.type,
+      data: await readAsBase64(file),
+    })));
+  } catch (error) {
+    addMessage("assistant", `Could not read an attachment: ${error.message}`);
+  }
 
   const row = document.createElement("div");
   row.className = "message-row assistant entering";
@@ -316,12 +330,12 @@ async function sendMessage() {
 
   let full = "";
   try {
-    const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/${chatEndpoint}`, {
+    const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: submitted,
-        attachments: attachments.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+        attachments: filePayloads,
       }),
     });
     if (!response.ok || !response.body) throw new Error(`${response.status} ${response.statusText}`);
@@ -413,8 +427,60 @@ $("#theme").addEventListener("click", () => {
 taskNav.addEventListener("click", () => {
   if (location.hash === "#task-chat") route();
 });
-lifeNav.addEventListener("click", () => {
-  if (location.hash === "#life-chat") route();
+/* Live voice session: transcripts stream into the home chat while the rest
+   of the app stays fully usable. */
+const liveToggle = $("#live-toggle");
+let liveChannelId = null;
+let liveUserBubble = null;
+let liveAgentBubble = null;
+
+function liveText(role, delta) {
+  if (channelId !== liveChannelId) return; // server persists it either way
+  $(".empty-state")?.remove();
+  let bubble = role === "user" ? liveUserBubble : liveAgentBubble;
+  if (!bubble || !bubble.isConnected) {
+    const built = buildMessage(role, "");
+    built.row.classList.add("entering");
+    transcript.append(built.row);
+    bubble = built.bubble;
+    bubble.dataset.liveText = "";
+    if (role === "user") liveUserBubble = bubble;
+    else liveAgentBubble = bubble;
+  }
+  bubble.dataset.liveText += delta;
+  if (role === "user") bubble.textContent = bubble.dataset.liveText;
+  else bubble.innerHTML = markdown(bubble.dataset.liveText);
+  bottom();
+}
+
+liveToggle.addEventListener("click", async () => {
+  if (window.LiveSession.active) {
+    window.LiveSession.stop();
+    return;
+  }
+  liveToggle.disabled = true;
+  try {
+    liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
+    await window.LiveSession.start(liveChannelId, {
+      onUserText: (text) => liveText("user", text),
+      onAgentText: (text) => liveText("assistant", text),
+      onTurnComplete: () => { liveUserBubble = null; liveAgentBubble = null; },
+      onInterrupted: () => { liveAgentBubble = null; },
+      onError: (message) => addMessage("assistant", `Live error: ${message}`),
+      onState: (on) => {
+        liveToggle.classList.toggle("active", on);
+        liveToggle.setAttribute(
+          "aria-label",
+          on ? "End live conversation" : "Start live conversation",
+        );
+        if (!on) { liveUserBubble = null; liveAgentBubble = null; }
+      },
+    });
+  } catch (error) {
+    addMessage("assistant", `Live error: ${error.message}`);
+  } finally {
+    liveToggle.disabled = false;
+  }
 });
 window.addEventListener("hashchange", () => route().catch(showLoadError));
 

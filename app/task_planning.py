@@ -349,14 +349,18 @@ class DayPlanner:
         return self.writer.set_plan_times(plans[plan])
 
 
-def next_jerusalem_nine_pm(epoch: float) -> float:
+def next_jerusalem_daily(epoch: float, hour: int, minute: int = 0) -> float:
+    """The next occurrence of hour:minute, Jerusalem local, strictly ahead."""
     now = datetime.fromtimestamp(epoch, JERUSALEM)
-    candidate = datetime.combine(now.date(), time(21, 0), tzinfo=JERUSALEM)
+    at = time(hour, minute)
+    candidate = datetime.combine(now.date(), at, tzinfo=JERUSALEM)
     if candidate <= now:
-        candidate = datetime.combine(
-            now.date() + timedelta(days=1), time(21, 0), tzinfo=JERUSALEM
-        )
+        candidate = datetime.combine(now.date() + timedelta(days=1), at, tzinfo=JERUSALEM)
     return candidate.timestamp()
+
+
+def next_jerusalem_nine_pm(epoch: float) -> float:
+    return next_jerusalem_daily(epoch, 21)
 
 
 def nightly_due(epoch: float, last_run_at: float | None) -> bool:

@@ -12,8 +12,7 @@ def test_static_accessible_name_contract_is_present():
 
     for required in (
         'aria-label="Product navigation"',
-        '>Task chat</a>',
-        '>Learning</a>',
+        '>Home</a>',
         'aria-label="Toggle theme"',
         '>Run now</button>',
         'aria-label="Attach a file"',
