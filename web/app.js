@@ -4,6 +4,7 @@ const input = $("#input");
 const send = $("#send");
 const chips = $("#attachment-chips");
 const taskNav = $("#nav-task-chat");
+const lifeNav = $("#nav-life-chat");
 const automationNav = $("#automation-nav");
 const surfaceHeader = $("#surface-header");
 const surfaceTitle = $("#surface-title");
@@ -11,9 +12,11 @@ const surfaceSchedule = $("#surface-schedule");
 const runNow = $("#run-now");
 const composerGrid = $("#composer-grid");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
+const LIFE_CHANNEL_KEY = "avi-notes-life-channel";
 const PAGE = 30;
 
 let channelId = null;
+let chatEndpoint = "chat";
 let attachments = [];
 let streaming = false;
 let automations = [];
@@ -152,6 +155,9 @@ function emptyState() {
   if (activeAutomation) {
     return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>Run it here or continue its conversation.</div></div>`;
   }
+  if (chatEndpoint === "life") {
+    return "<div class=\"empty-state\"><h1>What’s on your mind?</h1><div>Ask about your board or anything else — I can search the web and dig into things for you.</div></div>";
+  }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
 
@@ -211,12 +217,12 @@ async function loadChannel(id) {
   }
 }
 
-async function taskChannel() {
-  let id = localStorage.getItem(TASK_CHANNEL_KEY);
+async function ensureChannel(storageKey) {
+  let id = localStorage.getItem(storageKey);
   if (!id) {
     const created = await apiJSON("/api/channels/init", { method: "POST" });
     id = created.channel_id;
-    localStorage.setItem(TASK_CHANNEL_KEY, id);
+    localStorage.setItem(storageKey, id);
   }
   return id;
 }
@@ -228,14 +234,25 @@ function setActiveNav(target) {
 
 async function showTaskChat() {
   activeAutomation = null;
+  chatEndpoint = "chat";
   surfaceHeader.hidden = true;
   setActiveNav(taskNav);
-  await loadChannel(await taskChannel());
+  await loadChannel(await ensureChannel(TASK_CHANNEL_KEY));
+  input.focus();
+}
+
+async function showLifeChat() {
+  activeAutomation = null;
+  chatEndpoint = "life";
+  surfaceHeader.hidden = true;
+  setActiveNav(lifeNav);
+  await loadChannel(await ensureChannel(LIFE_CHANNEL_KEY));
   input.focus();
 }
 
 async function showAutomation(automation, link) {
   activeAutomation = automation;
+  chatEndpoint = "chat";
   surfaceTitle.textContent = automation.name;
   surfaceSchedule.textContent = automation.schedule;
   runNow.setAttribute("aria-label", `Run ${automation.name} now`);
@@ -246,6 +263,7 @@ async function showAutomation(automation, link) {
 }
 
 async function route() {
+  if (location.hash === "#life-chat") return showLifeChat();
   const match = location.hash.match(/^#automation\/(.+)$/);
   if (match) {
     const automation = automations.find((item) => item.id === decodeURIComponent(match[1]));
@@ -298,7 +316,7 @@ async function sendMessage() {
 
   let full = "";
   try {
-    const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/chat`, {
+    const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/${chatEndpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -394,6 +412,9 @@ $("#theme").addEventListener("click", () => {
 });
 taskNav.addEventListener("click", () => {
   if (location.hash === "#task-chat") route();
+});
+lifeNav.addEventListener("click", () => {
+  if (location.hash === "#life-chat") route();
 });
 window.addEventListener("hashchange", () => route().catch(showLoadError));
 

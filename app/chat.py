@@ -32,12 +32,14 @@ from app.learning import create_learning_router
 from app.task_planning import DayPlanner
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent
+from app.life import LifeAgent
 
 
 # Global instances
 _channel_store: Optional[object] = None
 _task_store: Optional[object] = None
 _agent: Optional[TaskOrganizerAgent] = None
+_life_agent: Optional[LifeAgent] = None
 _knowledge: Optional[OrganizerKnowledge] = None
 _automation_store: Optional[object] = None
 _automation_runner: Optional[AutomationRunner] = None
@@ -72,12 +74,13 @@ def init_chat_stores(
     Returns:
         Tuple of (channel_store, task_store, agent)
     """
-    global _channel_store, _task_store, _agent, _knowledge, _automation_store, _automation_runner
+    global _channel_store, _task_store, _agent, _life_agent, _knowledge, _automation_store, _automation_runner
 
     # A failed re-initialization must not leave an earlier fake store reachable.
     _channel_store = None
     _task_store = None
     _agent = None
+    _life_agent = None
     _knowledge = None
     _automation_store = None
     _automation_runner = None
@@ -131,6 +134,11 @@ def init_chat_stores(
         )
     except ValueError as e:
         raise RuntimeError(f"Agent initialization failed: {e}")
+
+    _life_agent = LifeAgent(
+        model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+    )
 
     for definition in DEFAULT_AUTOMATIONS:
         automation = _automation_store.get(definition.id)
@@ -261,6 +269,43 @@ def register_chat_routes(app: FastAPI) -> None:
             except Exception as e:
                 error_chunk = {"error": f"{type(e).__name__}: {e}"}
                 yield f"data: {json.dumps(error_chunk)}\n\n"
+
+        return StreamingResponse(
+            stream_response(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    @app.post("/api/channels/{channel_id}/life")
+    async def life_chat(channel_id: str, request: Request):
+        """Stream a life-companion response: read-only board, open chat, web research."""
+        channel_store, task_store, agent = get_stores()
+        if _life_agent is None:
+            raise RuntimeError("Life agent not initialized")
+
+        try:
+            body = await request.json()
+        except Exception as e:
+            raise HTTPException(400, f"Invalid JSON: {e}")
+
+        user_message = body.get("message", "").strip()
+        if not user_message:
+            raise HTTPException(400, "message field required and non-empty")
+
+        async def stream_response():
+            try:
+                async for chunk in _life_agent.chat(
+                    user_message=user_message,
+                    channel_store=channel_store,
+                    task_store=task_store,
+                    channel_id=channel_id,
+                ):
+                    yield f"data: {json.dumps(chunk)}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': f'{type(e).__name__}: {e}'})}\n\n"
 
         return StreamingResponse(
             stream_response(),
