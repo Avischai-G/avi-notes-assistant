@@ -1,5 +1,7 @@
 # Avi's Notes Assistant
 
+Live deployment: https://avi-notes-assistant-295057934762.us-central1.run.app
+
 A small chat assistant for capturing reminders in one scoped Notion database, keeping good defaults visible, and turning open tasks into two practical plans for tomorrow. It organises records; it never claims to perform the underlying work.
 
 The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Vertex AI, and Firestore stack. The former product remains available only in git history and the local `pre-rebuild` tag.
@@ -98,7 +100,7 @@ An authenticated model or embedding call may bill the configured Google Cloud ac
 
 The container is prepared for the existing Cloud Run/FastAPI shape, but this repository does not create or change cloud resources.
 
-An approved deployment must provide:
+The approved deployment is live at the URL above. Its runtime provides:
 
 - project `gen-lang-client-0256233370` and `GOOGLE_CLOUD_LOCATION=global`;
 - `FIRESTORE_DATABASE=coroner`, selecting the existing Firestore Native database

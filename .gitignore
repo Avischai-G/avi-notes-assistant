@@ -6,6 +6,7 @@ __pycache__/
 .knowledge/
 evidence/live/
 evidence/browser/*.png
+evidence/browser-orchestrator/*.png
 node_modules/
 .npm-cache/
 .python/
