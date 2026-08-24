@@ -42,11 +42,27 @@ node --check web/app.js
 node --check web/learning.js
 ```
 
-The prepared rendered suite is `npm run test:ui`, which requires:
-- a running server at `UI_BASE_URL` (defaults to `http://127.0.0.1:8764` — start it first)
+The browser suite is `npm run test:ui`. It tests a 2×2 matrix (dark/light theme × desktop/mobile viewport) plus keyboard and accessibility, running 9 checks total: task interface, learning interface, and console/network diagnostics.
+
+Start the server first with the required environment variables:
+
+```sh
+GOOGLE_GENAI_USE_VERTEXAI=true USE_FIRESTORE=0 TASK_STORE_MODE=fake \
+CORONER_KNOWLEDGE_ROOT=.knowledge \
+./.venv/bin/uvicorn server:api --host 127.0.0.1 --port 8764
+```
+
+Then run the suite in a separate terminal:
+
+```sh
+npm run test:ui
+```
+
+The suite requires:
+- a running server at `UI_BASE_URL` (defaults to `http://127.0.0.1:8764`)
 - system Google Chrome at a macOS path (set via `CHROME_PATH` env var, defaults to `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`)
 
-The suite tests a 2×2 matrix (dark/light theme × desktop/mobile viewport) plus keyboard and accessibility, running 9 checks total: task interface, learning interface, and console/network diagnostics. The matrix passes 9/9 with proper setup.
+Automations are automatically registered when the server starts. The suite verifies two automation channels: "Knowledge cleanup" and "Plan tomorrow".
 
 ## Local authenticated setup
 
