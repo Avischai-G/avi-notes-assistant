@@ -123,6 +123,49 @@ async function assertAccessibleControls(page, label) {
 }
 
 
+async function openDrawer(page) {
+  await page.locator("#menu").click();
+  await page.waitForFunction(() => {
+    const element = document.getElementById("drawer");
+    return element.open && element.getBoundingClientRect().left > -0.5;
+  });
+}
+
+
+async function closedDrawer(page) {
+  await page.waitForFunction(() => !document.getElementById("drawer").open);
+}
+
+
+/* Settings is the one non-chat surface: the chat prompt, then a prompt and a
+   trigger per automation. Its API round trips are covered by the pytest suite. */
+async function exerciseSettingsSurface(page, theme, mobile) {
+  await page.goto(`${baseURL}/#settings`, { waitUntil: "networkidle" });
+  await page.waitForSelector("#settings-pane:not([hidden])");
+  assert.equal(await page.locator("#chat-pane").getAttribute("hidden"), "");
+  assert.ok((await page.locator("#system-prompt").inputValue()).includes("Avi's assistant"));
+  assert.equal(await page.locator(".automation-card").count(), 2);
+  assert.deepEqual(
+    await page.locator(".automation-card [data-field=schedule]").evaluateAll(
+      (fields) => fields.map((field) => field.value),
+    ),
+    ["daily", "daily at 21:00 Asia/Jerusalem"],
+  );
+  // Built-in automations are load-bearing for planning, so they offer no delete.
+  assert.equal(await page.locator("[data-delete]").count(), 0);
+  assert.equal(await page.locator("#add-automation").count(), 1);
+  const layout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    width: innerWidth,
+  }));
+  assert.ok(layout.scrollWidth <= layout.width, "settings page overflows horizontally");
+  await assertAccessibleControls(page, `settings ${theme} ${mobile ? "mobile" : "desktop"}`);
+  await page.screenshot({
+    path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-settings.png`),
+  });
+}
+
+
 async function computedTaskStyles(page) {
   return page.evaluate(() => {
     const style = (selector) => getComputedStyle(document.querySelector(selector));
@@ -163,12 +206,32 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   await page.waitForSelector(".empty-state");
   assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
-  assert.equal(await page.locator(".nav-automation").count(), 2);
-  assert.equal(await page.getByText("Knowledge cleanup", { exact: true }).count(), 1);
-  assert.equal(await page.getByText("Plan tomorrow", { exact: true }).count(), 1);
-  assert.equal(await page.getByText("Voice", { exact: false }).count(), 0);
-  assert.equal(await page.getByText("Settings", { exact: false }).count(), 0);
+  assert.equal((await page.locator(".wordmark").innerText()).trim(), "Agentonomy Tasks");
   assert.equal(await page.getByText("Recent chats", { exact: false }).count(), 0);
+
+  // The only permanent chrome is the top bar; channels live behind the menu.
+  assert.equal(await page.locator("#drawer").evaluate((element) => element.open), false);
+  await openDrawer(page);
+  const drawer = await page.locator("#drawer").evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    viewport: innerWidth,
+  }));
+  const expectedWidth = mobile ? drawer.viewport : drawer.viewport / 3;
+  assert.ok(
+    Math.abs(drawer.width - expectedWidth) < 1,
+    `drawer is ${drawer.width}px wide, expected ${expectedWidth}px`,
+  );
+  assert.deepEqual(
+    (await page.locator("#drawer .channel").allInnerTexts()).map((item) => item.trim()),
+    ["Chat", "Knowledge cleanup", "Plan tomorrow", "Learning", "Settings"],
+  );
+  assert.equal(await page.locator("#drawer [data-run]").count(), 2);
+  await assertAccessibleControls(page, `drawer ${theme} ${mobile ? "mobile" : "desktop"}`);
+  await page.screenshot({
+    path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-drawer.png`),
+  });
+  await page.keyboard.press("Escape");
+  await closedDrawer(page);
 
   const styles = await computedTaskStyles(page);
   assert.equal(styles.paneBackground, expectedRGB(theme, "rgb(18, 18, 18)", "rgb(237, 237, 237)"));
@@ -233,20 +296,21 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     assert.equal(await page.locator("#input").inputValue(), "\n");
     await page.locator("#input").fill("");
 
-    await resetTabOrder(page);
-    assert.match(await tabUntil(page, /^Home$/i), /^Home$/i);
+    // An automation runs from its own channel row, reached by keyboard.
+    await openDrawer(page);
+    await page.locator("#channel-chat").focus();
     assert.match(await tabUntil(page, /^Knowledge cleanup$/), /^Knowledge cleanup$/);
+    await page.keyboard.press("Tab");
+    assert.match(await accessibleName(page), /^Run Knowledge cleanup now$/);
     await page.keyboard.press("Enter");
-    await page.waitForSelector("#surface-header:not([hidden])");
-    assert.match(await tabUntil(page, /^Run Knowledge cleanup now$/), /^Run Knowledge cleanup now$/);
-    await page.keyboard.press("Enter");
+    await closedDrawer(page);
     await page.waitForFunction(() => document.querySelector("#transcript")?.textContent.includes("No dream notes to consolidate."));
     await page.screenshot({ path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-automation.png`) });
 
-    await page.getByRole("link", { name: "Home" }).focus();
-    await page.keyboard.press("Enter");
-    await page.waitForSelector("#surface-header[hidden]", { state: "attached" });
-    assert.equal(await page.locator("#surface-header").getAttribute("hidden"), "");
+    await openDrawer(page);
+    await page.locator("#channel-chat").click();
+    await closedDrawer(page);
+    await page.waitForSelector("#chat-pane:not([hidden])");
     await resetTabOrder(page);
     assert.match(await tabUntil(page, /^Attach a file$/), /^Attach a file$/);
     const chooserPromise = page.waitForEvent("filechooser");
@@ -402,6 +466,7 @@ async function main() {
       page.on("requestfailed", (request) => diagnostics.push(`requestfailed:${request.url()}:${request.failure()?.errorText}`));
       const functional = entry.theme === "dark" && entry.mobile === false;
       await check(`task-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseTaskSurface(page, entry.theme, entry.mobile, functional));
+      await check(`settings-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseSettingsSurface(page, entry.theme, entry.mobile));
       await check(`learning-${entry.theme}-${entry.mobile ? "mobile" : "desktop"}`, () => exerciseLearningSurface(
         page,
         entry.theme,

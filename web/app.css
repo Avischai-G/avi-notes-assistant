@@ -1,5 +1,6 @@
-/* Avi's notes — Agentonomy design language, no-build single sheet.
-   Tokens mirror Agentonomy V2 src/styles.css (accent, surfaces, type scale, motion). */
+/* Agentonomy Tasks — Agentonomy design language, no-build single sheet.
+   Tokens mirror Agentonomy V2 src/styles.css (accent, surfaces, type scale, motion).
+   The only permanent chrome is the top bar; channels live behind it in a drawer. */
 
 :root {
   --accent: #3b82f6;
@@ -19,6 +20,7 @@
   --radius-pill: 999px;
   --motion-fast: 140ms;
   --motion-smooth: 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --topbar-height: 52px;
 }
 
 :root,
@@ -47,6 +49,7 @@
   --button-invert-fg: #050505;
   --bubble-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.32), 0 8px 10px -6px rgb(0 0 0 / 0.32);
   --composer-shadow: 0 22px 70px rgb(0 0 0 / 0.36);
+  --drawer-shadow: 0 0 60px rgb(0 0 0 / 0.5);
 }
 
 [data-theme="light"] {
@@ -74,11 +77,15 @@
   --button-invert-fg: #fafafa;
   --bubble-shadow: 0 10px 18px -8px rgb(0 0 0 / 0.18), 0 4px 8px -4px rgb(0 0 0 / 0.14);
   --composer-shadow: 0 18px 50px rgb(0 0 0 / 0.16);
+  --drawer-shadow: 0 0 60px rgb(0 0 0 / 0.18);
 }
 
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
   font-family: var(--font-sans);
   font-size: var(--type-body);
   line-height: var(--leading-normal);
@@ -89,95 +96,154 @@ body {
   color: var(--text);
   transition: background-color 200ms ease, color 200ms ease;
 }
-button, textarea { font: inherit; }
+button, textarea, input { font: inherit; }
 button { border: 0; color: inherit; }
 
-.app-shell { height: 100%; height: 100dvh; display: flex; background: var(--panel-bg); }
-.nav-links { display: contents; }
-
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
-.product-nav {
-  width: 208px;
+/* ── Top bar: menu, name, theme. The app's only permanent chrome. ────── */
+.topbar {
   flex: none;
+  height: calc(var(--topbar-height) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 8px 0;
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--line);
+  transition: background-color 200ms ease;
+}
+.wordmark {
+  text-align: center;
+  color: var(--text);
+  font-size: var(--type-emphasis);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icon-button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+.icon-button:hover { background: rgb(var(--ink) / 0.08); color: var(--text); }
+.icon-button:active { background: rgb(var(--ink) / 0.12); }
+.icon-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* One control, three modes — the icon names the mode it is in. */
+#theme svg { display: none; }
+html[data-theme-mode="light"] #theme .mode-light,
+html[data-theme-mode="dark"] #theme .mode-dark,
+html[data-theme-mode="system"] #theme .mode-system { display: block; }
+
+/* ── Channel drawer ──────────────────────────────────────────────────
+   A <dialog>, so Esc, the focus trap, and the inert backdrop are free. */
+.drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 33.333vw;
+  min-width: 288px;
+  max-width: 100vw;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  color: var(--text);
+  box-shadow: var(--drawer-shadow);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  transform: translateX(-100%);
+  transition: transform var(--motion-smooth),
+    overlay var(--motion-smooth) allow-discrete,
+    display var(--motion-smooth) allow-discrete;
+}
+.drawer[open] { display: flex; transform: none; }
+@starting-style { .drawer[open] { transform: translateX(-100%); } }
+.drawer::backdrop {
+  background: rgb(0 0 0 / 0.45);
+  opacity: 0;
+  transition: opacity 200ms ease, overlay 200ms allow-discrete, display 200ms allow-discrete;
+}
+.drawer[open]::backdrop { opacity: 1; }
+@starting-style { .drawer[open]::backdrop { opacity: 0; } }
+
+.channels {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 20px 10px 14px;
-  background: var(--sidebar-bg);
-  border-right: 1px solid var(--line);
-  transition: background-color 200ms ease;
 }
-.nav-brand { display: flex; flex-direction: column; gap: 1px; margin: 0 8px 16px; }
-.nav-kicker {
-  color: var(--quiet);
-  font-size: var(--type-caption);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.nav-title {
-  color: var(--text);
-  font-size: var(--type-title);
-  font-weight: 600;
-  line-height: var(--leading-tight);
-}
-.product-nav a {
-  display: block;
-  color: var(--muted);
-  text-decoration: none;
-  font-size: var(--type-body);
-  font-weight: 500;
-  padding: 9px 12px;
+#automation-channels { display: contents; }
+
+.channel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--type-emphasis);
+  font-weight: 500;
   transition: background var(--motion-fast) ease, color var(--motion-fast) ease,
     border-color var(--motion-fast) ease;
 }
-.product-nav a:hover { background: var(--panel-hover); color: var(--text-2); }
-.product-nav a.active {
+.channel span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.channel:hover { background: var(--panel-hover); color: var(--text-2); }
+.channel.active {
   background: var(--accent-active-bg);
   border-color: var(--accent-border-strong);
   color: var(--on-accent);
 }
-#automation-nav { display: contents; }
-.theme-button {
-  margin: auto 4px 0;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 18px;
-  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
-}
-.theme-button:hover { background: rgb(var(--ink) / 0.08); color: var(--text); }
+.channel-row { display: flex; align-items: center; gap: 4px; }
+.channel-row .channel { flex: 1; min-width: 0; }
+.drawer-foot { margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); border-radius: 0; }
+.drawer-foot:hover { border-radius: var(--radius-control); }
 
-/* ── Chat pane ───────────────────────────────────────────────────────── */
-.chat-pane {
+/* ── Panes ───────────────────────────────────────────────────────────── */
+.pane {
   min-width: 0;
+  min-height: 0;
   flex: 1;
-  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--panel-bg);
   transition: background-color 200ms ease;
 }
-
-.surface-header {
-  min-height: 64px;
-  padding: 14px max(24px, calc((100% - 1060px) / 2));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  border-bottom: 1px solid var(--line);
-}
-.surface-header[hidden] { display: none; }
-.surface-header h1 { margin: 0; font-size: var(--type-emphasis); font-weight: 600; }
-.surface-header p { margin: 3px 0 0; color: var(--muted); font-size: var(--type-small); }
+.pane[hidden] { display: none; }
 
 .transcript {
   flex: 1;
@@ -391,8 +457,78 @@ button { border: 0; color: inherit; }
 }
 .attachment-chip button { background: transparent; color: var(--muted); cursor: pointer; padding: 0; font-size: 16px; line-height: 1; }
 
+/* ── Settings ────────────────────────────────────────────────────────── */
+.settings-pane { overflow-y: auto; }
+.settings-inner {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 28px 24px calc(48px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.setting { display: flex; flex-direction: column; gap: 4px; }
+.setting h2 { margin: 0; font-size: var(--type-emphasis); font-weight: 600; color: var(--text); }
+.setting .hint { margin: 0 0 8px; color: var(--muted); font-size: var(--type-small); }
+.setting-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-card);
+  color: var(--text);
+  font-size: var(--type-emphasis);
+  line-height: var(--leading-prose);
+  outline: 0;
+  resize: vertical;
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.field:focus { border-color: var(--accent-border-strong); }
+.field::placeholder { color: var(--quiet); }
+
+.automation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: rgb(var(--ink) / 0.02);
+}
+.automation-card .card-head { display: flex; align-items: center; gap: 6px; }
+.automation-card .card-head .field { font-weight: 600; }
+.automation-card label {
+  margin-top: 8px;
+  color: var(--quiet);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  translate: -50% 12px;
+  padding: 7px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--text-2);
+  font-size: var(--type-small);
+  box-shadow: var(--bubble-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) ease, translate var(--motion-smooth);
+}
+.toast.show { opacity: 1; translate: -50% 0; }
+
 /* ── Controls ────────────────────────────────────────────────────────── */
-.run-button, .plan-control {
+.plan-control {
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -401,19 +537,19 @@ button { border: 0; color: inherit; }
   cursor: pointer;
   transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
-.run-button:hover:not(:disabled), .plan-control:hover:not(:disabled) {
+.plan-control:hover:not(:disabled) {
   background: var(--panel-hover);
   border-color: rgb(var(--ink) / 0.16);
 }
-.run-button:disabled, .plan-control:disabled { opacity: 0.45; cursor: default; }
+.plan-control:disabled { opacity: 0.45; cursor: default; }
 .plan-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .learning-state { margin: auto; color: var(--muted); text-align: center; font-size: var(--type-emphasis); }
 .learning-state h1 { color: var(--text); font-size: var(--type-title); font-weight: 500; margin: 0 0 6px; }
 
-.product-nav a:focus-visible,
-.theme-button:focus-visible,
-.run-button:focus-visible,
+.channel:focus-visible,
+.icon-button:focus-visible,
+.field:focus-visible,
 .attach-button:focus-visible,
 .live-toggle:focus-visible,
 .send-button:focus-visible,
@@ -424,40 +560,9 @@ button { border: 0; color: inherit; }
   outline-offset: 2px;
 }
 
-/* ── Mobile: the sidebar becomes a top bar with scrollable nav chips ── */
+/* ── Mobile: the drawer takes the whole screen ───────────────────────── */
 @media (max-width: 759px) {
-  .app-shell { flex-direction: column; }
-  .product-nav {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 8px;
-    padding: calc(10px + env(safe-area-inset-top)) 12px 8px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .nav-brand { flex: 1; margin: 0; order: -2; }
-  .theme-button { margin: 0; order: -1; }
-  .nav-links {
-    display: flex;
-    flex-basis: 100%;
-    gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a,
-  .product-nav a {
-    flex: none;
-    white-space: nowrap;
-    padding: 7px 14px;
-    border-radius: var(--radius-pill);
-    font-size: var(--type-small);
-  }
-  .chat-pane { flex: 1; min-height: 0; }
-  .surface-header { min-height: 0; padding: 10px 16px; }
+  .drawer { width: 100vw; min-width: 0; border-right: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
   .transcript { padding: 16px; }
   .composer-dock { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
   .composer-shell { padding: 8px; border-radius: 22px; }
@@ -465,6 +570,7 @@ button { border: 0; color: inherit; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
   .message-bubble, .assistant-stack { max-width: 92%; }
+  .settings-inner { padding: 20px 16px calc(40px + env(safe-area-inset-bottom)); gap: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

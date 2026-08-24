@@ -3,14 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Learning · Avi's notes</title>
-    <script>(function(){var t=localStorage.getItem('agentonomy-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;})();</script>
+    <title>Learning · Agentonomy Tasks</title>
+    <script>(function(){var m=localStorage.getItem('agentonomy-theme')||'system';document.documentElement.dataset.theme=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;})();</script>
     <link rel="stylesheet" href="/learning.css">
 </head>
 <body>
     <main class="learning-shell">
         <nav class="topline" aria-label="Learning navigation">
-            <a href="/" class="back-link">Task Chat</a>
+            <a href="/" class="back-link">Chat</a>
             <span id="timezone-label" class="timezone-label" aria-live="polite"></span>
         </nav>
 

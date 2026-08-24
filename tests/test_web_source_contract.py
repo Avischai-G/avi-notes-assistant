@@ -11,18 +11,18 @@ def test_static_accessible_name_contract_is_present():
     script = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
 
     for required in (
-        'aria-label="Product navigation"',
-        '>Home</a>',
-        'aria-label="Toggle theme"',
-        '>Run now</button>',
+        'aria-label="Channels"',
+        'id="channel-chat"',
+        'aria-label="Theme: follow system"',
+        'aria-label="New automation"',
         'aria-label="Attach a file"',
-        'aria-label="Message Avi\'s assistant"',
+        'aria-label="Message Agentonomy Tasks"',
         'aria-label="Send message"',
     ):
         assert required in task
     for required in (
         'aria-label="Learning navigation"',
-        '>Task Chat</a>',
+        '>Chat</a>',
         'aria-label="Learning period"',
         '>Day</button>',
         '>Week</button>',
@@ -31,7 +31,7 @@ def test_static_accessible_name_contract_is_present():
         assert required in learning
     assert 'aria-label", "Choose tomorrow\'s plan"' in script
     assert "button.textContent = control.label" in script
-    assert "runNow.setAttribute(\"aria-label\"" in script
+    assert 'run.setAttribute("aria-label"' in script
 
 
 def test_static_keyboard_and_focus_contract_is_present_without_voice():
@@ -43,8 +43,8 @@ def test_static_keyboard_and_focus_contract_is_present_without_voice():
     assert 'input.addEventListener("keydown"' in script
     assert 'event.key === "Enter"' in script
     assert "!event.shiftKey" in script
-    assert ".product-nav a:focus-visible" in css
-    assert ".run-button:focus-visible" in css
+    assert ".channel:focus-visible" in css
+    assert ".icon-button:focus-visible" in css
     assert ".attach-button:focus-visible" in css
     assert ".plan-control:focus-visible" in css
     assert ".period-switch button:focus-visible" in learning_css

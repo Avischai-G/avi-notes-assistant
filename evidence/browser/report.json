@@ -8,12 +8,22 @@
       "detail": ""
     },
     {
+      "name": "settings-dark-desktop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
       "name": "learning-dark-desktop",
       "status": "PASS",
       "detail": ""
     },
     {
       "name": "task-light-desktop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "settings-light-desktop",
       "status": "PASS",
       "detail": ""
     },
@@ -28,12 +38,22 @@
       "detail": ""
     },
     {
+      "name": "settings-dark-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
       "name": "learning-dark-mobile",
       "status": "PASS",
       "detail": ""
     },
     {
       "name": "task-light-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "settings-light-mobile",
       "status": "PASS",
       "detail": ""
     },
@@ -48,8 +68,8 @@
       "detail": "no console errors, page errors, or failed requests"
     }
   ],
-  "pass": 9,
+  "pass": 13,
   "fail": 0,
-  "total": 9,
+  "total": 13,
   "diagnostics": []
 }

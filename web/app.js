@@ -3,12 +3,13 @@ const transcript = $("#transcript");
 const input = $("#input");
 const send = $("#send");
 const chips = $("#attachment-chips");
-const taskNav = $("#nav-task-chat");
-const automationNav = $("#automation-nav");
-const surfaceHeader = $("#surface-header");
-const surfaceTitle = $("#surface-title");
-const surfaceSchedule = $("#surface-schedule");
-const runNow = $("#run-now");
+const drawer = $("#drawer");
+const chatPane = $("#chat-pane");
+const settingsPane = $("#settings-pane");
+const automationChannels = $("#automation-channels");
+const automationEditors = $("#automation-editors");
+const systemPrompt = $("#system-prompt");
+const toast = $("#toast");
 const composerGrid = $("#composer-grid");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
 const PAGE = 30;
@@ -168,7 +169,7 @@ function readAsBase64(file) {
 
 function emptyState() {
   if (activeAutomation) {
-    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>Run it here or continue its conversation.</div></div>`;
+    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(activeAutomation.schedule)} — run it from the channels menu, or just talk to it here.</div></div>`;
   }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
@@ -239,55 +240,220 @@ async function ensureChannel(storageKey) {
   return id;
 }
 
-function setActiveNav(target) {
-  for (const link of document.querySelectorAll(".product-nav a")) link.classList.remove("active");
-  target?.classList.add("active");
+function setActiveChannel(href) {
+  for (const link of drawer.querySelectorAll(".channel")) {
+    link.classList.toggle("active", link.getAttribute("href") === href);
+  }
 }
 
-async function showTaskChat() {
+async function showChat(automation) {
+  activeAutomation = automation || null;
+  settingsPane.hidden = true;
+  chatPane.hidden = false;
+  setActiveChannel(automation ? `#automation/${encodeURIComponent(automation.id)}` : "#chat");
+  await loadChannel(automation ? automation.channel_id : await ensureChannel(TASK_CHANNEL_KEY));
+  if (!drawer.open) input.focus();
+}
+
+async function showSettings() {
   activeAutomation = null;
-  surfaceHeader.hidden = true;
-  setActiveNav(taskNav);
-  await loadChannel(await ensureChannel(TASK_CHANNEL_KEY));
-  input.focus();
-}
-
-async function showAutomation(automation, link) {
-  activeAutomation = automation;
-  surfaceTitle.textContent = automation.name;
-  surfaceSchedule.textContent = automation.schedule;
-  runNow.setAttribute("aria-label", `Run ${automation.name} now`);
-  surfaceHeader.hidden = false;
-  setActiveNav(link);
-  await loadChannel(automation.channel_id);
-  input.focus();
+  chatPane.hidden = true;
+  settingsPane.hidden = false;
+  setActiveChannel("#settings");
+  const data = await apiJSON("/api/settings");
+  systemPrompt.value = data.system_prompt || "";
+  renderAutomationEditors();
 }
 
 async function route() {
+  if (location.hash === "#settings") return showSettings();
   const match = location.hash.match(/^#automation\/(.+)$/);
-  if (match) {
-    const automation = automations.find((item) => item.id === decodeURIComponent(match[1]));
-    const link = [...document.querySelectorAll(".nav-automation")].find(
-      (item) => item.dataset.automationId === automation?.id,
-    );
-    if (automation) return showAutomation(automation, link);
+  const automation = match
+    && automations.find((item) => item.id === decodeURIComponent(match[1]));
+  return showChat(automation || null);
+}
+
+/* ── Channels drawer ─────────────────────────────────────────────────── */
+const CLOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>';
+
+function renderChannels() {
+  automationChannels.replaceChildren();
+  for (const automation of automations) {
+    const row = document.createElement("div");
+    row.className = "channel-row";
+    const link = document.createElement("a");
+    link.className = "channel";
+    link.href = `#automation/${encodeURIComponent(automation.id)}`;
+    link.innerHTML = `${CLOCK_ICON}<span>${esc(automation.name)}</span>`;
+    const run = document.createElement("button");
+    run.type = "button";
+    run.className = "icon-button";
+    run.dataset.run = automation.id;
+    run.setAttribute("aria-label", `Run ${automation.name} now`);
+    run.innerHTML = PLAY_ICON;
+    row.append(link, run);
+    automationChannels.append(row);
   }
-  return showTaskChat();
+  setActiveChannel(location.hash || "#chat");
 }
 
 async function loadAutomations() {
   const data = await apiJSON("/api/automations");
   automations = data.automations || [];
-  automationNav.replaceChildren();
+  renderChannels();
+}
+
+function openDrawer() {
+  drawer.showModal();
+}
+
+drawer.addEventListener("click", (event) => {
+  // A modal <dialog> fills the viewport for hit-testing; only the sheet is the sheet.
+  const inside = event.target.closest(".channels, .drawer-foot");
+  if (!inside) drawer.close();
+  else if (event.target.closest(".channel")) drawer.close();
+});
+
+drawer.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-run]");
+  if (!button) return;
+  const automation = automations.find((item) => item.id === button.dataset.run);
+  if (!automation) return;
+  button.disabled = true;
+  drawer.close();
+  location.hash = `#automation/${encodeURIComponent(automation.id)}`;
+  try {
+    const result = await apiJSON(
+      `/api/automations/${encodeURIComponent(automation.id)}/run`,
+      { method: "POST" },
+    );
+    await loadChannel(automation.channel_id);
+    if (result.controls) {
+      const parent = [...transcript.querySelectorAll(".assistant-stack")].at(-1);
+      if (parent) renderPlanControls(parent, result.controls);
+    }
+  } catch (error) {
+    addMessage("assistant", `Error: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("#menu").addEventListener("click", openDrawer);
+
+/* ── Settings: the chat prompt, and one prompt + trigger per automation ─ */
+let toastTimer = 0;
+
+function flash(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toast.classList.remove("show"), 1600);
+}
+
+function renderAutomationEditors() {
+  automationEditors.replaceChildren();
   for (const automation of automations) {
-    const link = document.createElement("a");
-    link.className = "nav-automation";
-    link.href = `#automation/${encodeURIComponent(automation.id)}`;
-    link.dataset.automationId = automation.id;
-    link.textContent = automation.name;
-    automationNav.append(link);
+    const card = document.createElement("article");
+    card.className = "automation-card";
+    card.dataset.id = automation.id;
+    card.innerHTML = `
+      <div class="card-head">
+        <input class="field" data-field="name" value="${esc(automation.name)}" aria-label="Automation name">
+        ${automation.built_in ? "" : `<button class="icon-button" type="button" data-delete="${esc(automation.id)}" aria-label="Delete ${esc(automation.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-11 0 1 14h12l1-14"/></svg></button>`}
+      </div>
+      <label for="prompt-${esc(automation.id)}">Prompt</label>
+      <textarea class="field custom-scrollbar" id="prompt-${esc(automation.id)}" data-field="prompt" rows="4" placeholder="What should it do?">${esc(automation.prompt || "")}</textarea>
+      <label for="trigger-${esc(automation.id)}">Trigger</label>
+      <input class="field" id="trigger-${esc(automation.id)}" data-field="schedule" value="${esc(automation.schedule || "")}" placeholder="daily at 21:00">`;
+    automationEditors.append(card);
   }
 }
+
+systemPrompt.addEventListener("change", async () => {
+  const prompt = systemPrompt.value.trim();
+  if (!prompt) return flash("Instructions can't be empty");
+  try {
+    await apiJSON("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system_prompt: prompt }),
+    });
+    flash("Saved");
+  } catch (error) {
+    flash(`Not saved: ${error.message}`);
+  }
+});
+
+automationEditors.addEventListener("change", async (event) => {
+  const field = event.target.closest("[data-field]");
+  const card = field?.closest(".automation-card");
+  if (!card) return;
+  try {
+    const saved = await apiJSON(`/api/automations/${encodeURIComponent(card.dataset.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field.dataset.field]: field.value }),
+    });
+    automations = automations.map((item) => (item.id === saved.id ? saved : item));
+    renderChannels();
+    flash("Saved");
+  } catch (error) {
+    flash(`Not saved: ${error.message}`);
+  }
+});
+
+automationEditors.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-delete]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await apiJSON(`/api/automations/${encodeURIComponent(button.dataset.delete)}`, { method: "DELETE" });
+    await loadAutomations();
+    renderAutomationEditors();
+    flash("Deleted");
+  } catch (error) {
+    button.disabled = false;
+    flash(`Not deleted: ${error.message}`);
+  }
+});
+
+$("#add-automation").addEventListener("click", async () => {
+  try {
+    await apiJSON("/api/automations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "New automation", prompt: "", schedule: "daily at 09:00" }),
+    });
+    await loadAutomations();
+    renderAutomationEditors();
+    automationEditors.querySelector(".automation-card:last-child .field")?.focus();
+  } catch (error) {
+    flash(`Not created: ${error.message}`);
+  }
+});
+
+/* ── Theme: one control, three modes ─────────────────────────────────── */
+const MODES = ["system", "light", "dark"];
+const MODE_LABEL = { system: "follow system", light: "light", dark: "dark" };
+const systemDark = matchMedia("(prefers-color-scheme: dark)");
+
+function applyTheme(mode) {
+  document.documentElement.dataset.themeMode = mode;
+  document.documentElement.dataset.theme =
+    mode === "system" ? (systemDark.matches ? "dark" : "light") : mode;
+  $("#theme").setAttribute("aria-label", `Theme: ${MODE_LABEL[mode]}`);
+  localStorage.setItem("agentonomy-theme", mode);
+}
+
+$("#theme").addEventListener("click", () => {
+  const current = document.documentElement.dataset.themeMode || "system";
+  applyTheme(MODES[(MODES.indexOf(current) + 1) % MODES.length]);
+});
+systemDark.addEventListener("change", () => {
+  if (document.documentElement.dataset.themeMode === "system") applyTheme("system");
+});
 
 async function sendMessage() {
   if (streaming || !channelId) return;
@@ -372,24 +538,6 @@ async function sendMessage() {
   input.focus();
 }
 
-runNow.addEventListener("click", async () => {
-  if (!activeAutomation) return;
-  runNow.disabled = true;
-  try {
-    const result = await apiJSON(`/api/automations/${encodeURIComponent(activeAutomation.id)}/run`, { method: "POST" });
-    await loadChannel(activeAutomation.channel_id);
-    if (result.controls) {
-      const parent = [...transcript.querySelectorAll(".assistant-stack")].at(-1);
-      if (parent) renderPlanControls(parent, result.controls);
-    }
-  } catch (error) {
-    addMessage("assistant", `Error: ${error.message}`);
-  } finally {
-    runNow.disabled = false;
-    runNow.focus();
-  }
-});
-
 $("#attach").addEventListener("click", () => $("#file-input").click());
 $("#file-input").addEventListener("change", (event) => addFiles(event.target.files));
 chips.addEventListener("click", (event) => {
@@ -418,14 +566,6 @@ document.addEventListener("dragover", (event) => event.preventDefault());
 document.addEventListener("drop", (event) => {
   event.preventDefault();
   addFiles(event.dataTransfer.files);
-});
-$("#theme").addEventListener("click", () => {
-  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("agentonomy-theme", next);
-});
-taskNav.addEventListener("click", () => {
-  if (location.hash === "#task-chat") route();
 });
 /* Live voice session: transcripts stream into the home chat while the rest
    of the app stays fully usable. */
@@ -487,7 +627,11 @@ window.addEventListener("hashchange", () => route().catch(showLoadError));
 function showLoadError(error) {
   console.error(error);
   transcript.innerHTML = "<div class=\"empty-state\">Unable to load this chat.</div>";
+  chatPane.hidden = false;
+  settingsPane.hidden = true;
 }
+
+applyTheme(localStorage.getItem("agentonomy-theme") || "system");
 
 (async () => {
   try {

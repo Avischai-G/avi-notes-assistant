@@ -44,7 +44,7 @@ node --check web/app.js
 node --check web/learning.js
 ```
 
-The browser suite is `npm run test:ui`. It tests a 2x2 matrix (dark/light theme x desktop/mobile viewport) plus keyboard and accessibility, running 9 checks total: task interface, learning interface, and console/network diagnostics. Its test-only app uses a mocked model and a synthetic fake-store row; it makes no Vertex or Notion call.
+The browser suite is `npm run test:ui`. It tests a 2x2 matrix (dark/light theme x desktop/mobile viewport) plus keyboard and accessibility, running 13 checks total: chat interface, settings interface, learning interface, and console/network diagnostics. Its test-only app uses a mocked model and a synthetic fake-store row; it makes no Vertex or Notion call.
 
 Start the server first with the required environment variables:
 
