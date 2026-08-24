@@ -309,6 +309,13 @@ class TaskOrganizerAgent:
         )
         return lowered.lstrip().startswith("remind me") and not has_time
 
+    @staticmethod
+    def _is_asking_for_plan(message: str) -> bool:
+        """Check if message is explicitly asking for a day plan."""
+        lowered = message.casefold()
+        return bool(re.search(r"\b(?:plan|schedule)\b.*\b(?:my\s+)?(?:day|tomorrow)", lowered)) or \
+               bool(re.search(r"\b(?:my\s+)?(?:day|tomorrow).*\b(?:plan|schedule)\b", lowered))
+
     def _confirmation(self, task: Task) -> str:
         now = local_now(self.clock)
         return (
@@ -364,22 +371,21 @@ class TaskOrganizerAgent:
             yield {"done": True}
             return
 
-        if self.day_planner is not None:
+        if self.day_planner is not None and self._is_asking_for_plan(user_message):
             place = self.day_planner.extract_place(user_message)
-            if place is not None:
-                sweep = self.day_planner.build(place)
-                sweep["channel_id"] = channel_id
-                if self._save_sweep:
-                    self._save_sweep(sweep)
-                channel_store.append_message(
-                    channel_id, Message("user", user_message, time.time())
-                )
-                channel_store.append_message(
-                    channel_id, Message("assistant", sweep["text"], time.time())
-                )
-                yield {"text": sweep["text"], "controls": sweep["controls"]}
-                yield {"done": True}
-                return
+            sweep = self.day_planner.build(place)
+            sweep["channel_id"] = channel_id
+            if self._save_sweep:
+                self._save_sweep(sweep)
+            channel_store.append_message(
+                channel_id, Message("user", user_message, time.time())
+            )
+            channel_store.append_message(
+                channel_id, Message("assistant", sweep["text"], time.time())
+            )
+            yield {"text": sweep["text"], "controls": sweep["controls"]}
+            yield {"done": True}
+            return
 
         store_token = self._store.set(task_store)
         message_token = self._message.set(user_message)

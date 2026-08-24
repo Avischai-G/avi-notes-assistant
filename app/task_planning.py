@@ -196,6 +196,9 @@ class TaskFieldWriter:
         return [task for task, _ in resolved]
 
 
+KNOWN_PLACES = frozenset(("Home", "Office", "Out", ANYWHERE))
+
+
 class DayPlanner:
     """Build two felt-different, eight-hour plans from open place-matched tasks."""
 
@@ -222,6 +225,13 @@ class DayPlanner:
             if place and place.casefold() != ANYWHERE.casefold() and place not in seen:
                 seen.append(place)
         return [*seen, ANYWHERE]
+
+    def _is_known_place(self, candidate: str) -> str | None:
+        """Return the canonical form of a known place, or None if unknown."""
+        for known in KNOWN_PLACES:
+            if candidate.casefold() == known.casefold():
+                return known
+        return None
 
     def default_place(self) -> str:
         places = [(task.place or "").strip() for task in self._open_recent()]
@@ -344,27 +354,26 @@ class DayPlanner:
         return self.writer.set_plan_times(plans[plan])
 
     def extract_place(self, message: str) -> str | None:
+        """Extract a known place from message, or None if no known place is mentioned."""
         clean = message.strip()
-        known = self.recent_places()
         direct = re.sub(r"(?i)\s+tomorrow\s*$", "", clean).strip()
         direct = re.sub(r"(?i)^the\s+", "", direct).strip()
-        if any(direct.casefold() == place.casefold() for place in known):
-            for place in known:
-                if direct.casefold() == place.casefold():
-                    return place
+        known_place = self._is_known_place(direct)
+        if known_place:
+            return known_place
         patterns = (
-            r"(?i)\b(?:i(?:’|’)ll|i will)\s+be\s+(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
-            r"(?i)\b(?:i am|i(?:’|’)m)\s+(?:going to be\s+)?(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow\b",
-            r"(?i)\btomorrow\b.*?\b(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
-            r"(?i)\bplan\s+(?:my\s+)?day\b.*?\b(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
+            r"(?i)(?:i['’]ll|i will)\s+be\s+(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow",
+            r"(?i)(?:i am|i['’]m)\s+(?:going to be\s+)?(?:at|in)\s+(?:the\s+)?([^,.!?]+?)\s+tomorrow",
+            r"(?i)tomorrow.*?(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
+            r"(?i)plan\s+(?:my\s+)?day.*?(?:at|in)\s+(?:the\s+)?([^,.!?]+)",
         )
         for pattern in patterns:
             match = re.search(pattern, clean)
             if match:
                 candidate = match.group(1).strip()
-                for place in known:
-                    if candidate.casefold() == place.casefold():
-                        return place
+                known_place = self._is_known_place(candidate)
+                if known_place:
+                    return known_place
         return None
 
 
