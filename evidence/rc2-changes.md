@@ -1,33 +1,43 @@
+# RC2 changes — three attempts to fix routing logic
+
+## How the defect took three cycles to fix
+
+**Cycle 1** (failed): `extract_place()` returned any captured text ("3pm"). Fix: validate against KNOWN_PLACES. But this missed the real blocker: routing logic checked only if a place was extracted, not whether the user was asking for a plan. Result: reminders with embedded places routed to plans.
+
+**Cycle 2** (failed): Added `_is_asking_for_plan()` to check for "plan" or "schedule" words. Broke the feature: "I am at Office tomorrow" (a bare place statement, no task) should trigger plans, but doesn't because it lacks the word "plan". Added verb allowlist to detect task captures. This will ALWAYS be incomplete—new verbs mean the bug recurs.
+
+**Cycle 3** (correct): Removed incomplete verb allowlist entirely. Router now fires only on:
+1. **Unambiguous explicit requests**: "plan my day tomorrow", "schedule tomorrow"
+2. **Unambiguous bare place statements**: "I am at Office tomorrow", "Office" (matched as a whole message, not searched inside arbitrary text)
+
+Everything else → model. This is a smaller router than before, not a bigger one.
+
 # RC2 changes
 
-## BLOCKER 1: Fixed routing logic
+## BLOCKER 1: Fixed routing logic (final fix on cycle 3)
 
-**The problem**: Three layers of confusion broke the routing:
-1. `extract_place()` returned ANY captured text (e.g., "3pm"), not just known places → false triggers
-2. Initial fix: routing checked BOTH `day_planner AND _is_asking_for_plan()`, missing the bare place-statement case
-3. That fix broke the feature: "I am at Office tomorrow" should trigger plans, but didn't because it doesn't have the word "plan"
+**Cycle 3 solution** (after cycles 1 and 2 failed): Removed incomplete verb allowlist. Router now fires ONLY on:
+1. **Unambiguous explicit requests**: "plan my day tomorrow", "schedule tomorrow"
+2. **Unambiguous bare place statements** (matched as WHOLE MESSAGE, not text fragments): "I am at Office tomorrow", "Office"
 
-**Root cause**: The fix was too strict. The actual rule is:
-- **Task capture wins over place**: "remind me to call the plumber when I'm at the office" → creates row with Place=Office, NO plans
-- **Bare place statements trigger plans**: "I am at Office tomorrow" (no task words) → two plans
-- **Explicit plan requests trigger plans**: "plan my day tomorrow" → two plans
-- **Reminders always create tasks**: any "remind me" or task verb (call, send, buy, etc.) → task creation path
+Everything else → model. This is deterministic and complete: no verb list to maintain, no pattern that will hide a task inside longer text.
 
 **Fixes applied**:
-1. **`app/task_planning.py`**:
-   - Added `KNOWN_PLACES = frozenset(("Home", "Office", "Out", "Anywhere"))`
-   - Added `_is_known_place()` to validate extracted places (rejects "3pm")
-   - Fixed regex patterns (corruption: backspace chars → removed)
+- **`app/organizer.py`**:
+  - Removed `_looks_like_task_capture()` (13-verb allowlist, impossible to complete)
+  - Added `_is_bare_place_statement()` with anchored regex patterns: `^i\s+(?:am|i'm)…tomorrow$` (only matches whole message)
+  - Simplified routing: `if explicit_plan_request OR bare_place_statement → plans`
+  
+- **`app/task_planning.py`**:
+  - Removed pattern 3 (was searching inside arbitrary text: "tomorrow.*at <place>")
+  - Kept KNOWN_PLACES validation
 
-2. **`app/organizer.py`**:
-   - Added `_looks_like_task_capture()`: detects "remind me", action verbs like call/send/buy, NOT plan/schedule requests
-   - Fixed routing: `if NOT task_capture AND (explicit_plan_request OR has_known_place) → plans`
-   - Now:
-     * "remind me..." → always task (capture wins)
-     * "I am at Office..." → plans (bare place, no capture)
-     * "plan my day..." → plans (explicit request)
+**Critical edge cases now handled**:
+- "tomorrow I need to fix the sink at home" → task (not hijacked by pattern 3 search) ✓
+- "I am at Office tomorrow" → plans (bare place statement) ✓
+- "check the lock at office tomorrow" → task (no verb allowlist means this works) ✓
 
-**Tests**: 6 end-to-end routing tests via TaskOrganizerAgent with mocked LLM, covering all four cases plus 10 realistic reminders. All 42 tests pass.
+**Tests**: 30 comprehensive routing cases covering 8 plan/bare-place + 22 task phrasings (including verbs outside any allowlist). All 66 tests pass.
 
 ## BLOCKER 2: Fixed browser suite
 
@@ -54,15 +64,21 @@
 
 ## What was verified
 
-**Test suite**: `42 passed, 164 warnings in 0.83s`
-- 6 new routing tests (test_routing_and_place_extraction.py)
+**Test suite**: `66 passed, 227 warnings in 0.90s`
+- 30 comprehensive routing cases via parametrized test (test_routing_and_place_extraction.py)
 - 36 existing tests (all passing)
-- All four required cases pass:
-  1. Reminder with unknown time → task only ✓
-  2. Reminder with place → task with Place=Office ✓
-  3. Bare place statement "I am at Office" → two plans ✓
-  4. Explicit plan request → two plans with extracted place ✓
-  5. 10+ realistic reminder phrasings → all create tasks ✓
+
+**All six required cases confirmed**:
+1. "remind me to call the dentist tomorrow at 3pm" → task ✓
+2. "remind me to call the plumber when I'm at the office tomorrow" → task with Place=Office ✓
+3. "I am at Office tomorrow" → two plans (bare place statement) ✓
+4. "plan my day tomorrow at the office" → two plans with extracted place ✓
+5. "plan tomorrow" → two plans with default place ✓
+6. 22 additional task phrasings (finish, drop, take, check, return, collect, repair, organize) → all create tasks ✓
+
+**Blocking issues eliminated**:
+- Pattern 3 removed (no longer searches inside arbitrary text)
+- Verb allowlist removed (no longer incomplete or incomplete-able)
 
 **Eligibility mutations (all fail correctly)**:
 - Model != "gemini-3.5-flash": rejected ✓
@@ -71,6 +87,6 @@
 
 ## What could not be verified
 
-- Browser suite (9/9 matrix): requires running backend API server; static files + favicon insufficient. Test framework connects correctly but fails on nav-automation UI assertions that require live backend. Marked UNVERIFIED.
-- Live Vertex calls (prohibited by instructions)
-- Live Notion writes (prohibited by instructions)
+- Browser suite: requires live backend API with organizer running. Static files + favicon insufficient. Test framework connects but fails on nav-automation UI assertions (require backend). UNVERIFIED.
+- Live Vertex calls (prohibited)
+- Live Notion writes (prohibited)
