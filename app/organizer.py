@@ -332,10 +332,10 @@ class TaskOrganizerAgent:
 
         # Patterns anchored to start/end of message
         patterns = (
-            r"^i\s+(?:am|i’m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
-            r"^i\s+(?:will|i’ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?\s*(\w+)\s+tomorrow$",
+            r"^(?:i\s+am|i[‘’]m)(?:\s+going)?\s+(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
+            r"^(?:i\s+will|i[‘’]ll)\s+be\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)\s+tomorrow$",
             r"^tomorrow\s*,?\s+(?:at|in)\s+(?:the\s+)?(\w+)$",
-            r"^tomorrow\s*,?\s+i(?:\s+am|[‘’]m)\s+(?:at|in)?\s+(?:the\s+)?(\w+)$",
+            r"^tomorrow\s*,?\s+(?:i\s+am|i[‘’]m)\s+(?:(?:at|in)\s+(?:the\s+)?)?(\w+)$",
             r"^(?:at|in)\s+(?:the\s+)?(\w+)\s+tomorrow$",
             r"^(?:home|office|out|anywhere)$",
         )
