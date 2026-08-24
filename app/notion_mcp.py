@@ -30,6 +30,11 @@ STEADY_STATE_OPERATIONS = (
     "set_page_property",
     "query_database",
     "archive_page",
+    "restore_page",
+    "get_page_markdown",
+    "update_page_markdown",
+    "add_page_comment",
+    "list_comments",
 )
 MCP_TOOL_NAMES = frozenset({"notion_describe", "notion_execute"})
 

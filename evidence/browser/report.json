@@ -1,14 +1,55 @@
 {
+  "runtime": "playwright-core 1.62.1 with system Google Chrome",
+  "baseURL": "http://127.0.0.1:8764",
   "checks": [
     {
       "name": "task-dark-desktop",
-      "status": "FAIL",
-      "detail": "Expected values to be strictly equal:\n\n0 !== 2\n"
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "learning-dark-desktop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "task-light-desktop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "learning-light-desktop",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "task-dark-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "learning-dark-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "task-light-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "learning-light-mobile",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "browser-console-and-network",
+      "status": "PASS",
+      "detail": "no console errors, page errors, or failed requests"
     }
   ],
-  "diagnostics": [
-    "console:Failed to load resource: the server responded with a status of 404 (File not found)",
-    "console:Error: 404 File not found\n    at apiJSON (http://127.0.0.1:8764/app.js:72:27)\n    at async loadAutomations (http://127.0.0.1:8764/app.js:197:16)\n    at async http://127.0.0.1:8764/app.js:343:5"
-  ],
-  "fatal": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 2\n\n    at exerciseTaskSurface (file:///Users/avischaigrau/Documents/Agentonomy-Files/workspaces/ad76676a-7c78-4adc-9a3e-381b307fa7d6/tasks/a16799e0/release-candidate/tests/ui_browser_suite.mjs:148:10)\n    at async check (file:///Users/avischaigrau/Documents/Agentonomy-Files/workspaces/ad76676a-7c78-4adc-9a3e-381b307fa7d6/tasks/a16799e0/release-candidate/tests/ui_browser_suite.mjs:29:20)\n    at async main (file:///Users/avischaigrau/Documents/Agentonomy-Files/workspaces/ad76676a-7c78-4adc-9a3e-381b307fa7d6/tasks/a16799e0/release-candidate/tests/ui_browser_suite.mjs:364:7)"
+  "pass": 9,
+  "fail": 0,
+  "total": 9,
+  "diagnostics": []
 }

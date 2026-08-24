@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Avi's notes</title>
   <script>(function(){var t=localStorage.getItem('agentonomy-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;})();</script>
   <link rel="stylesheet" href="app.css">
@@ -10,9 +10,15 @@
 <body>
   <div class="app-shell">
     <nav class="product-nav" aria-label="Product navigation">
-      <a class="nav-task-chat active" id="nav-task-chat" href="#task-chat">Task chat</a>
-      <a class="nav-learning" href="/learning">Learning</a>
-      <div id="automation-nav"></div>
+      <div class="nav-brand">
+        <span class="nav-kicker">Assistant</span>
+        <span class="nav-title">Avi's notes</span>
+      </div>
+      <div class="nav-links">
+        <a class="nav-task-chat active" id="nav-task-chat" href="#task-chat">Task chat</a>
+        <a class="nav-learning" href="/learning">Learning</a>
+        <div id="automation-nav"></div>
+      </div>
       <button class="theme-button" id="theme" type="button" aria-label="Toggle theme">◐</button>
     </nav>
     <main class="chat-pane">

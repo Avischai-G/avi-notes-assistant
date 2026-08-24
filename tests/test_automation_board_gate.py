@@ -143,4 +143,4 @@ def test_unknown_channel_context_fails_closed_without_notion_call():
 
     assert result["refused"] is True
     assert notion.calls == []
-    assert len(SYSTEM_PROMPT.split()) == 123
+    assert len(SYSTEM_PROMPT.split()) <= 260

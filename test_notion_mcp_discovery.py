@@ -18,7 +18,7 @@ from app.notion_mcp import (
     "set RUN_NOTION_MCP_DISCOVERY=1 to launch the pinned local MCP child",
 )
 class ActualDiscoveryTest(unittest.TestCase):
-    def test_exact_tools_and_five_operations(self):
+    def test_exact_tools_and_compiled_operations(self):
         config = NotionConfig(
             token="ntn" + "_deliberately_invalid_discovery_probe",
             tasks_database_id="a" * 32,
@@ -28,7 +28,7 @@ class ActualDiscoveryTest(unittest.TestCase):
             self.assertEqual(
                 client.discovery.operations, frozenset(STEADY_STATE_OPERATIONS)
             )
-            self.assertEqual(len(client.discovery.operations), 5)
+            self.assertEqual(len(client.discovery.operations), 10)
             self.assertNotIn("create_database", client.discovery.operations)
             self.assertNotIn("create_view", client.discovery.operations)
 

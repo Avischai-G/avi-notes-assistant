@@ -104,7 +104,7 @@ def test_agent_config():
     agent = TaskOrganizerAgent(api_key="offline")
     config = agent.get_config()
     assert config['agent_type'] == 'LlmAgent', "Should be LlmAgent"
-    assert config['model'] == 'gemini-3.5-flash', "Should use gemini-3.5-flash"
+    assert config['model'] == 'gemini-3.7-flash', "Should use gemini-3.7-flash"
     assert config['location'] == 'global', "Should use global location"
     assert config['framework'] == 'Google ADK', "Should use Google ADK"
     print("✓ TaskOrganizerAgent: exactly one LlmAgent, gemini-3.5-flash, global location")
@@ -119,7 +119,7 @@ def test_no_orchestration():
     assert 'organize' in SYSTEM_PROMPT.lower(), "Should mention organizing"
     assert 'never do the task itself' in SYSTEM_PROMPT.lower(), \
         "Should explicitly say it never does the task"
-    assert len(SYSTEM_PROMPT.split()) <= 130, "Prompt should stay short and plain"
+    assert len(SYSTEM_PROMPT.split()) <= 260, "Prompt should stay short and plain"
     print("✓ System prompt: short, personal, and organize-only")
 
 

@@ -196,7 +196,7 @@ def test_board_owned_and_multi_word_places_are_used_without_literal_lists(place)
     assert "?" not in response["text"]
 
 
-def test_task_only_reply_is_the_existing_confirmation():
+def test_task_only_reply_is_the_models_own_text():
     _, _, _, saved, response = _exercise(
         "remind me to call the dentist tomorrow",
         tool_name="create_task",
@@ -204,10 +204,10 @@ def test_task_only_reply_is_the_existing_confirmation():
     )
 
     assert saved == []
-    assert response["text"] == "Noted — tomorrow, Anywhere, 30 min."
+    assert response["text"] == "Conversation only; nothing was written."
 
 
-def test_plain_chat_reply_passes_through_one_question_guard():
+def test_plain_chat_reply_passes_through_unmodified():
     store, before, model, saved, response = _exercise(
         "How are you today?",
         final_text="I am well. What are you working on? What is most urgent?",
@@ -216,7 +216,9 @@ def test_plain_chat_reply_passes_through_one_question_guard():
     assert len(store.list_tasks()) == before == 0
     assert len(model.calls) == 1
     assert saved == []
-    assert response["text"] == "I am well. What are you working on?"
+    assert response["text"] == (
+        "I am well. What are you working on? What is most urgent?"
+    )
     assert "controls" not in response
 
 
@@ -249,9 +251,7 @@ def test_created_task_remains_visible_when_model_plans_in_same_turn():
 
     assert len(store.list_tasks()) == 2
     assert len(saved) == 1
-    assert response["text"] == (
-        "Noted — tomorrow, Anywhere, 30 min.\n\n" + saved[0]["text"]
-    )
+    assert response["text"] == "Task written.\n\n" + saved[0]["text"]
 
 
 def test_instruction_shows_current_multi_word_board_place():

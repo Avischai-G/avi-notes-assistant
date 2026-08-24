@@ -484,7 +484,7 @@ def test_single_instruction_contains_all_rules_and_only_top_three_skills(tmp_pat
         message.role not in {"system", "developer"}
         for message in request.contents
     )
-    assert agent.get_config()["model"] == "gemini-3.5-flash"
+    assert agent.get_config()["model"] == "gemini-3.7-flash"
     assert agent.get_config()["location"] == "global"
     assert agent.get_learning_log()[-1]["path"] == "skills/recipes.md"
 

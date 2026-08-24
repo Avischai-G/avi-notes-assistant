@@ -58,6 +58,34 @@ class TaskStore:
         """Set the task's Status."""
         raise NotImplementedError
 
+    def search_tasks(self, query: str) -> list[Task]:
+        """Find tasks whose Name or Notes contain the query text."""
+        raise NotImplementedError
+
+    def get_task_body(self, task_id: str) -> str:
+        """Read a task's details page body as markdown."""
+        raise NotImplementedError
+
+    def write_task_body(self, task_id: str, markdown: str, *, append: bool = False) -> None:
+        """Replace (or append to) a task's details page body."""
+        raise NotImplementedError
+
+    def delete_task(self, task_id: str) -> Task:
+        """Archive a task; restore_task can undo it."""
+        raise NotImplementedError
+
+    def restore_task(self, task_id: str) -> Task:
+        """Restore a task archived earlier in this process."""
+        raise NotImplementedError
+
+    def add_comment(self, task_id: str, text: str) -> None:
+        """Leave a comment on a task."""
+        raise NotImplementedError
+
+    def list_comments(self, task_id: str) -> list[dict]:
+        """Read the comments on a task."""
+        raise NotImplementedError
+
 
 class FakeTaskStore(TaskStore):
     """Deterministic fake for testing. Records all operations for verification."""
@@ -65,6 +93,9 @@ class FakeTaskStore(TaskStore):
     def __init__(self):
         self.tasks: dict[str, Task] = {}
         self.operations: list[dict] = []  # For testing
+        self.trash: dict[str, Task] = {}
+        self.bodies: dict[str, str] = {}
+        self.comments: dict[str, list[dict]] = {}
 
     def list_tasks(self, lane: str | None = None) -> list[Task]:
         tasks = list(self.tasks.values())
@@ -164,3 +195,56 @@ class FakeTaskStore(TaskStore):
             }
         )
         return task
+
+    def search_tasks(self, query: str) -> list[Task]:
+        needle = query.casefold()
+        return [
+            task
+            for task in self.list_tasks()
+            if needle in task.title.casefold() or needle in (task.notes or "").casefold()
+        ]
+
+    def get_task_body(self, task_id: str) -> str:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        return self.bodies.get(task_id, "")
+
+    def write_task_body(self, task_id: str, markdown: str, *, append: bool = False) -> None:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        existing = self.bodies.get(task_id, "")
+        self.bodies[task_id] = f"{existing}\n{markdown}".strip() if append else markdown
+        self.operations.append(
+            {"action": "write_body", "task_id": task_id, "append": append}
+        )
+
+    def delete_task(self, task_id: str) -> Task:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        task = self.tasks.pop(task_id)
+        self.trash[task_id] = task
+        self.operations.append({"action": "delete", "task_id": task_id})
+        return task
+
+    def restore_task(self, task_id: str) -> Task:
+        if task_id not in self.trash:
+            raise ValueError(f"Task {task_id} is not in the trash")
+        task = self.trash.pop(task_id)
+        self.tasks[task_id] = task
+        self.operations.append({"action": "restore", "task_id": task_id})
+        return task
+
+    def add_comment(self, task_id: str, text: str) -> None:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        import time
+
+        self.comments.setdefault(task_id, []).append(
+            {"text": text, "created_at": time.time()}
+        )
+        self.operations.append({"action": "comment", "task_id": task_id})
+
+    def list_comments(self, task_id: str) -> list[dict]:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        return list(self.comments.get(task_id, []))

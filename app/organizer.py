@@ -32,26 +32,28 @@ from app.task_planning import (
 from app.task_store import Task, TaskStore
 
 
-SYSTEM_PROMPT = """You are Avi's assistant. He talks naturally; you organize and keep his notes and tasks in Notion, say what you wrote, and never do the task itself. A task is something he wants to remember or do; questions and conversation are not tasks. For a day plan or his tomorrow location, call plan_tomorrow and pass any place he names.
+SYSTEM_PROMPT = """You are Avi's assistant. He talks naturally; you organize his notes and tasks in one Notion board, say what you did, and never do the task itself. A task is something he wants to remember or do; questions and conversation are not tasks. For a day plan or his tomorrow location, call plan_tomorrow and pass any place he names.
 
-Capture tasks first. Ask at most one useful question per item, usually When. If he answers, update the item. If he is vague or moves on, keep the default, state it once, and never ask again.
+Capture tasks immediately with the defaults, then be proactive: when a task is missing something you genuinely need to handle it well — an unclear what, a missing when for something time-bound, which of two things he meant — ask one short, concrete question about it. Ask only what the task itself requires, never interrogate. If he answers, update the item; if he is vague or moves on, keep the stated default and do not ask again.
 
-Defaults: Status=Not started; Place=Anywhere; Minutes=30; Notes=his words; When=explicit time, today for today/now/tonight/urgent, tomorrow for a plain reminder, empty for a someday idea. Always state the applied defaults briefly."""
+Use the board tools freely: search_tasks before creating near-duplicates, read or write a task's details page when he gives longer material, add comments for context worth keeping next to a task, delete tasks he cancels and restore them if he changes his mind.
+
+Defaults: Status=Not started; Place=Anywhere; Minutes=30; Notes=his words; When=explicit time, today for today/now/tonight/urgent, tomorrow for a plain reminder, empty for a someday idea. Briefly state what you wrote and the applied defaults."""
+
+DEFAULT_MODEL = "gemini-3.7-flash"
+_MODEL_FAMILY = re.compile(r"^gemini-(\d+)\.(\d+)")
+
+
+def _eligible_model(model: str) -> bool:
+    family = _MODEL_FAMILY.match(model)
+    return family is not None and (
+        int(family.group(1)),
+        int(family.group(2)),
+    ) >= (3, 5)
 
 APP_NAME = "taskmaker"
 USER_ID = "avi"
 NOT_STARTED = "Not started"
-_VAGUE = {
-    "whatever",
-    "you decide",
-    "dunno",
-    "don't know",
-    "dont know",
-    "doesn't matter",
-    "doesnt matter",
-    "no preference",
-    "up to you",
-}
 _AUTOMATION_CHANNEL_PREFIX = "automation-"
 _BOARD_TOOL_REFUSAL = (
     "Board tools are unavailable in automation channels. Continue this "
@@ -77,7 +79,7 @@ class TaskOrganizerAgent:
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "gemini-3.5-flash",
+        model: str = DEFAULT_MODEL,
         location: str = "global",
         *,
         llm: BaseLlm | None = None,
@@ -88,10 +90,10 @@ class TaskOrganizerAgent:
             raise ValueError(
                 f"Location must be 'global' for contest eligibility, got {location}"
             )
-        if model != "gemini-3.5-flash":
+        if not _eligible_model(model):
             raise ValueError(
-                "Model must be 'gemini-3.5-flash' for contest eligibility "
-                f"(Gemini 3.5+), got {model}"
+                "Model must be gemini-3.5-flash or newer (Gemini 3.5+), "
+                f"got {model}"
             )
         # Contest eligibility: production must use Vertex AI explicitly.
         # Offline/test mode (TASK_STORE_MODE=fake or pytest running) is exempt.
@@ -224,6 +226,56 @@ class TaskOrganizerAgent:
                 ]
             }
 
+        def search_tasks(query: str) -> dict:
+            """Find tasks whose Name or Notes contain the query text."""
+            return {
+                "tasks": [
+                    _task_dict(task) for task in self._store.get().search_tasks(query)
+                ]
+            }
+
+        def read_task_details(task_id: str) -> dict:
+            """Read a task's details page body (markdown)."""
+            return {
+                "task_id": task_id,
+                "details": self._store.get().get_task_body(task_id),
+            }
+
+        def write_task_details(task_id: str, markdown: str, append: bool = False) -> dict:
+            """Write longer material onto a task's details page.
+
+            Args:
+                task_id: The task to write to.
+                markdown: Markdown body content.
+                append: Add to the end instead of replacing the page body.
+            """
+            self._store.get().write_task_body(task_id, markdown, append=append)
+            return {"task_id": task_id, "written": True}
+
+        def delete_task(task_id: str) -> dict:
+            """Archive a task Avi cancelled or no longer wants; restore_task undoes it."""
+            task = self._store.get().delete_task(task_id)
+            self._updated.get().append(task)
+            return {"deleted": _task_dict(task)}
+
+        def restore_task(task_id: str) -> dict:
+            """Bring back a task deleted earlier in this conversation."""
+            task = self._store.get().restore_task(task_id)
+            self._updated.get().append(task)
+            return {"restored": _task_dict(task)}
+
+        def add_task_comment(task_id: str, text: str) -> dict:
+            """Leave a short comment on a task for context worth keeping."""
+            self._store.get().add_comment(task_id, text)
+            return {"task_id": task_id, "commented": True}
+
+        def read_task_comments(task_id: str) -> dict:
+            """Read the comments on a task."""
+            return {
+                "task_id": task_id,
+                "comments": self._store.get().list_comments(task_id),
+            }
+
         def plan_tomorrow(place: str = "") -> dict:
             """Build two plans for tomorrow without changing any task.
 
@@ -241,7 +293,20 @@ class TaskOrganizerAgent:
 
         return [
             self._gate_board_tool(tool)
-            for tool in (create_task, rename_task, move_task, list_tasks, plan_tomorrow)
+            for tool in (
+                create_task,
+                rename_task,
+                move_task,
+                list_tasks,
+                search_tasks,
+                read_task_details,
+                write_task_details,
+                delete_task,
+                restore_task,
+                add_task_comment,
+                read_task_comments,
+                plan_tomorrow,
+            )
         ]
 
     def _gate_board_tool(self, tool: Callable) -> Callable:
@@ -282,7 +347,7 @@ class TaskOrganizerAgent:
         """Return observed runtime values and fail if eligibility has drifted."""
         framework = "Google ADK" if (type(self.agent).__module__.startswith("google.adk.agents") and type(self.agent).__name__ == "LlmAgent") else type(self.agent).__name__
         violations = []
-        if self.model != "gemini-3.5-flash":
+        if not _eligible_model(self.model):
             violations.append(f"model={self.model!r}")
         if self.location != "global":
             violations.append(f"location={self.location!r}")
@@ -297,47 +362,6 @@ class TaskOrganizerAgent:
             "framework": framework,
         }
 
-    @staticmethod
-    def _is_vague(message: str) -> bool:
-        normalized = re.sub(r"[^a-z' ]", "", message.casefold()).strip()
-        return normalized in _VAGUE
-
-    @staticmethod
-    def _last_question(messages: list[Message]) -> Message | None:
-        for message in reversed(messages):
-            if message.role == "assistant":
-                return message if "?" in message.content else None
-        return None
-
-    @staticmethod
-    def _kept_default(previous: str) -> str:
-        statement = previous.split("?", 1)[0].strip()
-        match = re.search(r"Noted\s*[\u2014-]\s*(.+?)(?:\.|$)", statement, re.I)
-        if match:
-            return f"Kept the default \u2014 {match.group(1).strip()}."
-        return "Kept the default."
-
-    @staticmethod
-    def _at_most_one_question(text: str) -> str:
-        first = text.find("?")
-        if first < 0:
-            return text.strip()
-        second = text.find("?", first + 1)
-        return (text if second < 0 else text[: first + 1]).strip()
-
-    @staticmethod
-    def _should_ask_when(message: str) -> bool:
-        lowered = message.casefold()
-        has_time = bool(
-            re.search(
-                r"\b(today|tomorrow|tonight|now|urgent|someday|at some point|"
-                r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
-                r"\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{4}-\d{2}-\d{2})\b",
-                lowered,
-            )
-        )
-        return lowered.lstrip().startswith("remind me") and not has_time
-
     def _confirmation(self, task: Task) -> str:
         now = local_now(self.clock)
         return (
@@ -348,12 +372,13 @@ class TaskOrganizerAgent:
     def _final_text(
         self, user_message: str, created: list[Task], model_text: str
     ) -> str:
+        # The model's own reply carries confirmations and any clarifying
+        # question; canned text only covers a turn that produced no text.
+        if model_text.strip():
+            return model_text.strip()
         if created:
-            lines = [self._confirmation(task) for task in created]
-            if len(created) == 1 and self._should_ask_when(user_message):
-                lines[-1] += " Would a specific time tomorrow help?"
-            return "\n".join(lines)
-        return self._at_most_one_question(model_text or "Done.")
+            return "\n".join(self._confirmation(task) for task in created)
+        return "Done."
 
     async def _new_session(self, messages: list[Message]):
         session = await self.session_service.create_session(
@@ -384,15 +409,6 @@ class TaskOrganizerAgent:
     ) -> AsyncGenerator[dict, None]:
         """Run one ADK turn and persist the visible transcript."""
         existing = channel_store.get_channel(channel_id)
-        previous_question = self._last_question(existing)
-        if previous_question and self._is_vague(user_message):
-            answer = self._kept_default(previous_question.content)
-            channel_store.append_message(channel_id, Message("user", user_message, time.time()))
-            channel_store.append_message(channel_id, Message("assistant", answer, time.time()))
-            yield {"text": answer}
-            yield {"done": True}
-            return
-
         store_token = self._store.set(task_store)
         message_token = self._message.set(user_message)
         channel_token = self._channel_id.set(channel_id)

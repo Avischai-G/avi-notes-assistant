@@ -125,7 +125,7 @@ def init_chat_stores(
     # Agent
     try:
         _agent = TaskOrganizerAgent(
-            model=os.environ.get("CORONER_MODEL", "gemini-3.5-flash"),
+            model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
             knowledge=_knowledge,
         )
@@ -197,19 +197,34 @@ def register_chat_routes(app: FastAPI) -> None:
         return {"channel_id": channel_id}
 
     @app.get("/api/channels/{channel_id}")
-    def get_channel(channel_id: str):
-        """Get full transcript for a channel."""
+    def get_channel(
+        channel_id: str,
+        limit: Optional[int] = None,
+        before: Optional[int] = None,
+    ):
+        """Get a channel transcript window.
+
+        Without params this is the full transcript. With `limit`, the newest
+        `limit` messages (or the `limit` messages before index `before`) are
+        returned; `start` is the index of the first returned message, so the
+        client passes `before=start` to page further back.
+        """
         channel_store, task_store, agent = get_stores()
         messages = channel_store.get_channel(channel_id)
+        total = len(messages)
+        end = total if before is None else max(0, min(before, total))
+        start = 0 if limit is None or limit < 1 else max(0, end - limit)
         return {
             "channel_id": channel_id,
+            "total": total,
+            "start": start,
             "messages": [
                 {
                     "role": msg.role,
                     "content": msg.content,
                     "timestamp": msg.timestamp,
                 }
-                for msg in messages
+                for msg in messages[start:end]
             ],
         }
 

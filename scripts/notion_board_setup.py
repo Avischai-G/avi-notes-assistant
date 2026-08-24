@@ -174,7 +174,7 @@ def discover() -> None:
         discovery = client.discovery
     if discovery.operations != frozenset(STEADY_STATE_OPERATIONS):
         raise RuntimeError("Steady-state operation discovery mismatch")
-    print("PASS: MCP tools and the five-operation allowlist are exact")
+    print("PASS: MCP tools and the compiled operation allowlist are exact")
 
 
 def _write_smoke_state(marker: str, path: Path = SMOKE_STATE_FILE) -> None:

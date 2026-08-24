@@ -9,7 +9,7 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 ## Product behaviour
 
 - The model distinguishes something Avi wants to remember or do from ordinary conversation. It writes tasks, leaves plain chat alone, and calls the day planner when he asks for a plan or says where he will be tomorrow.
-- It asks at most one useful question per item. A vague answer keeps the stated default and is never re-asked.
+- It captures first, then proactively asks the one short question a task genuinely needs; a vague answer keeps the stated default.
 - Defaults are `Not started`, `Anywhere`, 30 minutes, Avi's wording in Notes, and tomorrow for a plain reminder.
 - A 21:00 `Asia/Jerusalem` nightly sweep offers exactly two plans: heavy-first and light-first. Picking one changes only `When` for included tasks.
 - Knowledge cleanup consolidates pending Markdown dream notes in one persistent automation channel. A no-work run is deterministic and makes no Gemini call.
@@ -20,7 +20,7 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md). The model-backed request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.5-flash`, location `global`, and five gated tools: create, rename, change fields/Status, list, and plan tomorrow. There is no regex pre-router.
+See [docs/architecture.md](docs/architecture.md). The model-backed request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and twelve gated tools: create, rename, change fields/Status, list, search, read/write details pages, delete/restore, comments, and plan tomorrow. There is no regex pre-router.
 
 ## Local offline setup
 
@@ -107,7 +107,7 @@ The approved deployment is live at the URL above. Its runtime provides:
   for channels, automation state, embedding metadata, and private learning-event metadata;
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
-- `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.5-flash`;
+- `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.7-flash`;
 - the existing scheduler, only after separate approval, targeting `POST /api/automations/tick`.
 
 Building an image locally is non-deploying:
@@ -122,7 +122,7 @@ Deployment, resource creation, scheduler mutation, repository publication, recor
 
 The database already exists. Its frozen properties are `Name`, `Status`, `When`, `Place`, `Minutes`, and `Notes`; `Status` accepts only `Not started`, `In progress`, or `Done`. No database, schema, data-source, or view creation operation exists in the app.
 
-The pinned local MCP child exposes exactly `create_page`, `set_page_title`, `set_page_property`, `query_database`, and `archive_page`. The organiser receives four TaskStore tools plus the deterministic tomorrow-planning tool, and never receives raw MCP or archive access. The planner accepts only recent board Place values plus `Anywhere`.
+The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives four TaskStore tools plus the deterministic tomorrow-planning tool, and never receives raw MCP or archive access. The planner accepts only recent board Place values plus `Anywhere`.
 
 This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent unfiltered-search regression therefore hard-fails unless it returns exactly one configured data source, every other result is a page parented to that same data source, and `has_more` is false. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
 

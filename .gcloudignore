@@ -8,3 +8,5 @@ evidence/
 tests/
 test_*.py
 requirements-dev.txt
+node_modules/
+.npm-cache/

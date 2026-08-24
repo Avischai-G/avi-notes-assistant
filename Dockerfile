@@ -30,7 +30,7 @@ COPY server.py ./
 # Cloud Run provides the project and mounts the dedicated knowledge bucket at
 # /knowledge. These eligibility-critical values are intentionally fixed.
 ENV PORT=8080 \
-    CORONER_MODEL=gemini-3.5-flash \
+    CORONER_MODEL=gemini-3.7-flash \
     GOOGLE_CLOUD_LOCATION=global \
     GOOGLE_GENAI_USE_VERTEXAI=true \
     TASK_STORE_MODE=notion

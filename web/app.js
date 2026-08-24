@@ -11,12 +11,14 @@ const surfaceSchedule = $("#surface-schedule");
 const runNow = $("#run-now");
 const composerGrid = $("#composer-grid");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
+const PAGE = 30;
 
 let channelId = null;
 let attachments = [];
 let streaming = false;
 let automations = [];
 let activeAutomation = null;
+let nextBefore = 0;
 
 const esc = (value) => String(value ?? "").replace(
   /[&<>"']/g,
@@ -30,7 +32,13 @@ function markdown(source) {
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
-  return html.split(/\n\n+/).map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`).join("");
+  return html.split(/\n\n+/).map((block) => {
+    const lines = block.split("\n");
+    if (lines.length && lines.every((line) => /^[-*] /.test(line))) {
+      return `<ul>${lines.map((line) => `<li>${line.slice(2)}</li>`).join("")}</ul>`;
+    }
+    return `<p>${block.replace(/\n/g, "<br>")}</p>`;
+  }).join("");
 }
 
 function bottom() {
@@ -47,7 +55,7 @@ function assistantStack(row) {
   return stack;
 }
 
-function addMessage(role, content, controls = null) {
+function buildMessage(role, content) {
   const row = document.createElement("div");
   row.className = `message-row ${role}`;
   const parent = role === "assistant" ? assistantStack(row) : row;
@@ -60,10 +68,16 @@ function addMessage(role, content, controls = null) {
     bubble.textContent = content;
   }
   parent.append(bubble);
-  transcript.append(row);
-  if (controls) renderPlanControls(parent, controls);
-  bottom();
   return { row, bubble, parent };
+}
+
+function addMessage(role, content, controls = null, { animate = false } = {}) {
+  const built = buildMessage(role, content);
+  if (animate) built.row.classList.add("entering");
+  transcript.append(built.row);
+  if (controls) renderPlanControls(built.parent, controls);
+  bottom();
+  return built;
 }
 
 async function apiJSON(url, options = {}) {
@@ -96,7 +110,7 @@ function renderPlanControls(parent, controls) {
           body: JSON.stringify({ plan: control.id }),
         });
         group.remove();
-        addMessage("assistant", data.text);
+        addMessage("assistant", data.text, null, { animate: true });
       } catch (error) {
         buttons.forEach((item) => { item.disabled = false; });
         addMessage("assistant", `Error: ${error.message}`);
@@ -110,11 +124,13 @@ function renderPlanControls(parent, controls) {
 
 function resize() {
   composerGrid.dataset.expanded = "false";
-  input.style.height = "auto";
-  const scrollHeight = input.scrollHeight;
-  composerGrid.dataset.expanded = String(scrollHeight > 48);
-  input.style.height = `${Math.min(scrollHeight, 180)}px`;
-  input.classList.toggle("capped", input.scrollHeight > 180);
+  input.style.height = "";
+  // An empty composer is always the collapsed single line; only typed content
+  // needs measuring. One line is 48px; past ~56 is a wrapped second line.
+  const scrollHeight = input.value ? input.scrollHeight : 0;
+  composerGrid.dataset.expanded = String(scrollHeight > 56);
+  if (input.value) input.style.height = `${Math.min(scrollHeight, 180)}px`;
+  input.classList.toggle("capped", scrollHeight > 180);
   send.disabled = streaming || (!input.value.trim() && !attachments.length);
 }
 
@@ -139,12 +155,60 @@ function emptyState() {
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
 
+/* The chat surface is a window of the newest PAGE messages; older history
+   loads 30 at a time from the top without moving what's on screen. */
+function syncLoadMore() {
+  const existing = transcript.querySelector(".load-more-row");
+  if (nextBefore > 0 && !existing) {
+    const row = document.createElement("div");
+    row.className = "load-more-row";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "load-more";
+    button.textContent = "Load earlier messages";
+    button.addEventListener("click", loadEarlier);
+    row.append(button);
+    transcript.prepend(row);
+  } else if (nextBefore <= 0 && existing) {
+    existing.remove();
+  }
+}
+
+async function loadEarlier() {
+  const button = transcript.querySelector(".load-more");
+  if (!button || button.disabled || !channelId) return;
+  button.disabled = true;
+  try {
+    const data = await apiJSON(
+      `/api/channels/${encodeURIComponent(channelId)}?limit=${PAGE}&before=${nextBefore}`,
+    );
+    nextBefore = data.start || 0;
+    const anchor = transcript.querySelector(".load-more-row");
+    const previousHeight = transcript.scrollHeight;
+    const rows = (data.messages || []).map((message) => buildMessage(message.role, message.content).row);
+    anchor.after(...rows);
+    syncLoadMore();
+    transcript.scrollTop += transcript.scrollHeight - previousHeight;
+  } catch (error) {
+    addMessage("assistant", `Error: ${error.message}`);
+  } finally {
+    const remaining = transcript.querySelector(".load-more");
+    if (remaining) remaining.disabled = false;
+  }
+}
+
 async function loadChannel(id) {
   channelId = id;
-  const data = await apiJSON(`/api/channels/${encodeURIComponent(id)}`);
+  const data = await apiJSON(`/api/channels/${encodeURIComponent(id)}?limit=${PAGE}`);
   transcript.replaceChildren();
+  nextBefore = data.start || 0;
   for (const message of data.messages || []) addMessage(message.role, message.content);
-  if (!data.messages?.length) transcript.innerHTML = emptyState();
+  if (!(data.messages || []).length) {
+    transcript.innerHTML = emptyState();
+  } else {
+    syncLoadMore();
+    bottom();
+  }
 }
 
 async function taskChannel() {
@@ -215,12 +279,12 @@ async function sendMessage() {
   send.disabled = true;
   $(".empty-state")?.remove();
   const submitted = text || "Attached files";
-  addMessage("user", submitted);
+  addMessage("user", submitted, null, { animate: true });
   input.value = "";
   resize();
 
   const row = document.createElement("div");
-  row.className = "message-row assistant";
+  row.className = "message-row assistant entering";
   const parent = assistantStack(row);
   const bubble = document.createElement("div");
   bubble.className = "message-bubble markdown";

@@ -175,7 +175,7 @@ def test_health_endpoint_config(monkeypatch, tmp_path):
     response = TestClient(app).get("/api/health")
     assert response.status_code == 200
     config = response.json()
-    assert config['model'] == 'gemini-3.5-flash'
+    assert config['model'] == 'gemini-3.7-flash'
     assert config['location'] == 'global'
     assert config['framework'] == 'Google ADK'
     assert config['firestore_mode'] == 'local'

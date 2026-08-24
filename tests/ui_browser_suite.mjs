@@ -46,7 +46,7 @@ async function assertExpectedServer() {
   }
   const health = await response.json();
   assert.equal(health.build_revision, expectedRevision, `port serves ${health.build_revision}, expected ${expectedRevision}`);
-  assert.equal(health.model, "gemini-3.5-flash");
+  assert.equal(health.model, "gemini-3.7-flash");
   assert.equal(health.location, "global");
   assert.equal(health.framework, "Google ADK");
   assert.equal(health.firestore_mode, "local");
@@ -175,8 +175,11 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   assert.equal(styles.shellBackground, expectedRGB(theme, "rgb(45, 45, 45)", "rgb(201, 201, 201)"));
   assert.equal(styles.shellBorderRadius, mobile ? "22px" : "28px");
   assert.equal(styles.shellPadding, mobile ? "8px" : "12px");
-  assert.equal(styles.shellBackdrop, "blur(18px)");
-  assert.match(styles.shellBoxShadow, /0px 22px 70px/);
+  assert.equal(styles.shellBackdrop, "none");
+  assert.match(
+    styles.shellBoxShadow,
+    theme === "dark" ? /0px 22px 70px/ : /0px 18px 50px/,
+  );
   assert.ok(styles.shellWidth <= 1060.01);
   assert.equal(styles.inputFontSize, "16px");
   assert.equal(styles.inputLineHeight, "22.4px");
@@ -188,17 +191,19 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   assert.ok(styles.scrollWidth <= styles.viewport[0], "task page overflows horizontally");
 
   await page.evaluate(() => document.activeElement?.blur());
+  await page.waitForTimeout(250); // let the border-color transition settle
   const beforeFocus = await page.locator(".composer-shell").evaluate((element) => ({
     border: getComputedStyle(element).borderColor,
     rect: element.getBoundingClientRect().toJSON(),
   }));
   await page.locator("#input").focus();
+  await page.waitForTimeout(250);
   const afterFocus = await page.locator(".composer-shell").evaluate((element) => ({
     border: getComputedStyle(element).borderColor,
     rect: element.getBoundingClientRect().toJSON(),
   }));
   assert.equal(beforeFocus.border, expectedRGB(theme, "rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.06)"));
-  assert.equal(afterFocus.border, expectedRGB(theme, "rgba(255, 255, 255, 0.14)", "rgba(0, 0, 0, 0.14)"));
+  assert.equal(afterFocus.border, expectedRGB(theme, "rgba(255, 255, 255, 0.16)", "rgba(0, 0, 0, 0.16)"));
   assert.deepEqual(afterFocus.rect, beforeFocus.rect, "focus changed composer geometry");
 
   await page.locator("#input").fill("A long synthetic sentence that wraps across multiple lines. ".repeat(30));
@@ -289,11 +294,24 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
       };
     });
     assert.equal(userStyle.radius, "16px 16px 0px");
-    assert.equal(userStyle.padding, "10px 12px 6px 16px");
-    assert.match(userStyle.shadow, /0px 20px 25px -5px/);
-    assert.match(userStyle.shadow, /0px 8px 10px -6px/);
-    assert.equal(userStyle.background, expectedRGB(theme, "rgb(29, 43, 65)", "rgb(195, 213, 242)"));
-    assert.equal(userStyle.border, expectedRGB(theme, "rgb(37, 63, 104)", "rgb(163, 194, 245)"));
+    assert.equal(userStyle.padding, "10px 16px 8px");
+    assert.match(
+      userStyle.shadow,
+      theme === "dark" ? /0px 20px 25px -5px/ : /0px 10px 18px -8px/,
+    );
+    // The bubble colors derive from the accent tokens; resolve them in-page
+    // instead of pinning raw color strings.
+    const expectedBubble = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.cssText = "background: var(--user-bubble); border: 1px solid var(--user-border)";
+      document.body.append(probe);
+      const probeStyle = getComputedStyle(probe);
+      const resolved = { background: probeStyle.backgroundColor, border: probeStyle.borderColor };
+      probe.remove();
+      return resolved;
+    });
+    assert.equal(userStyle.background, expectedBubble.background);
+    assert.equal(userStyle.border, expectedBubble.border);
     assert.equal(assistantStyle.background, "rgba(0, 0, 0, 0)");
     assert.equal(assistantStyle.border, "rgba(0, 0, 0, 0)");
     assert.equal(assistantStyle.padding, "0px");

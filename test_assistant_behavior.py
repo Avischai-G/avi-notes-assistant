@@ -65,17 +65,24 @@ def _fixed_now():
     return datetime(2026, 8, 23, 12, 0, tzinfo=timezone.utc)
 
 
-def test_prompt_is_short_and_agent_has_five_gated_tools():
+def test_prompt_is_short_and_agent_has_twelve_gated_tools():
     agent = TaskOrganizerAgent(
         api_key="offline",
         llm=ScriptedToolLlm(model="gemini-3.5-flash"),
     )
-    assert len(SYSTEM_PROMPT.split()) == 123
+    assert len(SYSTEM_PROMPT.split()) <= 260
     assert [tool.__name__ for tool in agent.agent.tools] == [
         "create_task",
         "rename_task",
         "move_task",
         "list_tasks",
+        "search_tasks",
+        "read_task_details",
+        "write_task_details",
+        "delete_task",
+        "restore_task",
+        "add_task_comment",
+        "read_task_comments",
         "plan_tomorrow",
     ]
 
@@ -106,15 +113,12 @@ def test_bare_reminder_is_captured_before_question_with_stated_defaults():
     assert task.place == "Anywhere"
     assert task.minutes == 30
     assert task.notes == "Remind me to call the accountant"
+    # The model's own reply is the answer; nothing rewrites it.
     text = next(chunk["text"] for chunk in chunks if "text" in chunk)
-    assert text == (
-        "Noted \u2014 tomorrow, Anywhere, 30 min. "
-        "Would a specific time tomorrow help?"
-    )
-    assert text.count("?") == 1
+    assert text == "Saved it."
 
 
-def test_vague_non_answer_keeps_default_and_never_reasks():
+def test_vague_answer_goes_to_the_model_and_writes_nothing_new():
     tasks = FakeTaskStore()
     channels = LocalChannelStore()
     channels.ensure_channel("task-chat")
@@ -132,11 +136,11 @@ def test_vague_non_answer_keeps_default_and_never_reasks():
 
     chunks = asyncio.run(_turn(agent, "whatever", channels, tasks))
 
-    assert llm.calls == calls_after_capture
+    # The prompt, not a regex shortcut, decides how to keep the default now.
+    assert llm.calls == calls_after_capture + 1
     assert len(tasks.list_tasks()) == 1
     text = next(chunk["text"] for chunk in chunks if "text" in chunk)
-    assert text == "Kept the default \u2014 tomorrow, Anywhere, 30 min."
-    assert "?" not in text
+    assert text == "Saved it."
 
 
 def _task_fields(task):
