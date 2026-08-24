@@ -323,6 +323,7 @@ class TaskOrganizerAgent:
 
         Matches: "plan my day tomorrow", "schedule tomorrow", "plan tomorrow at office"
         Does not match: anything else (let model decide).
+        Assumes message is already normalized (stripped of trailing punctuation).
         """
         lowered = message.casefold().strip()
         # Plan request must govern the entire message, not just appear in it.
@@ -413,9 +414,13 @@ class TaskOrganizerAgent:
             yield {"done": True}
             return
 
+        # Normalize message for routing: strip trailing sentence punctuation once,
+        # so both plan and place predicates work with the same normalized text.
+        normalized_message = user_message.rstrip(".!?")
+
         if (
             self.day_planner is not None
-            and (self._is_asking_for_plan(user_message) or self._is_bare_place_statement(user_message))
+            and (self._is_asking_for_plan(normalized_message) or self._is_bare_place_statement(normalized_message))
         ):
             place = self.day_planner.extract_place(user_message)
             sweep = self.day_planner.build(place)
