@@ -340,9 +340,8 @@ class TaskOrganizerAgent:
         Anchored to the whole message, not searching inside arbitrary text.
         Matches: "I am at Office tomorrow", "I’ll be home tomorrow", "tomorrow at office"
         Does NOT match: "tomorrow I need to fix the sink at home" (has task content)
-        Assumes message is already normalized (whitespace and punctuation stripped).
         """
-        lowered = message.casefold()
+        lowered = message.casefold().strip().rstrip(".!?")
 
         # Patterns anchored to start/end of message
         # Apostrophe: match both ASCII apostrophe and Unicode right-single-quote U+2019
