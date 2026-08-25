@@ -196,11 +196,16 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   align-items: center;
   gap: 10px;
   min-width: 0;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  background: transparent;
   color: var(--muted);
+  cursor: pointer;
+  text-align: left;
   text-decoration: none;
+  font-family: inherit;
   font-size: var(--type-emphasis);
   font-weight: 500;
   transition: background var(--motion-fast) ease, color var(--motion-fast) ease,
@@ -225,8 +230,9 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
 }
 .channel-row { display: flex; align-items: center; gap: 4px; }
 .channel-row .channel { flex: 1; min-width: 0; }
-.add-automation { width: 100%; background: transparent; cursor: pointer; text-align: left; }
-.add-automation:hover { background: var(--panel-hover); color: var(--text-2); }
+/* Install app and Settings hold the drawer's bottom edge, in that order. */
+#install-app, #open-settings { margin-top: auto; }
+#install-app + #open-settings { margin-top: 0; }
 
 /* The row menu opens in place rather than floating, so it needs no anchor
    positioning and behaves the same on a phone. */
@@ -473,7 +479,7 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
 /* ── Editor dialog: the only place a prompt or a trigger is changed ──── */
 .editor {
   width: min(560px, calc(100vw - 32px));
-  max-height: min(660px, calc(100dvh - 64px));
+  max-height: calc(100dvh - 64px);
   margin: auto;
   padding: 0;
   border: 1px solid var(--line);
@@ -527,7 +533,14 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   outline: 0;
   transition: border-color var(--motion-fast) ease;
 }
-textarea.field { resize: vertical; }
+/* Prompts size themselves to their content: the dialog body is the only
+   thing that scrolls, never a textarea inside it. */
+textarea.field {
+  field-sizing: content;
+  min-height: 8lh;
+  overflow: hidden;
+  resize: none;
+}
 .field:focus { border-color: var(--accent-border-strong); }
 .field::placeholder { color: var(--quiet); }
 

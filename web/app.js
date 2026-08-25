@@ -781,7 +781,8 @@ window.addEventListener("beforeinstallprompt", (event) => {
     const choice = await event.userChoice;
     if (choice.outcome === "accepted") row.remove();
   });
-  drawer.querySelector(".channels").append(row);
+  // Directly above Settings, which keeps the drawer's last word.
+  drawer.querySelector("#open-settings").before(row);
 });
 
 applyTheme(localStorage.getItem("agentonomy-theme") || "system");
