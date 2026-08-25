@@ -189,11 +189,10 @@ def _speech_settings() -> dict:
     }
 
 
-def _live_model_id(api_key: str | None) -> str:
-    """The live-audio model: the Gemini API and Vertex publish DIFFERENT ids
-    (verified against both backends' model lists), so each mode has its own."""
-    if api_key:
-        return os.environ.get("CORONER_LIVE_MODEL_API", "gemini-3.1-flash-live-preview")
+def _live_model_id() -> str:
+    """The latest live-audio model. Voice always runs on Vertex: no 3.x model
+    supports the live api anywhere yet (1007), and the Gemini API's live
+    previews connect but never answer — probed with real speech on both."""
     return os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash")
 
 
@@ -210,12 +209,13 @@ def _make_agents(api_key: str | None) -> tuple:
     except ValueError as e:
         raise RuntimeError(f"Agent initialization failed: {e}")
 
+    # The voice session itself always runs on Vertex (see _live_model_id);
+    # a device key still funds the text organizer its tasks are handed to.
     live = LifeAgent(
-        model=_live_model_id(api_key),
+        model=_live_model_id(),
         location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
         speech_settings=_speech_settings,
-        api_key=api_key,
     )
     organizer.prompt_source = _settings_store.get_system_prompt
     return organizer, live
