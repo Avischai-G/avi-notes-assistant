@@ -1,8 +1,10 @@
-# Avi's Notes Assistant
+# Agentonomy Tasks
 
 Live deployment: https://avi-notes-assistant-295057934762.us-central1.run.app
 
-A small chat assistant for capturing reminders in one scoped Notion database, keeping good defaults visible, and turning open tasks into two practical plans for tomorrow. It organises records; it never claims to perform the underlying work.
+A small chat and live-voice assistant for capturing tasks into one scoped Notion database, with automations that review the board on a schedule. It organises records; it never claims to perform the underlying work.
+
+To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRATCH.md](docs/SETUP-NOTION-FROM-SCRATCH.md).
 
 The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Vertex AI, and Firestore stack. The former product remains available only in git history and the local `pre-rebuild` tag.
 

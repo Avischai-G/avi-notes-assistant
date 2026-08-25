@@ -1,7 +1,7 @@
 {
   "name": "Agentonomy Tasks",
   "short_name": "Agentonomy",
-  "description": "Avi's Notion task assistant — chat, live voice, and automations.",
+  "description": "Agentonomy Tasks — chat, live voice, and automations for your Notion board.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

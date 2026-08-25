@@ -1,4 +1,4 @@
-"""Avi's notes assistant as a small FastAPI service."""
+"""Agentonomy Tasks as a small FastAPI service."""
 from __future__ import annotations
 
 import os
@@ -14,7 +14,7 @@ from app import chat
 WEB = Path(__file__).parent / "web"
 
 api = FastAPI(
-    title="Avi's Notes Assistant",
+    title="Agentonomy Tasks",
     description="A concise chat assistant that organises one scoped Notion board.",
 )
 

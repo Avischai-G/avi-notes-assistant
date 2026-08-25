@@ -1,8 +1,8 @@
 # Architecture
 
-![Avi's Notes Assistant architecture diagram](./architecture-diagram.png)
+![Agentonomy Tasks architecture diagram](./architecture-diagram.png)
 
-This is the deployed release topology for Avi's Notes Assistant. The public
+This is the deployed release topology for Agentonomy Tasks. The public
 Cloud Run service runs in `us-central1`; its Vertex AI model and embedding
 requests use the `global` location.
 
