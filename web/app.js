@@ -132,7 +132,10 @@ function resize() {
 
 function renderChips() {
   chips.innerHTML = attachments.map(
-    (file, index) => `<span class="attachment-chip">${esc(file.name)}<button type="button" data-remove="${index}" aria-label="Remove ${esc(file.name)}">×</button></span>`,
+    (file, index) => `<span class="attachment-chip">`
+      + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${CLIP_PATH}"/></svg>`
+      + `<span class="attachment-name">${esc(file.name)}</span>`
+      + `<button type="button" data-remove="${index}" aria-label="Remove ${esc(file.name)}">×</button></span>`,
   ).join("");
 }
 
@@ -703,6 +706,7 @@ liveToggle.addEventListener("click", async () => {
     return;
   }
   liveToggle.disabled = true;
+  liveToggle.classList.add("connecting");
   try {
     liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
     await window.LiveSession.start(liveChannelId, {
@@ -719,6 +723,7 @@ liveToggle.addEventListener("click", async () => {
       },
       onError: (message) => flash(`Live error: ${message}`),
       onState: (on) => {
+        liveToggle.classList.remove("connecting");
         liveToggle.classList.toggle("active", on);
         liveToggle.setAttribute(
           "aria-label",
@@ -729,6 +734,7 @@ liveToggle.addEventListener("click", async () => {
   } catch (error) {
     flash(`Live error: ${error.message}`);
   } finally {
+    liveToggle.classList.remove("connecting");
     liveToggle.disabled = false;
   }
 });
@@ -761,6 +767,10 @@ settingsApiKey.addEventListener("copy", (event) => event.preventDefault());
 settingsApiKey.addEventListener("cut", (event) => event.preventDefault());
 
 $("#open-settings").addEventListener("click", async () => {
+  // The dialog appears at once; its fields arrive when the server answers.
+  drawer.close();
+  settingsEditor.classList.add("loading");
+  settingsEditor.showModal();
   try {
     const settings = await apiJSON("/api/settings");
     settingsVoice.replaceChildren(
@@ -778,9 +788,9 @@ $("#open-settings").addEventListener("click", async () => {
     settingsModel.placeholder = settings.default_model || "";
     settingsCallName.value = settings.call_name || "";
     settingsRemoveKey.hidden = !deviceKey();
-    drawer.close();
-    settingsEditor.showModal();
+    settingsEditor.classList.remove("loading");
   } catch (error) {
+    settingsEditor.close();
     flash(`Could not load settings: ${error.message}`);
   }
 });

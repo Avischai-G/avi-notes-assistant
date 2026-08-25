@@ -530,19 +530,56 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   stroke-linejoin: round;
 }
 
-.attachment-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+.attachment-chips { display: flex; gap: 8px; margin: 2px 2px 10px; }
 .attachment-chips:empty { display: none; }
+/* Every pending file gets an equal share of the row and never spills out. */
 .attachment-chip {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: var(--radius-pill);
-  background: rgb(var(--ink) / 0.08);
-  color: var(--text-2);
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--ink) / 0.1);
+  background: rgb(var(--ink) / 0.06);
   font-size: var(--type-small);
+  color: var(--text-2);
 }
-.attachment-chip button { background: transparent; color: var(--muted); cursor: pointer; padding: 0; font-size: 16px; line-height: 1; }
+.attachment-chip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+.attachment-chip .attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-chip button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: rgb(var(--ink) / 0.1);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+.attachment-chip button:hover { background: rgb(var(--ink) / 0.18); color: var(--text); }
 
 /* ── Editor dialog: the only place a prompt or a trigger is changed ──── */
 .editor {
@@ -811,3 +848,32 @@ body.automation-view {
   gap: 18px;
   padding: 2px 14px 16px;
 }
+
+/* ── Waiting states: the dialog opens instantly, the button says so. ─── */
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+.editor.loading { min-height: min(320px, 60dvh); }
+.editor.loading .editor-body, .editor.loading .editor-foot { visibility: hidden; }
+.editor.loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgb(var(--ink) / 0.14);
+  border-top-color: var(--accent);
+  animation: spinner-turn 800ms linear infinite;
+}
+.live-toggle.connecting { position: relative; }
+.live-toggle.connecting svg { opacity: 0.3; }
+.live-toggle.connecting::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--ink) / 0.12);
+  border-top-color: var(--accent);
+  animation: spinner-turn 800ms linear infinite;
+}
+.live-toggle.connecting:disabled { opacity: 1; cursor: progress; }
