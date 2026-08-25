@@ -684,10 +684,9 @@ const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
 const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
 const KEY_REQUIRED_HINT = "No key on this device — paste your Gemini API key to use the app.";
-const KEY_SET_HINT = "A key is saved on this device only. It can be replaced or removed, never shown.";
+const KEY_SET_HINT = "Saved on this device only, shown masked. Clearing the field and saving removes it.";
 
-// The field is write-only: it never shows the saved key, and what is typed
-// can't be copied back out.
+// The saved key stays visible (masked) in the field, but can't be copied out.
 settingsApiKey.addEventListener("copy", (event) => event.preventDefault());
 settingsApiKey.addEventListener("cut", (event) => event.preventDefault());
 
@@ -701,7 +700,7 @@ $("#open-settings").addEventListener("click", async () => {
     settingsVoice.value = settings.voice_name || "";
     settingsLanguage.value = settings.language_code || "";
     settingsLivePrompt.value = settings.live_prompt || "";
-    settingsApiKey.value = "";
+    settingsApiKey.value = deviceKey();
     settingsApiKeyState.textContent = deviceKey()
       ? KEY_SET_HINT
       : (settings.require_key ? KEY_REQUIRED_HINT : NO_KEY_HINT);
@@ -717,11 +716,10 @@ $("#open-settings").addEventListener("click", async () => {
 });
 
 $("#settings-save").addEventListener("click", async () => {
+  // The fields are the state: what you see when you hit Save is what is saved.
   const typedKey = settingsApiKey.value.trim();
-  if (typedKey) {
-    localStorage.setItem(GEMINI_KEY_STORAGE, typedKey);
-    settingsApiKey.value = "";
-  }
+  if (typedKey) localStorage.setItem(GEMINI_KEY_STORAGE, typedKey);
+  else localStorage.removeItem(GEMINI_KEY_STORAGE);
   const typedModel = settingsModel.value.trim();
   if (typedModel) localStorage.setItem(GEMINI_MODEL_STORAGE, typedModel);
   else localStorage.removeItem(GEMINI_MODEL_STORAGE);
@@ -768,6 +766,7 @@ $("#settings-check-key").addEventListener("click", async () => {
 
 settingsRemoveKey.addEventListener("click", () => {
   localStorage.removeItem(GEMINI_KEY_STORAGE);
+  settingsApiKey.value = "";
   settingsRemoveKey.hidden = true;
   settingsApiKeyState.textContent = NO_KEY_HINT;
   flash("Key removed from this device");

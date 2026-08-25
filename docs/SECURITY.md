@@ -12,10 +12,12 @@ with emphasis on API-key exposure ahead of external evaluation.
 | Notion token + database id | Secret Manager → env | Passed only into the MCP child's environment; stderr flows through a redacting pipe; error strings are scrubbed before they can propagate. Never in argv or prompts. |
 | Vertex (fallback) | Cloud Run service identity | No key material at all. |
 
-The Settings key field is write-only: `type=password` (dots only), never
-prefilled, copy/cut blocked, and no endpoint echoes a key or even whether one
-exists. A key stored by an older build in Firestore is scrubbed at boot, and
-the settings API silently ignores any `gemini_api_key` an old client sends.
+The Settings key field is masked: `type=password` (dots only) with copy/cut
+blocked. It shows the device's own stored key back to the device that stored
+it — the key lives in that browser's localStorage and never reaches any other
+party — and no server endpoint echoes a key or even whether one exists. A key
+stored by an older build in Firestore is scrubbed at boot, and the settings
+API silently ignores any `gemini_api_key` an old client sends.
 
 ## Verified clean
 
