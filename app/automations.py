@@ -8,40 +8,29 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-import re
 import time
 
 from app.channel_store import Message
-from app.task_planning import (
-    DayPlanner,
-    next_jerusalem_daily,
-    next_jerusalem_nine_pm,
-    nightly_due,
-)
+from app.task_planning import DayPlanner, describe_trigger, next_trigger
 
 
-_AT_TIME = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b")
-
-
-def next_run_from_schedule(schedule: str, now: float) -> float:
-    """A trigger is free text; an explicit HH:MM makes it a real daily time.
-
-    Anything else is a plain daily cadence from the last run.
-    """
-    found = _AT_TIME.search(schedule or "")
-    if not found:
-        return now + 86400
-    return next_jerusalem_daily(now, int(found.group(1)), int(found.group(2)))
+RETIRED_AUTOMATION_IDS = ("knowledge-cleanup",)
 
 
 @dataclass
 class Automation:
+    """A prompt plus when it fires. `schedule` is derived text for display only."""
+
     id: str
     name: str
     prompt: str
     schedule: str
     enabled: bool
     channel_id: str
+    frequency: str = "daily"
+    hour: int = 9
+    minute: int = 0
+    weekday: int = 0
     last_run_at: float | None = None
     next_run_at: float | None = None
     state: dict | None = None
@@ -49,28 +38,27 @@ class Automation:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    def described(self) -> str:
+        return describe_trigger(self.frequency, self.hour, self.minute, self.weekday)
 
-KNOWLEDGE_CLEANUP = Automation(
-    id="knowledge-cleanup",
-    name="Knowledge cleanup",
-    prompt=("Organize the scoped knowledge store: consolidate the available dream "
-             "notes, record the learning event, and report a concise result. "
-             "Do not perform any underlying user task."),
-    schedule="daily",
-    enabled=True,
-    channel_id="automation-knowledge-cleanup",
-)
+    def next_run(self, now: float) -> float:
+        return next_trigger(
+            self.frequency, now, hour=self.hour, minute=self.minute, weekday=self.weekday
+        )
+
 
 NIGHTLY_PLAN = Automation(
     id="nightly-plan",
     name="Plan tomorrow",
     prompt="Plan tomorrow from Avi's open tasks.",
-    schedule="daily at 21:00 Asia/Jerusalem",
+    schedule="Daily at 21:00",
     enabled=True,
     channel_id="automation-nightly-plan",
+    frequency="daily",
+    hour=21,
 )
 
-DEFAULT_AUTOMATIONS = (KNOWLEDGE_CLEANUP, NIGHTLY_PLAN)
+DEFAULT_AUTOMATIONS = (NIGHTLY_PLAN,)
 
 
 class AutomationStore:
@@ -103,7 +91,14 @@ class FirestoreAutomationStore(AutomationStore):
 
     @staticmethod
     def _from(data: dict) -> Automation:
-        return Automation(**{k: data.get(k) for k in Automation.__dataclass_fields__})
+        # Documents written before triggers were structured lack those keys;
+        # omitting them lets the dataclass defaults apply instead of None.
+        present = {
+            key: data[key]
+            for key in Automation.__dataclass_fields__
+            if data.get(key) is not None
+        }
+        return Automation(**present)
 
     def list(self) -> list[Automation]:
         return [self._from({"id": doc.id, **(doc.to_dict() or {})}) for doc in self.collection.stream()]
@@ -119,12 +114,6 @@ class FirestoreAutomationStore(AutomationStore):
         self.collection.document(automation_id).delete()
 
 
-class KnowledgeAdapter:
-    """Small Card 4 seam; production injects the knowledge consolidation store."""
-    def has_dreams(self) -> bool: return False
-    def consolidate(self) -> dict: raise NotImplementedError
-
-
 class AutomationRunner:
     def __init__(
         self,
@@ -132,21 +121,19 @@ class AutomationRunner:
         channel_store,
         task_store,
         agent,
-        knowledge=None,
         clock=time.time,
         planner: DayPlanner | None = None,
     ):
         self.store, self.channel_store, self.task_store = store, channel_store, task_store
-        self.agent, self.knowledge, self.clock = agent, knowledge or KnowledgeAdapter(), clock
+        self.agent, self.clock = agent, clock
         self.planner = planner or DayPlanner(task_store)
 
     def _due(self, a: Automation, now: float, force: bool) -> bool:
+        """One rule for every automation: its own trigger says when it is due."""
         if force:
             return True
         if not a.enabled:
             return False
-        if a.id == NIGHTLY_PLAN.id:
-            return nightly_due(now, a.last_run_at)
         return a.next_run_at is None or a.next_run_at <= now
 
     def save_sweep(self, sweep: dict) -> None:
@@ -170,7 +157,7 @@ class AutomationRunner:
             sweep["channel_id"] = a.channel_id
             a.state = {"sweep": sweep}
             a.last_run_at = now
-            a.next_run_at = next_jerusalem_nine_pm(now)
+            a.next_run_at = a.next_run(now)
             self.store.save(a)
             self.channel_store.append_message(
                 a.channel_id,
@@ -184,30 +171,13 @@ class AutomationRunner:
                 **sweep,
             }
 
-        # No-work is decided before the model path, so it is deterministic and free.
-        consolidation = None
-        if a.id == KNOWLEDGE_CLEANUP.id:
-            if not self.knowledge.has_dreams():
-                a.last_run_at, a.next_run_at = now, next_run_from_schedule(a.schedule, now)
-                self.store.save(a)
-                message = "No dream notes to consolidate."
-                self.channel_store.append_message(
-                    a.channel_id, Message("assistant", message, now)
-                )
-                return {"status": "no-work", "automation_id": a.id, "channel_id": a.channel_id,
-                        "model_called": False, "text": message}
-            consolidation = self.knowledge.consolidate()
-
-        user_message = a.prompt
-        if consolidation is not None:
-            user_message += "\n\nConsolidation result (context data):\n" + str(consolidation)
         chunks = []
-        async for chunk in self.agent.chat(user_message, self.channel_store, self.task_store, a.channel_id):
+        async for chunk in self.agent.chat(a.prompt, self.channel_store, self.task_store, a.channel_id):
             chunks.append(chunk)
-        a.last_run_at, a.next_run_at = now, next_run_from_schedule(a.schedule, now)
+        a.last_run_at, a.next_run_at = now, a.next_run(now)
         self.store.save(a)
         return {"status": "ran", "automation_id": a.id, "channel_id": a.channel_id,
-                "model_called": True, "chunks": chunks, "consolidation": consolidation}
+                "model_called": True, "chunks": chunks}
 
     def pick_plan(self, plan: str) -> dict:
         automation = self.store.get(NIGHTLY_PLAN.id)

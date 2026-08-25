@@ -12,11 +12,14 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 - It captures first, then proactively asks the one short question a task genuinely needs; a vague answer keeps the stated default.
 - Defaults are `Not started`, `Anywhere`, 30 minutes, Avi's wording in Notes, and tomorrow for a plain reminder.
 - A 21:00 `Asia/Jerusalem` nightly sweep offers exactly two plans: heavy-first and light-first. Picking one changes only `When` for included tasks.
-- Knowledge cleanup consolidates pending Markdown dream notes in one persistent automation channel. A no-work run is deterministic and makes no Gemini call.
 - Automation channels cannot access any board or planning tool. One shared channel gate
   returns a model-readable refusal without calling Notion; unknown channel
   identity also denies.
-- Learning shows day/week/month aggregates. The complete learning event log is available only in-process to the organiser; there is no raw-log browser route.
+- Every automation carries a structured trigger — hourly, daily or weekly, plus
+  when — and one derived sentence (`Daily at 21:00`) for display. Nothing is
+  special-cased: an automation is due when its own `next_run_at` arrives.
+- The organiser's learning event log stays in-process. There is no Learning page
+  and no browser route that reads it.
 
 ## Architecture
 
@@ -41,10 +44,9 @@ Run the offline acceptance suite:
 ```sh
 ./.venv/bin/python -m pytest -q
 node --check web/app.js
-node --check web/learning.js
 ```
 
-The browser suite is `npm run test:ui`. It tests a 2x2 matrix (dark/light theme x desktop/mobile viewport) plus keyboard and accessibility, running 13 checks total: chat interface, settings interface, learning interface, and console/network diagnostics. Its test-only app uses a mocked model and a synthetic fake-store row; it makes no Vertex or Notion call.
+The browser suite is `npm run test:ui`. It tests a 2x2 matrix (dark/light theme x desktop/mobile viewport) plus keyboard and accessibility, running 9 checks total: chat interface, editor interface, and console/network diagnostics. Its test-only app uses a mocked model and a synthetic fake-store row; it makes no Vertex or Notion call.
 
 Start the server first with the required environment variables:
 

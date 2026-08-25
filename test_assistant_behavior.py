@@ -13,7 +13,7 @@ from pydantic import PrivateAttr
 from app.automations import AutomationRunner, LocalAutomationStore, NIGHTLY_PLAN
 from app.channel_store import LocalChannelStore
 from app.organizer import SYSTEM_PROMPT, TaskOrganizerAgent
-from app.task_planning import DayPlanner, infer_when, nightly_due
+from app.task_planning import DayPlanner, infer_when, next_trigger
 from app.task_store import FakeTaskStore
 
 
@@ -279,10 +279,11 @@ def test_day_defaults_and_nightly_gate_use_jerusalem_not_utc():
     assert infer_when("Remind me to file it", None, near_midnight_utc) == "2026-01-03"
     assert infer_when("This is urgent", None, near_midnight_utc) == "2026-01-02"
 
+    # The nightly plan is now a plain daily 21:00 trigger, Jerusalem local.
     before_nine = datetime(2026, 8, 23, 17, 59, tzinfo=timezone.utc).timestamp()
     at_nine = datetime(2026, 8, 23, 18, 0, tzinfo=timezone.utc).timestamp()
-    assert nightly_due(before_nine, None) is False
-    assert nightly_due(at_nine, None) is True
+    assert next_trigger("daily", before_nine, hour=21) == at_nine
+    assert next_trigger("daily", at_nine, hour=21) == at_nine + 86400
 
 
 def test_chat_page_renders_only_the_two_plan_controls_and_wires_pick():

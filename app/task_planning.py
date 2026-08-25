@@ -349,25 +349,42 @@ class DayPlanner:
         return self.writer.set_plan_times(plans[plan])
 
 
-def next_jerusalem_daily(epoch: float, hour: int, minute: int = 0) -> float:
-    """The next occurrence of hour:minute, Jerusalem local, strictly ahead."""
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+FREQUENCIES = ("hourly", "daily", "weekly")
+
+
+def next_trigger(
+    frequency: str,
+    epoch: float,
+    *,
+    hour: int = 9,
+    minute: int = 0,
+    weekday: int = 0,
+) -> float:
+    """The next moment a trigger fires, Jerusalem local, strictly after `epoch`.
+
+    ponytail: wall-clock arithmetic, so the one run that straddles a DST change
+    keeps its stated hour and lands an hour off in absolute terms. That is the
+    right trade for a once-a-year shift on a personal board.
+    """
     now = datetime.fromtimestamp(epoch, JERUSALEM)
-    at = time(hour, minute)
-    candidate = datetime.combine(now.date(), at, tzinfo=JERUSALEM)
-    if candidate <= now:
-        candidate = datetime.combine(now.date() + timedelta(days=1), at, tzinfo=JERUSALEM)
-    return candidate.timestamp()
+    if frequency == "hourly":
+        candidate = now.replace(minute=minute, second=0, microsecond=0)
+        step = timedelta(hours=1)
+    else:
+        candidate = datetime.combine(now.date(), time(hour, minute), tzinfo=JERUSALEM)
+        if frequency == "weekly":
+            candidate += timedelta(days=(weekday - candidate.weekday()) % 7)
+            step = timedelta(days=7)
+        else:
+            step = timedelta(days=1)
+    return (candidate if candidate > now else candidate + step).timestamp()
 
 
-def next_jerusalem_nine_pm(epoch: float) -> float:
-    return next_jerusalem_daily(epoch, 21)
-
-
-def nightly_due(epoch: float, last_run_at: float | None) -> bool:
-    now = datetime.fromtimestamp(epoch, JERUSALEM)
-    if now.hour < 21:
-        return False
-    if last_run_at is None:
-        return True
-    last = datetime.fromtimestamp(last_run_at, JERUSALEM)
-    return last.date() < now.date()
+def describe_trigger(frequency: str, hour: int, minute: int, weekday: int) -> str:
+    """The one human sentence for a trigger, so the UI never formats its own."""
+    if frequency == "hourly":
+        return f"Hourly at :{minute:02d}"
+    if frequency == "weekly":
+        return f"Weekly on {WEEKDAYS[weekday]} at {hour:02d}:{minute:02d}"
+    return f"Daily at {hour:02d}:{minute:02d}"

@@ -8,7 +8,7 @@ requests use the `global` location.
 
 ```mermaid
 flowchart LR
-    B[Browser\nChat · Automations · Settings · Learning]
+    B[Browser\nChat · Automations]
     API[Cloud Run · us-central1\nFastAPI service]
     A[One Google ADK\nLlmAgent]
     V[Vertex AI\ngemini-3.5-flash · global]

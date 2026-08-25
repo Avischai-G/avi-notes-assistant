@@ -8,12 +8,7 @@
       "detail": ""
     },
     {
-      "name": "settings-dark-desktop",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "learning-dark-desktop",
+      "name": "editor-dark-desktop",
       "status": "PASS",
       "detail": ""
     },
@@ -23,12 +18,7 @@
       "detail": ""
     },
     {
-      "name": "settings-light-desktop",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "learning-light-desktop",
+      "name": "editor-light-desktop",
       "status": "PASS",
       "detail": ""
     },
@@ -38,12 +28,7 @@
       "detail": ""
     },
     {
-      "name": "settings-dark-mobile",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "learning-dark-mobile",
+      "name": "editor-dark-mobile",
       "status": "PASS",
       "detail": ""
     },
@@ -53,12 +38,7 @@
       "detail": ""
     },
     {
-      "name": "settings-light-mobile",
-      "status": "PASS",
-      "detail": ""
-    },
-    {
-      "name": "learning-light-mobile",
+      "name": "editor-light-mobile",
       "status": "PASS",
       "detail": ""
     },
@@ -68,8 +48,8 @@
       "detail": "no console errors, page errors, or failed requests"
     }
   ],
-  "pass": 13,
+  "pass": 9,
   "fail": 0,
-  "total": 13,
+  "total": 9,
   "diagnostics": []
 }

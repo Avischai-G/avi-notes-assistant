@@ -1,7 +1,10 @@
 """Offline acceptance tests for persistent automation channels."""
 import asyncio
+from datetime import datetime
+
 from app.automations import Automation, AutomationRunner, LocalAutomationStore
 from app.channel_store import LocalChannelStore
+from app.task_planning import JERUSALEM
 
 
 class FakeAgent:
@@ -16,14 +19,6 @@ class FakeAgent:
         yield {"done": True}
 
 
-class Dreams:
-    def __init__(self, present): self.present, self.consolidations = present, 0
-    def has_dreams(self): return self.present
-    def consolidate(self):
-        self.consolidations += 1
-        return {"summary": "one consolidated skill", "learning_event": True}
-
-
 def make(name, channel):
     return Automation(name, name, f"Prompt for {name}", "daily", True, channel)
 
@@ -33,7 +28,7 @@ def test_persistent_and_isolated_channels():
     a, b = make("a", "channel-a"), make("b", "channel-b")
     channels.ensure_channel(a.channel_id); channels.ensure_channel(b.channel_id)
     store = LocalAutomationStore([a, b])
-    runner = AutomationRunner(store, channels, object(), agent, Dreams(False))
+    runner = AutomationRunner(store, channels, object(), agent)
     asyncio.run(runner.run("a")); asyncio.run(runner.run("a"))
     assert [x[1] for x in agent.calls] == ["channel-a", "channel-a"]
     assert all("Prompt for a" in x[0] for x in agent.calls)
@@ -49,26 +44,24 @@ def test_restart_keeps_channel_and_transcript():
     assert [m.content for m in channels.get_channel("stable")] == ["old"]
 
 
-def test_no_dreams_skips_model():
-    channels, agent, knowledge = LocalChannelStore(), FakeAgent(), Dreams(False)
-    a = make("knowledge-cleanup", "cleanup")
+def test_a_trigger_decides_the_next_run(monkeypatch):
+    """Every automation is due by its own trigger; nothing is special-cased."""
+    channels, agent = LocalChannelStore(), FakeAgent()
+    a = make("hourly-note", "channel-h")
+    a.frequency, a.minute = "hourly", 30
     channels.ensure_channel(a.channel_id)
-    result = asyncio.run(AutomationRunner(LocalAutomationStore([a]), channels, object(), agent, knowledge).run(a.id))
-    assert result["status"] == "no-work" and result["model_called"] is False
-    assert agent.calls == []
-    assert [message.content for message in channels.get_channel("cleanup")] == [
-        "No dream notes to consolidate."
-    ]
+    store = LocalAutomationStore([a])
+    # Monday 2026-08-24, 09:00 Jerusalem.
+    now = datetime(2026, 8, 24, 9, 0, tzinfo=JERUSALEM).timestamp()
+    runner = AutomationRunner(store, channels, object(), agent, clock=lambda: now)
 
+    asyncio.run(runner.run("hourly-note"))
+    saved = store.get("hourly-note")
+    assert saved.next_run_at == now + 30 * 60
 
-def test_dream_cleanup_records_learning_context():
-    channels, agent, knowledge = LocalChannelStore(), FakeAgent(), Dreams(True)
-    a = make("knowledge-cleanup", "cleanup")
-    channels.ensure_channel(a.channel_id)
-    result = asyncio.run(AutomationRunner(LocalAutomationStore([a]), channels, object(), agent, knowledge).run(a.id))
-    assert result["status"] == "ran" and knowledge.consolidations == 1
-    assert "learning_event" in agent.calls[0][0]
-    assert agent.calls[0][1] == "cleanup"
+    # Not due until that moment arrives, and a forced run ignores the trigger.
+    assert asyncio.run(runner.run("hourly-note", force=False))["status"] == "not-due"
+    assert asyncio.run(runner.run("hourly-note"))["status"] == "ran"
 
 
 if __name__ == "__main__":

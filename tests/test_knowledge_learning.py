@@ -29,7 +29,6 @@ from app.knowledge_store import (
     SkillTooLongError,
     count_words,
 )
-from app.learning import create_learning_router
 from app.learning_store import (
     FirestoreLearningEventStore,
     LearningEvent,
@@ -373,39 +372,19 @@ def test_firestore_metadata_shapes_cache_and_private_events_only():
     assert events.list_all() == [event]
 
 
-def test_aggregate_api_has_no_raw_event_payload_but_agent_tool_does(tmp_path: Path):
+def test_learning_stays_private_to_the_agent_with_no_browser_surface(tmp_path: Path):
+    """The Learning page is gone; the log it read stays agent-only."""
     event_store = LocalLearningEventStore(boundary_events())
     knowledge, _, _ = make_knowledge(tmp_path, events=event_store)
+
     app = FastAPI()
-    router = create_learning_router(
-        lambda: knowledge,
-        web_root=Path(__file__).parents[1] / "web",
-    )
-    app.include_router(router)
+    from app import chat
+
+    chat.init_chat_stores(use_firestore=False)
+    chat.register_chat_routes(app)
     client = TestClient(app)
-
-    response = client.get(
-        "/api/learning",
-        params={"timezone": "Asia/Jerusalem", "week_start": 0},
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    serialized = response.text
-    assert set(payload) == {"timezone", "week_start", "generated_at", "periods"}
-    assert set(payload["periods"]) == {"day", "week", "month"}
-    assert '"events"' not in serialized
-    assert '"path"' not in serialized
-    assert "RAW skill body summary A" not in serialized
-
-    public_learning_routes = {
-        route.path
-        for route in router.routes
-        if getattr(route, "path", "").startswith("/api/learning")
-    }
-    assert public_learning_routes == {"/api/learning"}
-    assert client.get("/api/learning/events").status_code == 404
-    assert client.get("/api/learning/log").status_code == 404
-    assert client.get("/learning").status_code == 200
+    for gone in ("/learning", "/api/learning", "/api/learning/events", "/api/learning/log"):
+        assert client.get(gone).status_code == 404, gone
 
     full_log = knowledge.get_learning_log()
     assert any(item["path"] == "skills/month.md" for item in full_log)
@@ -494,9 +473,7 @@ def test_production_mount_is_exact_and_local_root_is_explicit(tmp_path: Path):
     assert knowledge_root(production=False, local_root=tmp_path) == tmp_path
 
 
-def test_card1_chat_router_wires_learning_without_changing_chat_contract(
-    tmp_path: Path, monkeypatch
-):
+def test_card1_chat_router_keeps_its_contract(tmp_path: Path, monkeypatch):
     from app import chat
 
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
@@ -507,11 +484,5 @@ def test_card1_chat_router_wires_learning_without_changing_chat_contract(
     app = FastAPI()
     chat.register_chat_routes(app)
     client = TestClient(app)
-    response = client.get(
-        "/api/learning",
-        params={"timezone": "Asia/Jerusalem", "week_start": 6},
-    )
-    assert response.status_code == 200
-    assert response.json()["periods"]["day"]["total_changes"] == 0
-    assert client.get("/api/learning/log").status_code == 404
+    assert client.get("/api/health").json()["ok"] is True
     assert client.get("/api/tasks").status_code == 404

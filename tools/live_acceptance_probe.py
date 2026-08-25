@@ -93,12 +93,6 @@ class Probe:
     def rows(self) -> list[dict]:
         return self.request("GET", "/__acceptance__/rows")["rows"]
 
-    def learning(self) -> dict:
-        return self.request(
-            "GET",
-            "/api/learning?timezone=Asia%2FJerusalem&week_start=6",
-        )
-
 
 def _assistant_text(chunks: list[dict]) -> str:
     return "".join(chunk.get("text", "") for chunk in chunks)
@@ -137,13 +131,6 @@ def _assert_only_when_changed(before: list[dict], after: list[dict]) -> None:
                 f"plan pick changed {field} on marker row {task_id}"
             )
         assert old[task_id]["when"] != new[task_id]["when"]
-
-
-def _period_totals(learning: dict) -> dict[str, int]:
-    return {
-        name: value["total_changes"]
-        for name, value in learning["periods"].items()
-    }
 
 
 def _write_state(path: Path, payload: dict) -> None:
@@ -249,68 +236,14 @@ def run_story(probe: Probe, state_path: Path) -> None:
     ):
         assert forbidden not in assistant_claims
 
-    baseline_learning = probe.learning()
-    baseline_totals = _period_totals(baseline_learning)
-    seeded_dream = probe.request("POST", "/__acceptance__/seed-dream")
-    assert seeded_dream["status"] == "seeded"
-    after_dream = probe.learning()
-    assert all(
-        _period_totals(after_dream)[period] == baseline_totals[period] + 1
-        for period in ("day", "week", "month")
-    )
-
-    first_cleanup = probe.request(
-        "POST", "/api/automations/knowledge-cleanup/run"
-    )
-    assert first_cleanup["status"] == "ran"
-    assert first_cleanup["model_called"] is True
-    assert first_cleanup["consolidation"]["learning_event"] is True
-    assert any(chunk.get("text") for chunk in first_cleanup["chunks"])
-    assert not any(chunk.get("error") for chunk in first_cleanup["chunks"])
-    after_cleanup = probe.learning()
-    after_cleanup_totals = _period_totals(after_cleanup)
-    assert all(
-        after_cleanup_totals[period] == baseline_totals[period] + 2
-        for period in ("day", "week", "month")
-    )
-    for period in ("day", "week", "month"):
-        assert (
-            after_cleanup["periods"][period]["dreams_consolidated"]
-            == baseline_learning["periods"][period]["dreams_consolidated"] + 1
-        )
-
-    second_cleanup = probe.request(
-        "POST", "/api/automations/knowledge-cleanup/run"
-    )
-    assert second_cleanup == {
-        "status": "no-work",
-        "automation_id": "knowledge-cleanup",
-        "channel_id": "automation-knowledge-cleanup",
-        "model_called": False,
-        "text": "No dream notes to consolidate.",
-    }
-    after_second = probe.learning()
-    assert _period_totals(after_second) == after_cleanup_totals
-
-    automation_history = probe.request(
-        "GET", "/api/channels/automation-knowledge-cleanup"
-    )
-    assert automation_history["messages"][-1]["content"] == (
-        "No dream notes to consolidate."
-    )
-    assert any(
-        message["role"] == "assistant"
-        and message["content"] != "No dream notes to consolidate."
-        for message in automation_history["messages"]
-    )
     automations = probe.request("GET", "/api/automations")["automations"]
-    assert {item["id"] for item in automations} == {
-        "knowledge-cleanup",
-        "nightly-plan",
-    }
-    for endpoint in ("raw", "events", "log"):
+    assert {item["id"] for item in automations} == {"nightly-plan"}
+
+    # The Learning page and its aggregate endpoint are gone; the log stays
+    # private to the agent.
+    for endpoint in ("", "/raw", "/events", "/log"):
         assert probe.request(
-            "GET", f"/api/learning/{endpoint}", expected=404
+            "GET", f"/api/learning{endpoint}", expected=404
         )["status"] == 404
 
     manifest = probe.request("GET", "/__acceptance__/knowledge-manifest")
@@ -324,9 +257,7 @@ def run_story(probe: Probe, state_path: Path) -> None:
         "target_date": target_date,
         "task_channel_id": channel_id,
         "task_history": task_history,
-        "automation_history": automation_history,
         "automations": automations,
-        "learning_periods": after_second["periods"],
         "knowledge_manifest": manifest,
         "rows": after_pick,
         "transcript_inputs": [TASK_MESSAGE, VAGUE_MESSAGE, PLACE_MESSAGE, "Pick Plan A"],
@@ -346,96 +277,8 @@ def resume_story(probe: Probe, state_path: Path, task_channel_id: str) -> None:
     task_history = probe.request("GET", f"/api/channels/{task_channel_id}")
     assert len(task_history["messages"]) == 8
 
-    automation_before = probe.request(
-        "GET", "/api/channels/automation-knowledge-cleanup"
-    )
-    baseline_learning = probe.learning()
-    baseline_totals = _period_totals(baseline_learning)
-
-    seeded_dream = probe.request("POST", "/__acceptance__/seed-dream")
-    assert seeded_dream["status"] == "seeded"
-    after_dream = probe.learning()
-    assert all(
-        _period_totals(after_dream)[period] == baseline_totals[period] + 1
-        for period in ("day", "week", "month")
-    )
-
-    first_cleanup = probe.request(
-        "POST", "/api/automations/knowledge-cleanup/run"
-    )
-    assert first_cleanup["status"] == "ran"
-    assert first_cleanup["model_called"] is True
-    assert first_cleanup["consolidation"]["learning_event"] is True
-    assert any(chunk.get("text") for chunk in first_cleanup["chunks"])
-    assert not any(chunk.get("error") for chunk in first_cleanup["chunks"])
-    assert probe.rows() == []
-
-    after_cleanup = probe.learning()
-    after_cleanup_totals = _period_totals(after_cleanup)
-    assert all(
-        after_cleanup_totals[period] == baseline_totals[period] + 2
-        for period in ("day", "week", "month")
-    )
-    for period in ("day", "week", "month"):
-        assert (
-            after_cleanup["periods"][period]["dreams_consolidated"]
-            == baseline_learning["periods"][period]["dreams_consolidated"] + 1
-        )
-
-    history_after_first = probe.request(
-        "GET", "/api/channels/automation-knowledge-cleanup"
-    )
-    assert history_after_first["messages"][: len(automation_before["messages"])] == (
-        automation_before["messages"]
-    )
-    new_first_messages = history_after_first["messages"][
-        len(automation_before["messages"]):
-    ]
-    assert [message["role"] for message in new_first_messages] == [
-        "user",
-        "assistant",
-    ]
-    for message in new_first_messages:
-        for result in message.get("tool_results") or []:
-            if result.get("name") in {
-                "create_task",
-                "rename_task",
-                "move_task",
-                "list_tasks",
-            }:
-                assert result["response"]["refused"] is True
-
-    second_cleanup = probe.request(
-        "POST", "/api/automations/knowledge-cleanup/run"
-    )
-    assert second_cleanup == {
-        "status": "no-work",
-        "automation_id": "knowledge-cleanup",
-        "channel_id": "automation-knowledge-cleanup",
-        "model_called": False,
-        "text": "No dream notes to consolidate.",
-    }
-    after_second = probe.learning()
-    assert _period_totals(after_second) == after_cleanup_totals
-
-    automation_history = probe.request(
-        "GET", "/api/channels/automation-knowledge-cleanup"
-    )
-    assert automation_history["messages"][: len(history_after_first["messages"])] == (
-        history_after_first["messages"]
-    )
-    assert automation_history["messages"][-1]["content"] == (
-        "No dream notes to consolidate."
-    )
     automations = probe.request("GET", "/api/automations")["automations"]
-    assert {item["id"] for item in automations} == {
-        "knowledge-cleanup",
-        "nightly-plan",
-    }
-    for endpoint in ("raw", "events", "log"):
-        assert probe.request(
-            "GET", f"/api/learning/{endpoint}", expected=404
-        )["status"] == 404
+    assert {item["id"] for item in automations} == {"nightly-plan"}
 
     manifest = probe.request("GET", "/__acceptance__/knowledge-manifest")
     assert manifest["skill_exists"] is True
@@ -447,9 +290,7 @@ def resume_story(probe: Probe, state_path: Path, task_channel_id: str) -> None:
         "marker": probe.marker,
         "task_channel_id": task_channel_id,
         "task_history": task_history,
-        "automation_history": automation_history,
         "automations": automations,
-        "learning_periods": after_second["periods"],
         "knowledge_manifest": manifest,
         "rows": [],
         "resumed_after_proven_task_phase": True,
@@ -460,7 +301,7 @@ def resume_story(probe: Probe, state_path: Path, task_channel_id: str) -> None:
     _write_state(state_path, state)
     print(
         "LIVE_STORY_RESUME_PRE_RELOAD=PASS "
-        "cleanup_runs=2 learning_periods=3 raw_http_routes=404 marker_rows=0"
+        "raw_http_routes=404 marker_rows=0"
     )
 
 
@@ -477,16 +318,12 @@ def verify_reload(probe: Probe, state_path: Path) -> None:
     assert probe.request(
         "GET", f"/api/channels/{state['task_channel_id']}"
     ) == state["task_history"]
-    assert probe.request(
-        "GET", "/api/channels/automation-knowledge-cleanup"
-    ) == state["automation_history"]
     assert probe.request("GET", "/api/automations")["automations"] == state["automations"]
-    assert probe.learning()["periods"] == state["learning_periods"]
     assert probe.request(
         "GET", "/__acceptance__/knowledge-manifest"
     ) == state["knowledge_manifest"]
     assert probe.rows() == state["rows"]
-    print("LIVE_STORY_RELOAD=PASS chat=durable automations=durable learning=durable knowledge=durable")
+    print("LIVE_STORY_RELOAD=PASS chat=durable automations=durable knowledge=durable")
 
 
 def parser() -> argparse.ArgumentParser:

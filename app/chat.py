@@ -21,21 +21,20 @@ try:
 except ImportError:
     firestore = None
 
-from app.channel_store import LocalChannelStore, FirestoreChannelStore, Message
+from app.channel_store import LocalChannelStore, FirestoreChannelStore
 from app.automations import (
     Automation,
     AutomationRunner,
     DEFAULT_AUTOMATIONS,
     FirestoreAutomationStore,
     LocalAutomationStore,
-    next_run_from_schedule,
+    RETIRED_AUTOMATION_IDS,
 )
 from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
 from app.notion_mcp import NotionConfigurationError
 from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
-from app.learning import create_learning_router
-from app.task_planning import DayPlanner
+from app.task_planning import DayPlanner, FREQUENCIES
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent
 from app.life import LifeAgent
@@ -153,6 +152,11 @@ def init_chat_stores(
         research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
     )
 
+    for retired in RETIRED_AUTOMATION_IDS:
+        # Dropped automations would otherwise sit in Firestore forever.
+        if _automation_store.get(retired) is not None:
+            _automation_store.delete(retired)
+
     for definition in DEFAULT_AUTOMATIONS:
         automation = _automation_store.get(definition.id)
         if automation is None:
@@ -168,7 +172,6 @@ def init_chat_stores(
         _channel_store,
         _task_store,
         _agent,
-        knowledge=_knowledge,
         planner=planner,
     )
     _agent.configure_planning(planner, _automation_runner.save_sweep)
@@ -203,9 +206,33 @@ def _automation_payload(automation) -> dict:
         "prompt": automation.prompt,
         "enabled": automation.enabled,
         "schedule": automation.schedule,
+        "frequency": automation.frequency,
+        "hour": automation.hour,
+        "minute": automation.minute,
+        "weekday": automation.weekday,
         "channel_id": automation.channel_id,
         "built_in": automation.id in {d.id for d in DEFAULT_AUTOMATIONS},
     }
+
+
+def _apply_trigger(automation, body: dict) -> None:
+    """Take the trigger from the request, then derive its text and next run."""
+    frequency = str(body.get("frequency", automation.frequency)).strip().casefold()
+    if frequency not in FREQUENCIES:
+        raise HTTPException(400, f"frequency must be one of {', '.join(FREQUENCIES)}")
+    automation.frequency = frequency
+    for name, ceiling in (("hour", 24), ("minute", 60), ("weekday", 7)):
+        if name not in body:
+            continue
+        try:
+            value = int(body[name])
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{name} must be a whole number")
+        if not 0 <= value < ceiling:
+            raise HTTPException(400, f"{name} must be between 0 and {ceiling - 1}")
+        setattr(automation, name, value)
+    automation.schedule = automation.described()
+    automation.next_run_at = automation.next_run(time.time())
 
 
 def _free_automation_id(name: str) -> str:
@@ -218,8 +245,6 @@ def _free_automation_id(name: str) -> str:
 
 def register_chat_routes(app: FastAPI) -> None:
     """Register chat and channel routes on the FastAPI app."""
-
-    app.include_router(create_learning_router(get_knowledge))
 
     @app.get("/api/health")
     def health():
@@ -384,17 +409,16 @@ def register_chat_routes(app: FastAPI) -> None:
     async def create_automation(request: Request):
         body = await _body(request)
         name = str(body.get("name") or "").strip() or "New automation"
-        schedule = str(body.get("schedule") or "daily").strip()
         automation_id = _free_automation_id(name)
         automation = Automation(
             id=automation_id,
             name=name,
             prompt=str(body.get("prompt") or "").strip(),
-            schedule=schedule,
+            schedule="",
             enabled=bool(body.get("enabled", True)),
             channel_id=f"automation-{automation_id}",
-            next_run_at=next_run_from_schedule(schedule, time.time()),
         )
+        _apply_trigger(automation, body)
         _automation_store.save(automation)
         _channel_store.ensure_channel(automation.channel_id)
         return _automation_payload(automation)
@@ -405,18 +429,18 @@ def register_chat_routes(app: FastAPI) -> None:
         if automation is None:
             raise HTTPException(404, "automation not found")
         body = await _body(request)
-        for field in ("name", "prompt", "schedule"):
+        for field in ("name", "prompt"):
             if field in body:
                 setattr(automation, field, str(body[field] or "").strip())
         if "enabled" in body:
             automation.enabled = bool(body["enabled"])
-        automation.next_run_at = next_run_from_schedule(automation.schedule, time.time())
+        _apply_trigger(automation, body)
         _automation_store.save(automation)
         return _automation_payload(automation)
 
     @app.delete("/api/automations/{automation_id}")
     def delete_automation(automation_id: str):
-        # The two built-ins are referenced by id from the planning path.
+        # The built-in is referenced by id from the planning path.
         if automation_id in {definition.id for definition in DEFAULT_AUTOMATIONS}:
             raise HTTPException(409, "built-in automations cannot be deleted")
         if _automation_store.get(automation_id) is None:

@@ -4,14 +4,11 @@ const input = $("#input");
 const send = $("#send");
 const chips = $("#attachment-chips");
 const drawer = $("#drawer");
-const chatPane = $("#chat-pane");
-const settingsPane = $("#settings-pane");
+const editor = $("#editor");
 const automationChannels = $("#automation-channels");
-const automationEditors = $("#automation-editors");
-const systemPrompt = $("#system-prompt");
 const toast = $("#toast");
-const composerGrid = $("#composer-grid");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
+const JSON_HEADERS = { "Content-Type": "application/json" };
 const PAGE = 30;
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
@@ -125,12 +122,10 @@ function renderPlanControls(parent, controls) {
 }
 
 function resize() {
-  composerGrid.dataset.expanded = "false";
+  // Only the text box grows, and it grows upward: attach, mic and send stay
+  // pinned to the bottom corners however many lines are typed.
   input.style.height = "";
-  // An empty composer is always the collapsed single line; only typed content
-  // needs measuring. One line is 48px; past ~56 is a wrapped second line.
   const scrollHeight = input.value ? input.scrollHeight : 0;
-  composerGrid.dataset.expanded = String(scrollHeight > 56);
   if (input.value) input.style.height = `${Math.min(scrollHeight, 180)}px`;
   input.classList.toggle("capped", scrollHeight > 180);
   send.disabled = streaming || (!input.value.trim() && !attachments.length);
@@ -169,7 +164,7 @@ function readAsBase64(file) {
 
 function emptyState() {
   if (activeAutomation) {
-    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(activeAutomation.schedule)} — run it from the channels menu, or just talk to it here.</div></div>`;
+    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(activeAutomation.schedule)} — run or edit it from its ⋯ menu, or just talk to it here.</div></div>`;
   }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
@@ -248,25 +243,12 @@ function setActiveChannel(href) {
 
 async function showChat(automation) {
   activeAutomation = automation || null;
-  settingsPane.hidden = true;
-  chatPane.hidden = false;
   setActiveChannel(automation ? `#automation/${encodeURIComponent(automation.id)}` : "#chat");
   await loadChannel(automation ? automation.channel_id : await ensureChannel(TASK_CHANNEL_KEY));
   if (!drawer.open) input.focus();
 }
 
-async function showSettings() {
-  activeAutomation = null;
-  chatPane.hidden = true;
-  settingsPane.hidden = false;
-  setActiveChannel("#settings");
-  const data = await apiJSON("/api/settings");
-  systemPrompt.value = data.system_prompt || "";
-  renderAutomationEditors();
-}
-
 async function route() {
-  if (location.hash === "#settings") return showSettings();
   const match = location.hash.match(/^#automation\/(.+)$/);
   const automation = match
     && automations.find((item) => item.id === decodeURIComponent(match[1]));
@@ -275,25 +257,26 @@ async function route() {
 
 /* ── Channels drawer ─────────────────────────────────────────────────── */
 const CLOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
-const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>';
+const DOTS_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>';
 
 function renderChannels() {
   automationChannels.replaceChildren();
   for (const automation of automations) {
+    const id = esc(automation.id);
     const row = document.createElement("div");
     row.className = "channel-row";
-    const link = document.createElement("a");
-    link.className = "channel";
-    link.href = `#automation/${encodeURIComponent(automation.id)}`;
-    link.innerHTML = `${CLOCK_ICON}<span>${esc(automation.name)}</span>`;
-    const run = document.createElement("button");
-    run.type = "button";
-    run.className = "icon-button";
-    run.dataset.run = automation.id;
-    run.setAttribute("aria-label", `Run ${automation.name} now`);
-    run.innerHTML = PLAY_ICON;
-    row.append(link, run);
-    automationChannels.append(row);
+    row.innerHTML = `<a class="channel" href="#automation/${encodeURIComponent(automation.id)}">`
+      + `${CLOCK_ICON}<span>${esc(automation.name)}</span></a>`
+      + `<button class="icon-button dots" type="button" data-menu="${id}" aria-expanded="false"`
+      + ` aria-label="${esc(automation.name)} options">${DOTS_ICON}</button>`;
+    const menu = document.createElement("div");
+    menu.className = "row-menu";
+    menu.dataset.menuFor = automation.id;
+    menu.hidden = true;
+    menu.innerHTML = `<button type="button" data-action="run" data-id="${id}">Run now</button>`
+      + `<button type="button" data-action="edit" data-id="${id}">Edit</button>`
+      + (automation.built_in ? "" : `<button type="button" data-action="delete" data-id="${id}">Delete</button>`);
+    automationChannels.append(row, menu);
   }
   setActiveChannel(location.hash || "#chat");
 }
@@ -304,46 +287,115 @@ async function loadAutomations() {
   renderChannels();
 }
 
-function openDrawer() {
-  drawer.showModal();
+/* At most one row menu is open, and opening the drawer starts with none. */
+function toggleMenu(id) {
+  for (const menu of drawer.querySelectorAll(".row-menu")) {
+    menu.hidden = !(menu.dataset.menuFor === id && menu.hidden);
+  }
+  for (const dots of drawer.querySelectorAll(".dots")) {
+    const menu = drawer.querySelector(`.row-menu[data-menu-for="${dots.dataset.menu}"]`);
+    dots.setAttribute("aria-expanded", String(Boolean(menu) && !menu.hidden));
+  }
 }
 
-drawer.addEventListener("click", (event) => {
-  // A modal <dialog> fills the viewport for hit-testing; only the sheet is the sheet.
-  const inside = event.target.closest(".channels, .drawer-foot");
-  if (!inside) drawer.close();
-  else if (event.target.closest(".channel")) drawer.close();
+$("#menu").addEventListener("click", () => {
+  toggleMenu(null);
+  drawer.showModal();
 });
 
-drawer.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-run]");
-  if (!button) return;
-  const automation = automations.find((item) => item.id === button.dataset.run);
-  if (!automation) return;
-  button.disabled = true;
-  drawer.close();
-  location.hash = `#automation/${encodeURIComponent(automation.id)}`;
+drawer.addEventListener("click", (event) => {
+  const dots = event.target.closest(".dots");
+  if (dots) return toggleMenu(dots.dataset.menu);
+
+  const action = event.target.closest("[data-action]");
+  if (action) {
+    drawer.close();
+    return chooseAction(action.dataset.action, action.dataset.id);
+  }
+  if (event.target.closest("#add-automation")) {
+    drawer.close();
+    return addAutomation();
+  }
+  if (event.target.closest(".channel")) return drawer.close();
+  // A modal <dialog> fills the viewport for hit-testing; outside the list is the backdrop.
+  if (!event.target.closest(".channels")) drawer.close();
+});
+
+function chooseAction(action, id) {
+  if (action === "edit-chat") return openChatEditor();
+  const automation = automations.find((item) => item.id === id);
+  if (!automation) return undefined;
+  if (action === "edit") return openAutomationEditor(automation);
+  if (action === "delete") return deleteAutomation(automation);
+  return runAutomation(automation);
+}
+
+async function runAutomation(automation) {
   try {
     const result = await apiJSON(
       `/api/automations/${encodeURIComponent(automation.id)}/run`,
       { method: "POST" },
     );
-    await loadChannel(automation.channel_id);
+    // replaceState rather than assigning the hash: hashchange would start a
+    // second channel load that can land last and wipe the run's own controls.
+    history.replaceState(null, "", `#automation/${encodeURIComponent(automation.id)}`);
+    await showChat(automation);
     if (result.controls) {
       const parent = [...transcript.querySelectorAll(".assistant-stack")].at(-1);
       if (parent) renderPlanControls(parent, result.controls);
     }
   } catch (error) {
     addMessage("assistant", `Error: ${error.message}`);
-  } finally {
-    button.disabled = false;
   }
-});
+}
 
-$("#menu").addEventListener("click", openDrawer);
+async function deleteAutomation(automation) {
+  try {
+    await apiJSON(`/api/automations/${encodeURIComponent(automation.id)}`, { method: "DELETE" });
+    const wasOpen = activeAutomation?.id === automation.id;
+    await loadAutomations();
+    if (wasOpen) location.hash = "#chat";
+    flash("Deleted");
+  } catch (error) {
+    flash(`Not deleted: ${error.message}`);
+  }
+}
 
-/* ── Settings: the chat prompt, and one prompt + trigger per automation ─ */
+async function addAutomation() {
+  try {
+    await apiJSON("/api/automations", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ name: "New automation", prompt: "", frequency: "daily", hour: 9, minute: 0 }),
+    });
+    await loadAutomations();
+    openAutomationEditor(automations.at(-1));
+  } catch (error) {
+    flash(`Not created: ${error.message}`);
+  }
+}
+
+/* ── Editor: the one place a prompt or a trigger changes ─────────────── */
+const editorTitle = $("#editor-title");
+const editorName = $("#editor-name");
+const editorPrompt = $("#editor-prompt");
+const editorPromptLabel = $("#editor-prompt-label");
+const editorTrigger = $("#editor-trigger");
+const editorFrequency = $("#editor-frequency");
+const editorWeekday = $("#editor-weekday");
+const editorTime = $("#editor-time");
+const editorMinute = $("#editor-minute");
+const editorNext = $("#editor-next");
+const editorDelete = $("#editor-delete");
+let editing = null; // null while editing the chat's own instructions
 let toastTimer = 0;
+
+editorMinute.replaceChildren(...Array.from({ length: 12 }, (_, index) => {
+  const option = document.createElement("option");
+  option.value = String(index * 5);
+  option.textContent = `:${String(index * 5).padStart(2, "0")}`;
+  return option;
+}));
 
 function flash(message) {
   toast.textContent = message;
@@ -352,86 +404,95 @@ function flash(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("show"), 1600);
 }
 
-function renderAutomationEditors() {
-  automationEditors.replaceChildren();
-  for (const automation of automations) {
-    const card = document.createElement("article");
-    card.className = "automation-card";
-    card.dataset.id = automation.id;
-    card.innerHTML = `
-      <div class="card-head">
-        <input class="field" data-field="name" value="${esc(automation.name)}" aria-label="Automation name">
-        ${automation.built_in ? "" : `<button class="icon-button" type="button" data-delete="${esc(automation.id)}" aria-label="Delete ${esc(automation.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m-11 0 1 14h12l1-14"/></svg></button>`}
-      </div>
-      <label for="prompt-${esc(automation.id)}">Prompt</label>
-      <textarea class="field custom-scrollbar" id="prompt-${esc(automation.id)}" data-field="prompt" rows="4" placeholder="What should it do?">${esc(automation.prompt || "")}</textarea>
-      <label for="trigger-${esc(automation.id)}">Trigger</label>
-      <input class="field" id="trigger-${esc(automation.id)}" data-field="schedule" value="${esc(automation.schedule || "")}" placeholder="daily at 21:00">`;
-    automationEditors.append(card);
+const twoDigits = (value) => String(value ?? 0).padStart(2, "0");
+
+async function openChatEditor() {
+  editing = null;
+  editor.dataset.kind = "chat";
+  editorTitle.textContent = "Chat instructions";
+  editorPromptLabel.textContent = "How the assistant behaves";
+  editorPrompt.value = "";
+  editor.showModal();
+  try {
+    editorPrompt.value = (await apiJSON("/api/settings")).system_prompt || "";
+  } catch (error) {
+    flash(`Could not load: ${error.message}`);
   }
 }
 
-systemPrompt.addEventListener("change", async () => {
-  const prompt = systemPrompt.value.trim();
-  if (!prompt) return flash("Instructions can't be empty");
-  try {
-    await apiJSON("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system_prompt: prompt }),
-    });
-    flash("Saved");
-  } catch (error) {
-    flash(`Not saved: ${error.message}`);
-  }
-});
+function openAutomationEditor(automation) {
+  if (!automation) return;
+  editing = automation;
+  editor.dataset.kind = "automation";
+  editorTitle.textContent = automation.name;
+  editorPromptLabel.textContent = "Prompt";
+  editorName.value = automation.name;
+  editorPrompt.value = automation.prompt || "";
+  editorFrequency.value = automation.frequency || "daily";
+  editorWeekday.value = String(automation.weekday ?? 0);
+  editorTime.value = `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
+  editorMinute.value = String(automation.minute ?? 0);
+  editorDelete.hidden = Boolean(automation.built_in);
+  editorTrigger.dataset.frequency = editorFrequency.value;
+  editorNext.textContent = automation.schedule || "";
+  editor.showModal();
+}
 
-automationEditors.addEventListener("change", async (event) => {
-  const field = event.target.closest("[data-field]");
-  const card = field?.closest(".automation-card");
-  if (!card) return;
+function triggerFromForm() {
+  const frequency = editorFrequency.value;
+  if (frequency === "hourly") return { frequency, minute: Number(editorMinute.value) };
+  const [hour, minute] = (editorTime.value || "09:00").split(":").map(Number);
+  return frequency === "weekly"
+    ? { frequency, hour, minute, weekday: Number(editorWeekday.value) }
+    : { frequency, hour, minute };
+}
+
+async function saveEditor() {
+  if (!editing) {
+    const prompt = editorPrompt.value.trim();
+    if (!prompt) return flash("Instructions can't be empty");
+    try {
+      await apiJSON("/api/settings", {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ system_prompt: prompt }),
+      });
+      return flash("Saved");
+    } catch (error) {
+      return flash(`Not saved: ${error.message}`);
+    }
+  }
   try {
-    const saved = await apiJSON(`/api/automations/${encodeURIComponent(card.dataset.id)}`, {
+    const saved = await apiJSON(`/api/automations/${encodeURIComponent(editing.id)}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field.dataset.field]: field.value }),
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        name: editorName.value.trim() || editing.name,
+        prompt: editorPrompt.value,
+        ...triggerFromForm(),
+      }),
     });
+    editing = saved;
     automations = automations.map((item) => (item.id === saved.id ? saved : item));
+    if (activeAutomation?.id === saved.id) activeAutomation = saved;
+    editorTitle.textContent = saved.name;
+    editorNext.textContent = saved.schedule;
     renderChannels();
-    flash("Saved");
+    return flash("Saved");
   } catch (error) {
-    flash(`Not saved: ${error.message}`);
+    return flash(`Not saved: ${error.message}`);
   }
+}
+
+editor.addEventListener("change", () => {
+  editorTrigger.dataset.frequency = editorFrequency.value;
+  saveEditor();
 });
 
-automationEditors.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-delete]");
-  if (!button) return;
-  button.disabled = true;
-  try {
-    await apiJSON(`/api/automations/${encodeURIComponent(button.dataset.delete)}`, { method: "DELETE" });
-    await loadAutomations();
-    renderAutomationEditors();
-    flash("Deleted");
-  } catch (error) {
-    button.disabled = false;
-    flash(`Not deleted: ${error.message}`);
-  }
-});
-
-$("#add-automation").addEventListener("click", async () => {
-  try {
-    await apiJSON("/api/automations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "New automation", prompt: "", schedule: "daily at 09:00" }),
-    });
-    await loadAutomations();
-    renderAutomationEditors();
-    automationEditors.querySelector(".automation-card:last-child .field")?.focus();
-  } catch (error) {
-    flash(`Not created: ${error.message}`);
-  }
+editorDelete.addEventListener("click", () => {
+  const target = editing;
+  editor.close();
+  if (target) deleteAutomation(target);
 });
 
 /* ── Theme: one control, three modes ─────────────────────────────────── */
@@ -628,8 +689,6 @@ window.addEventListener("hashchange", () => route().catch(showLoadError));
 function showLoadError(error) {
   console.error(error);
   transcript.innerHTML = "<div class=\"empty-state\">Unable to load this chat.</div>";
-  chatPane.hidden = false;
-  settingsPane.hidden = true;
 }
 
 applyTheme(localStorage.getItem("agentonomy-theme") || "system");
