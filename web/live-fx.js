@@ -164,16 +164,16 @@
     context.clearRect(0, 0, w, h);
 
     // The calm base: a soft border glow that breathes with the voice.
-    context.strokeStyle = `rgba(96, 165, 250, ${0.05 + level * 0.3})`;
-    context.lineWidth = 1.6;
+    context.strokeStyle = `rgba(96, 165, 250, ${0.08 + level * 0.5})`;
+    context.lineWidth = 2;
     context.shadowColor = GLOW;
-    context.shadowBlur = 10 + level * 30;
+    context.shadowBlur = 14 + level * 40;
     context.strokeRect(1.5, 1.5, w - 3, h - 3);
 
     if (!reducedMotion.matches) {
       // Louder voice → more frequent, brighter strikes; silence → rare sparks.
-      if (Math.random() < 0.006 + level * 0.11) spawnBolt(now, false);
-      if (level > 0.45 && Math.random() < level * 0.02) spawnBolt(now, true);
+      if (Math.random() < 0.012 + level * 0.14) spawnBolt(now, false);
+      if (level > 0.4 && Math.random() < level * 0.03) spawnBolt(now, true);
       bolts = bolts.filter((bolt) => drawBolt(bolt, now));
     }
     raf = requestAnimationFrame(frame);

@@ -96,7 +96,7 @@
         const centered = (data[index] - 128) / 128;
         sum += centered * centered;
       }
-      window.LiveFx.setLevel(Math.min(1, Math.sqrt(sum / data.length) * 3.2));
+      window.LiveFx.setLevel(Math.min(1, Math.sqrt(sum / data.length) * 4.2));
       levelRaf = requestAnimationFrame(tick);
     };
     levelRaf = requestAnimationFrame(tick);
@@ -145,8 +145,7 @@
     socket.onmessage = (event) => {
       const frame = JSON.parse(event.data);
       if (frame.type === "audio") playChunk(fromBase64(frame.data));
-      else if (frame.type === "user_text") handlers.onUserText?.(frame.text, frame.replace);
-      else if (frame.type === "agent_text") handlers.onAgentText?.(frame.text, frame.replace);
+      else if (frame.type === "chat_updated") handlers.onChatUpdated?.();
       else if (frame.type === "interrupted") { stopPlayback(); handlers.onInterrupted?.(); }
       else if (frame.type === "turn_complete") handlers.onTurnComplete?.();
       else if (frame.type === "error") { handlers.onError?.(frame.message); stop(); }

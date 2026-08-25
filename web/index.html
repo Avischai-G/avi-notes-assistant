@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Agentonomy Tasks</title>
+  <meta name="theme-color" content="#111111">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <script>(function(){var m=localStorage.getItem('agentonomy-theme')||'system';var d=document.documentElement;d.dataset.themeMode=m;d.dataset.theme=m==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):m;})();</script>
   <link rel="stylesheet" href="app.css">
 </head>
@@ -42,7 +46,57 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         <span>New automation</span>
       </button>
+
+      <button class="channel" id="open-settings" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        <span>Settings</span>
+      </button>
     </nav>
+  </dialog>
+
+  <dialog class="editor" id="settings-editor" aria-labelledby="settings-title">
+    <form method="dialog" class="editor-head">
+      <h2 id="settings-title">Settings</h2>
+      <button class="icon-button" type="submit" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </form>
+    <div class="editor-body custom-scrollbar">
+      <div class="field-group">
+        <label for="settings-api-key" id="settings-api-key-label">Gemini API key</label>
+        <input class="field" id="settings-api-key" type="password" autocomplete="off" placeholder="Paste a key to run the app on it">
+        <p class="hint" id="settings-api-key-state"></p>
+      </div>
+      <div class="field-group">
+        <label for="settings-voice" id="settings-voice-label">Live voice</label>
+        <select class="field" id="settings-voice"></select>
+        <p class="hint">The voice the live conversation speaks with.</p>
+      </div>
+      <div class="field-group">
+        <label for="settings-language" id="settings-language-label">Live accent</label>
+        <select class="field" id="settings-language">
+          <option value="">Default</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="en-AU">English (Australia)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="de-DE">German</option>
+          <option value="fr-FR">French</option>
+          <option value="es-ES">Spanish</option>
+          <option value="it-IT">Italian</option>
+          <option value="pt-BR">Portuguese (Brazil)</option>
+          <option value="he-IL">Hebrew</option>
+          <option value="ja-JP">Japanese</option>
+          <option value="hi-IN">Hindi</option>
+        </select>
+        <p class="hint">Language and accent for the live voice.</p>
+      </div>
+    </div>
+    <div class="editor-foot">
+      <button class="danger" id="settings-remove-key" type="button" hidden>Remove key</button>
+      <p class="hint" id="settings-note"></p>
+      <button class="primary" id="settings-save" type="button">Save</button>
+    </div>
   </dialog>
 
   <dialog class="editor" id="editor" aria-labelledby="editor-title">

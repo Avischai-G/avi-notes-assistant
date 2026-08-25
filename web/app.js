@@ -613,32 +613,11 @@ document.addEventListener("drop", (event) => {
   event.preventDefault();
   addFiles(event.dataTransfer.files);
 });
-/* Live voice session: transcripts stream into the home chat while the rest
-   of the app stays fully usable. */
+/* Live voice session: pure voice — nothing is written into the chat except
+   the tasks the agent hands to the organizer, which appear as normal turns.
+   The rest of the app stays fully usable while it runs. */
 const liveToggle = $("#live-toggle");
 let liveChannelId = null;
-let liveUserBubble = null;
-let liveAgentBubble = null;
-
-function liveText(role, delta, replace = false) {
-  if (channelId !== liveChannelId) return; // server persists it either way
-  $(".empty-state")?.remove();
-  let bubble = role === "user" ? liveUserBubble : liveAgentBubble;
-  if (!bubble || !bubble.isConnected) {
-    const built = buildMessage(role, "");
-    built.row.classList.add("entering");
-    transcript.append(built.row);
-    bubble = built.bubble;
-    bubble.dataset.liveText = "";
-    if (role === "user") liveUserBubble = bubble;
-    else liveAgentBubble = bubble;
-  }
-  // A finished transcription replaces the streamed deltas outright.
-  bubble.dataset.liveText = replace ? delta : bubble.dataset.liveText + delta;
-  if (role === "user") bubble.textContent = bubble.dataset.liveText;
-  else bubble.innerHTML = markdown(bubble.dataset.liveText);
-  bottom();
-}
 
 liveToggle.addEventListener("click", async () => {
   if (window.LiveSession.active) {
@@ -649,24 +628,86 @@ liveToggle.addEventListener("click", async () => {
   try {
     liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
     await window.LiveSession.start(liveChannelId, {
-      onUserText: (text, replace) => liveText("user", text, replace),
-      onAgentText: (text, replace) => liveText("assistant", text, replace),
-      onTurnComplete: () => { liveUserBubble = null; liveAgentBubble = null; },
-      onInterrupted: () => { liveAgentBubble = null; },
-      onError: (message) => addMessage("assistant", `Live error: ${message}`),
+      onChatUpdated: async () => {
+        // The voice agent dropped a task into the chat; refresh if visible.
+        if (channelId === liveChannelId) await loadChannel(liveChannelId);
+      },
+      onError: (message) => flash(`Live error: ${message}`),
       onState: (on) => {
         liveToggle.classList.toggle("active", on);
         liveToggle.setAttribute(
           "aria-label",
           on ? "End live conversation" : "Start live conversation",
         );
-        if (!on) { liveUserBubble = null; liveAgentBubble = null; }
       },
     });
   } catch (error) {
-    addMessage("assistant", `Live error: ${error.message}`);
+    flash(`Live error: ${error.message}`);
   } finally {
     liveToggle.disabled = false;
+  }
+});
+
+/* Settings: the evaluator's Gemini API key plus the live voice and accent. */
+const settingsEditor = $("#settings-editor");
+const settingsVoice = $("#settings-voice");
+const settingsLanguage = $("#settings-language");
+const settingsApiKey = $("#settings-api-key");
+const settingsApiKeyState = $("#settings-api-key-state");
+const settingsRemoveKey = $("#settings-remove-key");
+const NO_KEY_HINT = "No key saved — the app runs on this project's Google Cloud billing.";
+const KEY_SET_HINT = "A key is saved and in use. Leave blank to keep it, or remove it below.";
+
+$("#open-settings").addEventListener("click", async () => {
+  try {
+    const settings = await apiJSON("/api/settings");
+    settingsVoice.replaceChildren(
+      new Option("Default", ""),
+      ...settings.voices.map((voice) => new Option(voice, voice)),
+    );
+    settingsVoice.value = settings.voice_name || "";
+    settingsLanguage.value = settings.language_code || "";
+    settingsApiKey.value = "";
+    settingsApiKeyState.textContent = settings.api_key_set ? KEY_SET_HINT : NO_KEY_HINT;
+    settingsRemoveKey.hidden = !settings.api_key_set;
+    drawer.close();
+    settingsEditor.showModal();
+  } catch (error) {
+    flash(`Could not load settings: ${error.message}`);
+  }
+});
+
+$("#settings-save").addEventListener("click", async () => {
+  const payload = {
+    voice_name: settingsVoice.value,
+    language_code: settingsLanguage.value,
+  };
+  if (settingsApiKey.value.trim()) payload.gemini_api_key = settingsApiKey.value.trim();
+  try {
+    await apiJSON("/api/settings", {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(payload),
+    });
+    settingsEditor.close();
+    flash("Settings saved");
+  } catch (error) {
+    flash(`Error: ${error.message}`);
+  }
+});
+
+settingsRemoveKey.addEventListener("click", async () => {
+  try {
+    await apiJSON("/api/settings", {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ gemini_api_key: "" }),
+    });
+    settingsRemoveKey.hidden = true;
+    settingsApiKeyState.textContent = NO_KEY_HINT;
+    flash("Key removed");
+  } catch (error) {
+    flash(`Error: ${error.message}`);
   }
 });
 window.addEventListener("hashchange", () => route().catch(showLoadError));
@@ -675,6 +716,28 @@ function showLoadError(error) {
   console.error(error);
   transcript.innerHTML = "<div class=\"empty-state\">Unable to load this chat.</div>";
 }
+
+/* Installable app: register the shell worker and, when the browser offers
+   installation, grow an "Install app" row at the bottom of the drawer. */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  if (document.querySelector("#install-app")) return;
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "channel";
+  row.id = "install-app";
+  row.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Install app</span>';
+  row.addEventListener("click", async () => {
+    drawer.close();
+    event.prompt();
+    const choice = await event.userChoice;
+    if (choice.outcome === "accepted") row.remove();
+  });
+  drawer.querySelector(".channels").append(row);
+});
 
 applyTheme(localStorage.getItem("agentonomy-theme") || "system");
 

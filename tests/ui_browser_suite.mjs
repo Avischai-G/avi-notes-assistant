@@ -375,9 +375,11 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     Math.abs(drawer.width - expectedWidth) < 1,
     `drawer is ${drawer.width}px wide, expected ${expectedWidth}px`,
   );
+  // #install-app only exists when the browser offers installation, so it is
+  // excluded rather than asserted either way.
   assert.deepEqual(
-    (await page.locator("#drawer .channel").allInnerTexts()).map((item) => item.trim()),
-    ["Chat", "Organize tasks", "New automation"],
+    (await page.locator("#drawer .channel:not(#install-app)").allInnerTexts()).map((item) => item.trim()),
+    ["Chat", "Organize tasks", "New automation", "Settings"],
   );
   assert.equal(await page.locator("#drawer .dots").count(), 2);
   assert.equal(await page.locator("#drawer .row-menu:not([hidden])").count(), 0);
