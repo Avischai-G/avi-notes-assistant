@@ -866,7 +866,7 @@ body.automation-view {
   animation: spinner-turn 800ms linear infinite;
 }
 .live-toggle.connecting { position: relative; }
-.live-toggle.connecting svg { opacity: 0.3; }
+.live-toggle.connecting svg { visibility: hidden; }
 .live-toggle.connecting::after {
   content: "";
   position: absolute;
