@@ -16,10 +16,7 @@ flowchart LR
     T[Twelve gated board tools\n+ list/run automations]
     M[Local stdio Notion MCP\nexactly ten operations]
     N[(One existing\nNotion database)]
-    F[(Firestore\nchannels · automations\nsettings · embedding cache)]
-    K[Markdown knowledge store\n/knowledge filesystem contract]
-    G[(Cloud Storage\nmounted at /knowledge)]
-    E[Vertex AI embeddings\ngemini-embedding-001 · global]
+    F[(Firestore\nchannels · automations\nsettings)]
     S[Secret Manager\nNotion configuration\ninjected by reference]
     C[Cloud Scheduler\nPOST /api/automations/tick]
 
@@ -36,9 +33,6 @@ flowchart LR
     T --> M
     M --> N
     API --> F
-    A --> K
-    K --- G
-    K --> E
 ```
 
 The deployed chat request path is:
@@ -73,7 +67,5 @@ secret references, never as literal environment values. Access is limited to the
 compute runtime identity with `roles/secretmanager.secretAccessor`.
 
 Firestore runs in Native mode and stores durable browser channels, automation
-records with their structured triggers, settings, aggregate source metadata,
-and embedding-cache metadata. Markdown bodies use the `/knowledge` filesystem
-contract; the deployed Cloud Run service mounts a dedicated Cloud Storage
-volume there. This document reflects the live release topology.
+records with their structured triggers, and settings. This document reflects
+the live release topology.

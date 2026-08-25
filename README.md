@@ -26,8 +26,6 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
 - Every automation carries a structured trigger — hourly, daily or weekly, plus
   when — and one derived sentence (`Daily at 21:00`) for display. Nothing is
   special-cased: an automation is due when its own `next_run_at` arrives.
-- The organiser's learning event log stays in-process. There is no Learning page
-  and no browser route that reads it.
 
 ## Architecture
 
@@ -120,7 +118,7 @@ The approved deployment is live at the URL above. Its runtime provides:
 
 - project `gen-lang-client-0256233370` and `GOOGLE_CLOUD_LOCATION=global`;
 - `FIRESTORE_DATABASE=coroner`, selecting the existing Firestore Native database
-  for channels, automation state, embedding metadata, and private learning-event metadata;
+  for channels, automation state, and settings;
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
 - `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.7-flash`;

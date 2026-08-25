@@ -85,9 +85,7 @@ follow-the-system themes, responsive from desktop to mobile.
   database; startup discovery validates the exact tool set and fails closed
   on drift. Workspace-wide search is on the forbidden-operation list, so the
   app can never see past the one board shared with its integration.
-- Firestore persists channels, automation records and triggers, settings, and
-  embedding metadata; Markdown knowledge lives on a Cloud Storage volume
-  mounted at `/knowledge`, with `gemini-embedding-001` for semantic retrieval.
+- Firestore persists channels, automation records and triggers, and settings.
 - The Notion token arrives through a Secret Manager reference, never an
   environment literal in a command or manifest, and is never placed in a
   prompt or command argument.
@@ -98,8 +96,8 @@ The only external data source is the user's own Notion tasks database,
 connected through an internal Notion integration — the app reads and writes
 that single board and nothing else, enforced by a permanent unfiltered-search
 regression that hard-fails unless every reachable result belongs to the one
-configured data source. Application state (channels, automations, settings,
-embedding metadata) lives in Firestore; a device-local API key lives only in
+configured data source. Application state (channels, automations, settings)
+lives in Firestore; a device-local API key lives only in
 that browser's `localStorage`. No third-party datasets are used.
 
 ## Challenges
