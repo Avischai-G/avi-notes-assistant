@@ -601,7 +601,10 @@ def register_chat_routes(app: FastAPI) -> None:
         from google import genai
 
         try:
-            client = genai.Client(api_key=key)
+            # vertexai=False: GOOGLE_GENAI_USE_VERTEXAI=true is set in the
+            # server env and would otherwise route this to Vertex, ignoring
+            # the key entirely.
+            client = genai.Client(api_key=key, vertexai=False)
             reply = await asyncio.wait_for(
                 client.aio.models.generate_content(
                     model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
@@ -613,7 +616,10 @@ def register_chat_routes(app: FastAPI) -> None:
         except asyncio.TimeoutError:
             return {"ok": False, "reason": "The Gemini API did not answer within 20 seconds"}
         except Exception as exc:
-            return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+            # The genai ClientError stringifies the whole error payload;
+            # the human-readable part is its 'message' field.
+            match = re.search(r"'message': '([^']+)'", str(exc))
+            return {"ok": False, "reason": match.group(1) if match else str(exc)[:200]}
 
     @app.get("/api/settings")
     def get_settings():
