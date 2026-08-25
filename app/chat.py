@@ -190,10 +190,10 @@ def _speech_settings() -> dict:
 
 
 def _live_model_id(api_key: str | None) -> str:
-    """The live-audio model: the Gemini API and Vertex publish it under
-    different ids, so the pinned env id only applies in Vertex mode."""
+    """The live-audio model: the Gemini API and Vertex publish DIFFERENT ids
+    (verified against both backends' model lists), so each mode has its own."""
     if api_key:
-        return "gemini-live-2.5-flash-preview"
+        return os.environ.get("CORONER_LIVE_MODEL_API", "gemini-3.1-flash-live-preview")
     return os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash")
 
 

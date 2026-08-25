@@ -211,7 +211,7 @@ def test_device_key_header_selects_a_cached_per_key_agent(monkeypatch, tmp_path)
     # Same key → same cached pair, distinct from the server-credential agents.
     assert organizer_a is organizer_b and live_a is live_b
     assert organizer_a is not default_agent
-    assert live_a.model == "gemini-live-2.5-flash-preview"
+    assert live_a.model == "gemini-3.1-flash-live-preview"
     # Rejected before any model call; nothing about the key is stored.
     response = client.post(
         "/api/channels/x/chat",
