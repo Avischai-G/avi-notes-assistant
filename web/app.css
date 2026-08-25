@@ -353,10 +353,12 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   position: sticky;
   top: -24px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   margin: -4px -2px 0;
-  padding: 8px 0 1px;
+  /* The ball's bounce arc lives in the top padding; the bar's clip-path
+     would cut off anything above the box. */
+  padding: 32px 0 1px;
   color: var(--muted);
   font-size: var(--type-small);
   background: var(--panel-bg);
@@ -366,10 +368,61 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   transition: transform var(--motion-smooth), opacity 280ms;
 }
 .working-bar.complete { transform: translateY(88px); opacity: 0; }
-.ball { width: 16px; height: 16px; border-radius: 50%; background: var(--muted); animation: working-ball 1500ms linear infinite; }
-@keyframes working-ball {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+/* The thinking ball, ported from Agentonomy's chat loader: same 19px track,
+   ~10px ball, squash-and-stretch bounce and motion-blur afterimage. */
+.ball {
+  --loader-color: 59 130 246;
+  --loader-size: 19px;
+  position: relative;
+  flex: none;
+  width: calc(var(--loader-size) * 0.54);
+  height: calc(var(--loader-size) * 0.54);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(var(--ink) / 0.7), transparent 28%),
+    rgb(var(--loader-color) / 0.94);
+  box-shadow:
+    0 0 10px rgb(var(--loader-color) / 0.28),
+    0 7px 10px rgb(0 0 0 / 0.22);
+  transform-origin: center bottom;
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: agentonomy-loader-bounce 1500ms linear infinite;
+}
+.ball::after {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgb(var(--loader-color) / 0.58);
+  filter: blur(3.5px);
+  opacity: 0;
+  transform: translate3d(0, 0, 0) scale3d(0.8, 1.1, 1);
+  transform-origin: center;
+  will-change: opacity, transform;
+  animation: agentonomy-loader-motion-blur 1500ms linear infinite;
+}
+@keyframes agentonomy-loader-bounce {
+  0% { transform: translate3d(0, 0, 0) scale3d(1.12, 0.88, 1); }
+  6% { transform: translate3d(0, calc(var(--loader-size) * -0.42), 0) scale3d(0.98, 1.02, 1); }
+  14% { transform: translate3d(0, calc(var(--loader-size) * -0.84), 0) scale3d(0.95, 1.05, 1); }
+  24% { transform: translate3d(0, calc(var(--loader-size) * -1.14), 0) scale3d(0.94, 1.06, 1); }
+  36% { transform: translate3d(0, calc(var(--loader-size) * -1.3), 0) scale3d(0.94, 1.06, 1); }
+  46% { transform: translate3d(0, calc(var(--loader-size) * -1.34), 0) scale3d(0.95, 1.05, 1); }
+  56% { transform: translate3d(0, calc(var(--loader-size) * -1.3), 0) scale3d(0.95, 1.05, 1); }
+  68% { transform: translate3d(0, calc(var(--loader-size) * -1.06), 0) scale3d(0.96, 1.04, 1); }
+  78% { transform: translate3d(0, calc(var(--loader-size) * -0.58), 0) scale3d(1.01, 0.99, 1); }
+  88% { transform: translate3d(0, calc(var(--loader-size) * -0.1), 0) scale3d(1.08, 0.92, 1); }
+  94% { transform: translate3d(0, calc(var(--loader-size) * -0.02), 0) scale3d(1.14, 0.86, 1); }
+  100% { transform: translate3d(0, 0, 0) scale3d(1.12, 0.88, 1); }
+}
+@keyframes agentonomy-loader-motion-blur {
+  0%, 18%, 44%, 58%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale3d(0.8, 1, 1); }
+  8% { opacity: 0.18; transform: translate3d(0, calc(var(--loader-size) * 0.08), 0) scale3d(0.74, 1.72, 1); }
+  74% { opacity: 0.1; transform: translate3d(0, calc(var(--loader-size) * -0.1), 0) scale3d(0.76, 1.48, 1); }
+  84% { opacity: 0.26; transform: translate3d(0, calc(var(--loader-size) * -0.16), 0) scale3d(0.72, 2.05, 1); }
+  92% { opacity: 0.12; transform: translate3d(0, calc(var(--loader-size) * -0.06), 0) scale3d(0.78, 1.42, 1); }
 }
 
 /* ── Composer ────────────────────────────────────────────────────────── */

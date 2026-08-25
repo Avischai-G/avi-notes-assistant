@@ -33,3 +33,33 @@ def test_settings_announce_the_requirement(client):
 
 def test_key_check_requires_the_header(client):
     assert client.post("/api/key-check").status_code == 400
+
+
+KEY = "k" * 30
+
+
+def test_key_check_refuses_an_ineligible_model_before_any_network(client):
+    result = client.post(
+        "/api/key-check",
+        headers={"X-Gemini-Key": KEY, "X-Gemini-Model": "gpt-4o"},
+    ).json()
+    assert result["ok"] is False
+    assert "Gemini 3.5" in result["reason"]
+
+
+def test_a_malformed_model_identifier_is_a_client_error(client):
+    response = client.post(
+        "/api/key-check",
+        headers={"X-Gemini-Key": KEY, "X-Gemini-Model": "not a model!!"},
+    )
+    assert response.status_code == 400
+
+
+def test_chat_with_an_ineligible_model_fails_closed(client):
+    response = client.post(
+        "/api/channels/home/chat",
+        json={"message": "hi"},
+        headers={"X-Gemini-Key": KEY, "X-Gemini-Model": "gemini-2.0-flash"},
+    )
+    assert response.status_code == 400
+    assert "3.5" in response.json()["detail"]

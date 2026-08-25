@@ -39,7 +39,7 @@ from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
 from app.task_planning import BoardReview, FREQUENCIES
 from app.task_store import FakeTaskStore
-from app.organizer import TaskOrganizerAgent
+from app.organizer import TaskOrganizerAgent, _eligible_model
 from app.life import LIFE_PROMPT, LifeAgent
 
 
@@ -179,6 +179,8 @@ _KEY_REQUIRED_DETAIL = (
 _keyed_agents: dict[str, tuple] = {}
 _KEYED_AGENTS_MAX = 8
 _API_KEY_PATTERN = re.compile(r"[A-Za-z0-9_\-]{20,200}")
+# A model id is free text from Settings, so it is shape-checked like the key.
+_MODEL_PATTERN = re.compile(r"[A-Za-z0-9._\-/]{1,120}")
 
 
 def _settings_payload() -> dict:
@@ -190,6 +192,7 @@ def _settings_payload() -> dict:
         "language_code": str(_settings_store.get_value("language_code") or ""),
         "voices": list(LIVE_VOICES),
         "require_key": _REQUIRE_DEVICE_KEY,
+        "default_model": _default_model(),
     }
 
 
@@ -283,12 +286,16 @@ def _live_model_id() -> str:
     return os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash")
 
 
-def _make_agents(api_key: str | None) -> tuple:
+def _default_model() -> str:
+    return os.environ.get("CORONER_MODEL", "gemini-3.7-flash")
+
+
+def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
     """One organizer + one live agent bound to the given key (None = server
     credentials: the server's own key, else Vertex)."""
     try:
         organizer = TaskOrganizerAgent(
-            model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+            model=model or _default_model(),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
             knowledge=_knowledge,
             api_key=api_key,
@@ -324,13 +331,17 @@ def _build_agents() -> None:
     _agent.configure_automations(_automation_runner)
 
 
-def _agents_for_request_key(api_key: str) -> tuple:
-    """The agent pair for one device-local key, built on first use."""
-    digest = hashlib.sha256(api_key.encode()).hexdigest()
+def _agents_for_request_key(api_key: str, model: str | None = None) -> tuple:
+    """The agent pair for one device-local (key, model), built on first use."""
+    digest = hashlib.sha256(f"{model or ''}:{api_key}".encode()).hexdigest()
     if digest not in _keyed_agents:
         if len(_keyed_agents) >= _KEYED_AGENTS_MAX:
             _keyed_agents.pop(next(iter(_keyed_agents)))
-        organizer, live = _make_agents(api_key)
+        try:
+            organizer, live = _make_agents(api_key, model)
+        except RuntimeError as exc:
+            # The organizer's own model guard, surfaced as the client's fault.
+            raise HTTPException(400, str(exc))
         organizer.configure_automations(_automation_runner)
         _keyed_agents[digest] = (organizer, live)
     return _keyed_agents[digest]
@@ -344,6 +355,16 @@ def _request_api_key(raw: str | None) -> str | None:
     if not _API_KEY_PATTERN.fullmatch(key):
         raise HTTPException(400, "That does not look like a Gemini API key")
     return key
+
+
+def _request_model(raw: str | None) -> str | None:
+    """Validate an inbound model id; None when absent, 400 when malformed."""
+    model = (raw or "").strip()
+    if not model:
+        return None
+    if not _MODEL_PATTERN.fullmatch(model):
+        raise HTTPException(400, "That does not look like a model identifier")
+    return model
 
 
 def get_stores() -> tuple:
@@ -481,8 +502,9 @@ def register_chat_routes(app: FastAPI) -> None:
         """
         channel_store, task_store, agent = get_stores()
         device_key = _request_api_key(request.headers.get("x-gemini-key"))
+        device_model = _request_model(request.headers.get("x-gemini-model"))
         if device_key:
-            agent, _ = _agents_for_request_key(device_key)
+            agent, _ = _agents_for_request_key(device_key, device_model)
         elif _REQUIRE_DEVICE_KEY:
             raise HTTPException(401, _KEY_REQUIRED_DETAIL)
 
@@ -557,11 +579,12 @@ def register_chat_routes(app: FastAPI) -> None:
                 raise RuntimeError("Live voice agent not initialized")
             first = await websocket.receive_json()
             live_agent = _live_voice_agent
-            device_key = None
+            device_key = device_model = None
             if isinstance(first, dict) and first.get("type") == "init":
                 device_key = _request_api_key(first.get("api_key"))
+                device_model = _request_model(first.get("model"))
             if device_key:
-                agent, live_agent = _agents_for_request_key(device_key)
+                agent, live_agent = _agents_for_request_key(device_key, device_model)
             elif _REQUIRE_DEVICE_KEY:
                 raise HTTPException(401, _KEY_REQUIRED_DETAIL)
             await live_agent.live_bridge(
@@ -590,14 +613,22 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.post("/api/key-check")
     async def key_check(request: Request):
-        """One tiny Gemini API call with the supplied key: works or why not.
+        """One tiny Gemini API call with the supplied key and model: works or
+        why not.
 
-        The key rides the X-Gemini-Key header like every chat request and is
-        never stored or logged.
+        Key and model ride the X-Gemini-Key / X-Gemini-Model headers like
+        every chat request; neither is stored or logged.
         """
         key = _request_api_key(request.headers.get("x-gemini-key"))
         if not key:
             raise HTTPException(400, "Send the key to check in the X-Gemini-Key header")
+        model = _request_model(request.headers.get("x-gemini-model")) or _default_model()
+        if not _eligible_model(model):
+            return {
+                "ok": False,
+                "reason": f"{model!r} will be refused by the app: it requires "
+                "Gemini 3.5 or newer (e.g. gemini-3.7-flash).",
+            }
         from google import genai
 
         try:
@@ -607,12 +638,12 @@ def register_chat_routes(app: FastAPI) -> None:
             client = genai.Client(api_key=key, vertexai=False)
             reply = await asyncio.wait_for(
                 client.aio.models.generate_content(
-                    model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+                    model=model,
                     contents="Reply with the single word OK.",
                 ),
                 timeout=20,
             )
-            return {"ok": bool((reply.text or "").strip())}
+            return {"ok": bool((reply.text or "").strip()), "model": model}
         except asyncio.TimeoutError:
             return {"ok": False, "reason": "The Gemini API did not answer within 20 seconds"}
         except Exception as exc:

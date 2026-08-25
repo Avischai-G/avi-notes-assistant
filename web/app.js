@@ -12,6 +12,8 @@ const TASK_CHANNEL_KEY = "avi-notes-task-channel";
 // request as a header, is never written server-side, and is never displayed.
 const GEMINI_KEY_STORAGE = "agentonomy-gemini-key";
 const deviceKey = () => localStorage.getItem(GEMINI_KEY_STORAGE) || "";
+const GEMINI_MODEL_STORAGE = "agentonomy-gemini-model";
+const deviceModel = () => localStorage.getItem(GEMINI_MODEL_STORAGE) || "";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PAGE = 30;
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
@@ -549,6 +551,7 @@ async function sendMessage() {
   try {
     const chatHeaders = { "Content-Type": "application/json" };
     if (deviceKey()) chatHeaders["X-Gemini-Key"] = deviceKey();
+    if (deviceModel()) chatHeaders["X-Gemini-Model"] = deviceModel();
     const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/chat`, {
       method: "POST",
       headers: chatHeaders,
@@ -639,6 +642,7 @@ liveToggle.addEventListener("click", async () => {
     liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
     await window.LiveSession.start(liveChannelId, {
       apiKey: deviceKey() || undefined,
+      model: deviceModel() || undefined,
       onChatUpdated: async () => {
         // The voice agent dropped a task into the chat; refresh if visible.
         if (channelId === liveChannelId) await loadChannel(liveChannelId);
@@ -670,6 +674,7 @@ const settingsVoice = $("#settings-voice");
 const settingsLanguage = $("#settings-language");
 const settingsLivePrompt = $("#settings-live-prompt");
 const settingsApiKey = $("#settings-api-key");
+const settingsModel = $("#settings-model");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
 const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
@@ -695,6 +700,8 @@ $("#open-settings").addEventListener("click", async () => {
     settingsApiKeyState.textContent = deviceKey()
       ? KEY_SET_HINT
       : (settings.require_key ? KEY_REQUIRED_HINT : NO_KEY_HINT);
+    settingsModel.value = deviceModel();
+    settingsModel.placeholder = settings.default_model || "";
     settingsRemoveKey.hidden = !deviceKey();
     drawer.close();
     settingsEditor.showModal();
@@ -709,6 +716,9 @@ $("#settings-save").addEventListener("click", async () => {
     localStorage.setItem(GEMINI_KEY_STORAGE, typedKey);
     settingsApiKey.value = "";
   }
+  const typedModel = settingsModel.value.trim();
+  if (typedModel) localStorage.setItem(GEMINI_MODEL_STORAGE, typedModel);
+  else localStorage.removeItem(GEMINI_MODEL_STORAGE);
   try {
     await apiJSON("/api/settings", {
       method: "PUT",
@@ -736,13 +746,13 @@ $("#settings-check-key").addEventListener("click", async () => {
   button.disabled = true;
   settingsApiKeyState.textContent = "Checking — asking the model for one word…";
   try {
-    const result = await apiJSON("/api/key-check", {
-      method: "POST",
-      headers: { "X-Gemini-Key": key },
-    });
+    const headers = { "X-Gemini-Key": key };
+    const model = settingsModel.value.trim() || deviceModel();
+    if (model) headers["X-Gemini-Model"] = model;
+    const result = await apiJSON("/api/key-check", { method: "POST", headers });
     settingsApiKeyState.textContent = result.ok
-      ? "Key works — the model answered."
-      : `Key failed: ${result.reason}`;
+      ? `Key works — ${result.model} answered.`
+      : `Check failed: ${result.reason}`;
   } catch (error) {
     settingsApiKeyState.textContent = `Check failed: ${error.message}`;
   }
