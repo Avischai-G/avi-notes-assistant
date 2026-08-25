@@ -19,20 +19,21 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
   date, titles too vague to act on, and titles hiding more than one action. It
   reports and changes nothing: only the user knows which copy of a duplicate
   to keep.
-- The chat can list and run automations by name.
+- The chat can list and run automations by name. A photo or PDF sent with a
+  message can be attached onto a task's own page, embedded by URL.
 - Saying "remember ..." stores a short note about the user: one word-capped
   memory that rides the system prompt. "Forget everything" clears it, so the
   project can be handed over clean.
-- Automation channels cannot access any board or planning tool. One shared channel gate
-  returns a model-readable refusal without calling Notion; unknown channel
-  identity also denies.
+- Automation turns use the same gated tools as the chat. Unknown channel
+  identity still fails closed, and an automation can never start another
+  automation — the one refusal the gate keeps.
 - Every automation carries a structured trigger — hourly, daily or weekly, plus
   when — and one derived sentence (`Daily at 21:00`) for display. Nothing is
   special-cased: an automation is due when its own `next_run_at` arrives.
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and twelve gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, delete/restore, and comments — plus `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
+See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and thirteen gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, attach files, delete/restore, and comments — plus `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
 
 ## Local offline setup
 
@@ -137,7 +138,7 @@ docker build -t agentonomy-tasks:rc .
 
 The database already exists. Its frozen properties are `Name`, `Status`, `When`, `Place`, `Minutes`, and `Notes`; `Status` accepts only `Not started`, `In progress`, or `Done`. No database, schema, data-source, or view creation operation exists in the app.
 
-The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives twelve typed board tools built on that surface — never raw MCP access — and `delete_task` archives rather than destroys, so `restore_task` can undo it.
+The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives thirteen typed board tools built on that surface — never raw MCP access — and `delete_task` archives rather than destroys, so `restore_task` can undo it. Attached files are stored on the app's own volume and embedded in a page as external URLs; Notion never receives the bytes.
 
 This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent unfiltered-search regression therefore hard-fails unless it returns exactly one configured data source, every other result is a page parented to that same data source, and `has_more` is false. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
 

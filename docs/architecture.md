@@ -13,7 +13,7 @@ flowchart LR
     A[Task organizer\nGoogle ADK LlmAgent]
     L[Voice navigator\nGoogle ADK LlmAgent]
     V[Vertex AI · global\ngemini-3.7-flash\ngemini-live-2.5-flash]
-    T[Twelve gated board tools\n+ memory · automations]
+    T[Thirteen gated board tools\n+ memory · automations]
     M[Local stdio Notion MCP\nexactly ten operations]
     N[(One existing\nNotion database)]
     F[(Firestore\nchannels · automations\nsettings)]
@@ -42,7 +42,7 @@ The deployed chat request path is:
 The model uses its language understanding to distinguish tasks from ordinary
 chat; there is no regex pre-router. Its board tools are create, rename, change
 fields/Status, list, search, read/write details pages, tick checkboxes,
-delete/restore, and comments — twelve in all — plus `remember` and
+attach files, delete/restore, and comments — thirteen in all — plus `remember` and
 `clear_memory` for one word-capped user memory stored in settings, and
 `list_automations` and `run_automation`. The adapter beneath them compiles to exactly ten MCP
 operations: `create_page`, `set_page_title`, `set_page_property`,
@@ -51,10 +51,13 @@ operations: `create_page`, `set_page_title`, `set_page_property`,
 no raw MCP access; deleting archives rather than destroys, so restoring can
 undo it.
 
-One channel-scoped gate wraps every one of those tools. It permits ordinary
-task channels, refuses them all in automation channels, and fails closed when
-channel identity is unavailable. Refusals are tool results the same model can
-read and route around.
+One channel-scoped gate wraps every one of those tools. Chat and automation
+channels get the same access; the gate fails closed when channel identity is
+unavailable, and refuses `run_automation` inside an automation channel so no
+automation can start another. Refusals are tool results the same model can
+read and route around. Files attached to a message are written to the
+`/knowledge` volume, served back by the app at unguessable URLs, and embedded
+in Notion pages as external-image blocks.
 
 The second agent is the live voice navigator: an ADK `LlmAgent` on
 `gemini-live-2.5-flash` speaking over a WebSocket (PCM audio both ways). It can

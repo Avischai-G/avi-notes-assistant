@@ -69,9 +69,12 @@ APP_NAME = "taskmaker"
 USER_ID = "avi"
 NOT_STARTED = "Not started"
 _AUTOMATION_CHANNEL_PREFIX = "automation-"
-_BOARD_TOOL_REFUSAL = (
-    "Board tools are unavailable in automation channels. Continue this "
-    "automation using only its supplied context; do not retry a board tool."
+_UNKNOWN_CHANNEL_REFUSAL = (
+    "Board tools require a known channel and none was provided; do not retry."
+)
+_RECURSION_REFUSAL = (
+    "An automation cannot start another automation. Continue without it; "
+    "do not retry."
 )
 
 
@@ -150,6 +153,11 @@ class TaskOrganizerAgent:
         # The stored user memory; chat.py points both at the settings store.
         self.memory_source: Callable[[], str] = lambda: ""
         self.memory_sink: Callable[[str], None] = lambda text: None
+        # Files attached to the current message, and where to publish them.
+        self._attachments: ContextVar[list[tuple[str, bytes]]] = ContextVar(
+            "turn_attachments"
+        )
+        self.file_publisher: Callable[[str, bytes], str] | None = None
         self.automations = None  # set by chat.py so the user can trigger them by name
 
         tools = self._build_tools()
@@ -381,6 +389,35 @@ class TaskOrganizerAgent:
             result = await self.automations.run(match.id)
             return {"ran": True, "name": match.name, "text": result.get("text", "")}
 
+        def attach_files_to_task(task_id: str) -> dict:
+            """Put the files attached to the user's current message onto a
+            task's own page, as embedded images or file links.
+
+            Call when the user sends a photo or PDF that belongs with a task.
+
+            Args:
+                task_id: The task whose page receives the files.
+            """
+            files = self._attachments.get([])
+            if not files:
+                return {
+                    "attached": False,
+                    "reason": "The current message has no attached files.",
+                }
+            if self.file_publisher is None:
+                return {
+                    "attached": False,
+                    "reason": "File storage is not available in this session.",
+                }
+            store = self._store.get()
+            links = []
+            for mime, blob in files:
+                url = self.file_publisher(mime, blob)
+                marker = "!" if mime.startswith("image/") else ""
+                links.append(f"{marker}[attachment]({url})")
+            store.write_task_body(task_id, "\n\n".join(links), append=True)
+            return {"attached": True, "files": len(links)}
+
         def remember(memory: str) -> dict:
             """Replace the stored memory about the user. Call only when they
             ask you to remember or forget something: rewrite the stored
@@ -418,6 +455,7 @@ class TaskOrganizerAgent:
                 read_task_details,
                 write_task_details,
                 set_task_checkbox,
+                attach_files_to_task,
                 delete_task,
                 restore_task,
                 add_task_comment,
@@ -429,14 +467,16 @@ class TaskOrganizerAgent:
             )
         ]
 
-    def _refusal(self) -> dict | None:
+    def _refusal(self, tool_name: str = "") -> dict | None:
+        """Automation turns use the same tools as chat. Only an unknown channel
+        fails closed — and an automation never starts another automation."""
         channel_id = self._channel_id.get()
-        if (
-            not isinstance(channel_id, str)
-            or not channel_id
-            or channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
+        if not isinstance(channel_id, str) or not channel_id:
+            return {"refused": True, "reason": _UNKNOWN_CHANNEL_REFUSAL}
+        if tool_name == "run_automation" and channel_id.startswith(
+            _AUTOMATION_CHANNEL_PREFIX
         ):
-            return {"refused": True, "reason": _BOARD_TOOL_REFUSAL}
+            return {"refused": True, "reason": _RECURSION_REFUSAL}
         return None
 
     def _gate_board_tool(self, tool: Callable) -> Callable:
@@ -455,7 +495,7 @@ class TaskOrganizerAgent:
             async def guarded_async(*args, **kwargs):
                 # An async tool has to stay async, or ADK is handed a coroutine
                 # it never awaits and the call silently does nothing.
-                refusal = self._refusal()
+                refusal = self._refusal(tool.__name__)
                 if refusal:
                     return refusal
                 try:
@@ -467,7 +507,7 @@ class TaskOrganizerAgent:
 
         @wraps(tool)
         def guarded(*args, **kwargs):
-            refusal = self._refusal()
+            refusal = self._refusal(tool.__name__)
             if refusal:
                 return refusal
             try:
@@ -561,6 +601,7 @@ class TaskOrganizerAgent:
         """Run one ADK turn and persist the visible transcript."""
         existing = channel_store.get_channel(channel_id)
         store_token = self._store.set(task_store)
+        attachments_token = self._attachments.set(list(attachments or []))
         message_token = self._message.set(user_message)
         channel_token = self._channel_id.set(channel_id)
         created_token = self._created.set([])
@@ -646,6 +687,7 @@ class TaskOrganizerAgent:
             self._created.reset(created_token)
             self._channel_id.reset(channel_token)
             self._message.reset(message_token)
+            self._attachments.reset(attachments_token)
             self._store.reset(store_token)
 
     def _knowledge(self) -> OrganizerKnowledge:

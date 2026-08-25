@@ -1,4 +1,6 @@
-"""Automation channels cannot reach any board tool or its Notion client."""
+"""Automation channels use the same tools as chat; only two doors stay shut:
+an unknown channel identity fails closed, and an automation never starts
+another automation."""
 
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from app.channel_store import LocalChannelStore
 from app.notion_mcp import NotionConfig
 from app.notion_task_store import NotionTaskStore
 from app.organizer import SYSTEM_PROMPT, TaskOrganizerAgent
+from app.task_store import FakeTaskStore
 
 
 class SpyNotionClient:
@@ -55,18 +58,13 @@ class AttemptBoardToolLlm(BaseLlm):
             yield LlmResponse(
                 content=types.Content(
                     role="model",
-                    parts=[types.Part(text="Finished without board access.")],
+                    parts=[types.Part(text="Automation turn finished.")],
                 ),
                 partial=False,
             )
 
 
-async def run_attempt(tool_name: str, tool_args: dict, channel_id: str):
-    notion = SpyNotionClient()
-    store = NotionTaskStore(
-        NotionConfig(token="offline", tasks_database_id="a" * 32),
-        notion,
-    )
+async def run_attempt(tool_name: str, tool_args: dict, channel_id: str, store):
     channels = LocalChannelStore()
     channels.ensure_channel(channel_id)
     model = AttemptBoardToolLlm(
@@ -78,47 +76,60 @@ async def run_attempt(tool_name: str, tool_args: dict, channel_id: str):
     chunks = [
         chunk
         async for chunk in agent.chat(
-            "Clean up private knowledge.",
+            "Look after the board.",
             channels,
             store,
             channel_id,
         )
     ]
-    return chunks, channels.get_channel(channel_id), notion.calls
+    return chunks, channels.get_channel(channel_id)
 
 
 @pytest.mark.parametrize(
-    "tool_name,tool_args",
+    "tool_name,tool_args,check",
     [
-        ("create_task", {"title": "Out-of-scope task"}),
-        ("rename_task", {"task_id": "page", "new_title": "Out-of-scope rename"}),
-        ("move_task", {"task_id": "page", "status": "Done"}),
-        ("list_tasks", {}),
-        # An automation must not rewrite what the user asked to be remembered.
-        ("remember", {"memory": "Likes tea."}),
-        ("clear_memory", {}),
-        # An automation must not be able to set another one running.
-        ("list_automations", {}),
-        ("run_automation", {"name": "Organize tasks"}),
+        (
+            "create_task",
+            {"title": "Buy printer paper"},
+            lambda store, result: store.list_tasks()[0].title == "Buy printer paper"
+            and result["created"]["name"] == "Buy printer paper",
+        ),
+        (
+            "list_tasks",
+            {},
+            lambda store, result: result == {"tasks": []},
+        ),
     ],
 )
-def test_automation_channel_refuses_every_board_tool_without_notion_call(
-    tool_name, tool_args
-):
-    chunks, history, notion_calls = asyncio.run(
-        run_attempt(tool_name, tool_args, "automation-organize-tasks")
+def test_automation_channel_uses_board_tools_like_chat(tool_name, tool_args, check):
+    store = FakeTaskStore()
+    chunks, history = asyncio.run(
+        run_attempt(tool_name, tool_args, "automation-organize-tasks", store)
     )
 
-    assert notion_calls == []
     assert not any("error" in chunk for chunk in chunks)
     assert {"tool": tool_name, "status": "completed"} in chunks
-    assert chunks[-2:] == [
-        {"text": "Finished without board access."},
-        {"done": True},
-    ]
     [tool_result] = history[-1].tool_results
     assert tool_result["name"] == tool_name
+    assert "refused" not in tool_result["response"]
+    assert check(store, tool_result["response"])
+
+
+def test_an_automation_cannot_start_another_automation():
+    store = FakeTaskStore()
+    chunks, history = asyncio.run(
+        run_attempt(
+            "run_automation",
+            {"name": "Organize tasks"},
+            "automation-organize-tasks",
+            store,
+        )
+    )
+
+    assert not any("error" in chunk for chunk in chunks)
+    [tool_result] = history[-1].tool_results
     assert tool_result["response"]["refused"] is True
+    assert "cannot start another automation" in tool_result["response"]["reason"]
     assert "do not retry" in tool_result["response"]["reason"]
 
 
@@ -147,5 +158,6 @@ def test_unknown_channel_context_fails_closed_without_notion_call():
         agent._store.reset(store_token)
 
     assert result["refused"] is True
+    assert "do not retry" in result["reason"]
     assert notion.calls == []
     assert len(SYSTEM_PROMPT.split()) <= 330

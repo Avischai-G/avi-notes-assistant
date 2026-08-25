@@ -213,6 +213,7 @@ function setActiveChannel(href) {
 
 async function showChat(automation) {
   activeAutomation = automation || null;
+  document.body.classList.toggle("automation-view", Boolean(automation));
   setActiveChannel(automation ? `#automation/${encodeURIComponent(automation.id)}` : "#chat");
   await loadChannel(automation ? automation.channel_id : await ensureChannel(TASK_CHANNEL_KEY));
   if (!drawer.open) input.focus();
@@ -563,6 +564,10 @@ async function sendMessage() {
   } catch (error) {
     addMessage("assistant", `Could not read an attachment: ${error.message}`);
   }
+  // The message owns its files now: an empty composer, ready for the next one.
+  attachments = [];
+  renderChips();
+  $("#file-input").value = "";
 
   const row = document.createElement("div");
   row.className = "message-row assistant entering";
@@ -620,15 +625,16 @@ async function sendMessage() {
   }
   bar.classList.add("complete");
   window.setTimeout(() => bar.remove(), 320);
-  attachments = [];
-  renderChips();
   streaming = false;
   resize();
   input.focus();
 }
 
 $("#attach").addEventListener("click", () => $("#file-input").click());
-$("#file-input").addEventListener("change", (event) => addFiles(event.target.files));
+$("#file-input").addEventListener("change", (event) => {
+  addFiles(event.target.files);
+  event.target.value = "";
+});
 chips.addEventListener("click", (event) => {
   const button = event.target.closest("[data-remove]");
   if (!button) return;

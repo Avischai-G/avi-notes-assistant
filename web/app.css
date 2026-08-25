@@ -717,6 +717,8 @@ textarea.field {
   .transcript { padding: 16px; }
   .composer-dock { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
   .composer-shell { padding: 8px; border-radius: 22px; }
+  .composer-row { align-items: center; }
+  .composer-input { min-height: 40px; padding: 8px 4px; }
   .attach-button, .live-toggle { width: 36px; height: 36px; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
@@ -727,4 +729,22 @@ textarea.field {
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+}
+
+/* ── Automation channels wear an amber cast; the chat stays neutral. ──── */
+body.automation-view {
+  --panel-bg: #1a150a;
+  --page-bg: #161208;
+  --surface-card: #241d0e;
+  --panel-hover: #2c2412;
+  --composer-bg: #332a14;
+  --line: rgb(217 164 65 / 0.14);
+}
+[data-theme="light"] body.automation-view {
+  --panel-bg: #f0e7d0;
+  --page-bg: #f4ecda;
+  --surface-card: #e4d8b9;
+  --panel-hover: #d9cba6;
+  --composer-bg: #d3c49a;
+  --line: rgb(146 100 13 / 0.18);
 }

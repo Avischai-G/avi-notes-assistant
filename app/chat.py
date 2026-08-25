@@ -12,11 +12,14 @@ import json
 import os
 import re
 import time
+import uuid
+from contextvars import ContextVar
 from copy import deepcopy
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 try:
     from google.cloud import firestore
@@ -36,7 +39,7 @@ from app.automations import (
 from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
 from app.notion_mcp import NotionConfigurationError
 from app.notion_task_store import NotionTaskStore
-from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
+from app.knowledge import OrganizerKnowledge, build_organizer_knowledge, knowledge_root
 from app.task_planning import BoardReview, FREQUENCIES
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent, _eligible_model
@@ -196,6 +199,32 @@ def _named(prompt: str) -> str:
     return f"{prompt}\n\nThe user's preferred name: address them as {name}."
 
 
+_ATTACHMENT_TYPES = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/heic": "heic",
+    "application/pdf": "pdf",
+}
+_ATTACHMENT_NAME = re.compile(r"^[0-9a-f]{32}\.[a-z0-9]{1,4}$")
+# The public origin of the current request, for links a Notion page can fetch.
+_request_origin: ContextVar[str] = ContextVar("request_origin", default="")
+
+
+def _attachments_dir() -> Path:
+    directory = knowledge_root() / "attachments"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _publish_attachment(mime: str, data: bytes) -> str:
+    """Write one attached file to disk and return its public URL."""
+    name = f"{uuid.uuid4().hex}.{_ATTACHMENT_TYPES.get(mime, 'bin')}"
+    (_attachments_dir() / name).write_bytes(data)
+    return f"{_request_origin.get()}/files/{name}"
+
+
 def _memory() -> str:
     """What the organizer has been asked to remember about the user."""
     return str(_settings_store.get_value("memory") or "").strip()
@@ -344,6 +373,7 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
     organizer.memory_sink = lambda text: _settings_store.set_value(
         "memory", text.strip() or None
     )
+    organizer.file_publisher = _publish_attachment
     live.prompt_source = lambda: _named(
         str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
     )
@@ -550,6 +580,9 @@ def register_chat_routes(app: FastAPI) -> None:
         selects a per-key agent and is never stored or logged.
         """
         channel_store, task_store, agent = get_stores()
+        host = request.headers.get("host", "")
+        scheme = "http" if host.split(":")[0] in ("127.0.0.1", "localhost") else "https"
+        _request_origin.set(f"{scheme}://{host}" if host else "")
         device_key = _request_api_key(request.headers.get("x-gemini-key"))
         device_model = _request_model(request.headers.get("x-gemini-model"))
         if device_key:
@@ -659,6 +692,21 @@ def register_chat_routes(app: FastAPI) -> None:
                 await websocket.close()
             except Exception:
                 pass
+
+    @app.get("/files/{name}")
+    def serve_attachment(name: str):
+        """Serve one stored attachment; names are unguessable hex handles."""
+        if not _ATTACHMENT_NAME.fullmatch(name):
+            raise HTTPException(404, "No such file")
+        path = _attachments_dir() / name
+        if not path.is_file():
+            raise HTTPException(404, "No such file")
+        extension = name.rsplit(".", 1)[1]
+        mime = next(
+            (m for m, e in _ATTACHMENT_TYPES.items() if e == extension),
+            "application/octet-stream",
+        )
+        return FileResponse(path, media_type=mime)
 
     @app.post("/api/key-check")
     async def key_check(request: Request):

@@ -80,6 +80,7 @@ def test_prompt_is_short_and_every_tool_is_gated():
         "read_task_details",
         "write_task_details",
         "set_task_checkbox",
+        "attach_files_to_task",
         "delete_task",
         "restore_task",
         "add_task_comment",

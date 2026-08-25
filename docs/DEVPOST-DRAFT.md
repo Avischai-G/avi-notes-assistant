@@ -23,7 +23,8 @@ keeps only properties you can sort or filter on: `Name`, `Status`, `When`,
 written only when you actually gave one, and anything free-form — your own
 wording, context, links, checklists — goes on the task's own Notion page, not
 squeezed into a property. The same chat searches, renames, corrects, deletes
-and restores tasks, ticks checklist items, and comments.
+and restores tasks, ticks checklist items, and comments — and a photo sent
+with a message can be attached straight onto a task's page.
 
 **Weekly deterministic board review.** The built-in `Organize tasks`
 automation runs a weekly `BoardReview`: pure deterministic code that scans
@@ -38,9 +39,9 @@ the app, each with its own prompt and a structured trigger — frequency, hour,
 minute, weekday — plus one derived display sentence (`Weekly on Sunday at
 09:00`). Nothing is special-cased: an automation is due exactly when its own
 `next_run_at` arrives, fired on schedule by Cloud Scheduler. Automation
-channels are walled off from the board — one shared channel gate refuses
-every board tool there without calling Notion, and unknown channel identity
-also denies.
+turns use the same gated tools as the chat, so a scheduled prompt can really
+work the board; unknown channel identity still fails closed, and an
+automation can never start another automation.
 
 **Live voice navigator.** A hands-free voice session on
 `gemini-live-2.5-flash` streams microphone audio over a WebSocket and answers
@@ -82,11 +83,11 @@ follow-the-system themes, responsive from desktop to mobile.
 - Two Google ADK `LlmAgent`s on Vertex AI at the `global` location: the task
   organizer on `gemini-3.7-flash` and the voice navigator on
   `gemini-live-2.5-flash`.
-- The organizer's tool surface is twelve typed board tools — create, rename,
+- The organizer's tool surface is thirteen typed board tools — create, rename,
   move fields/Status, list, search, read/write details pages, tick checkboxes,
-  delete/restore, comments — plus `remember`/`clear_memory` for the capped
-  user memory and `list_automations`/`run_automation`, every one behind the
-  same channel gate.
+  attach files, delete/restore, comments — plus `remember`/`clear_memory` for
+  the capped user memory and `list_automations`/`run_automation`, every one
+  behind the same channel gate.
 - A pinned local stdio Notion MCP child exposes exactly a compiled ten-operation
   allowlist (`create_page`, `set_page_title`, `set_page_property`,
   `query_database`, `archive_page`, `restore_page`, `get_page_markdown`,
@@ -125,8 +126,8 @@ clean tree, and run the test suites before every deploy.
 - Capture-before-question with one-line replies and a strict no-guessing rule:
   empty properties are treated as normal and correct.
 - A deliberately narrow surface: one gated tool set, one ten-operation MCP
-  allowlist, one database, and a channel gate that keeps automations away from
-  the board.
+  allowlist, one database, and a gate that fails closed on unknown channels
+  and stops automations from triggering each other.
 - A deterministic weekly review that earns trust by proposing and never
   writing.
 - Hands-free operation: the voice navigator hands work to the task assistant,
