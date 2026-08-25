@@ -94,6 +94,9 @@ async def run_attempt(tool_name: str, tool_args: dict, channel_id: str):
         ("rename_task", {"task_id": "page", "new_title": "Out-of-scope rename"}),
         ("move_task", {"task_id": "page", "status": "Done"}),
         ("list_tasks", {}),
+        # An automation must not rewrite what the user asked to be remembered.
+        ("remember", {"memory": "Likes tea."}),
+        ("clear_memory", {}),
         # An automation must not be able to set another one running.
         ("list_automations", {}),
         ("run_automation", {"name": "Organize tasks"}),
@@ -145,4 +148,4 @@ def test_unknown_channel_context_fails_closed_without_notion_call():
 
     assert result["refused"] is True
     assert notion.calls == []
-    assert len(SYSTEM_PROMPT.split()) <= 300
+    assert len(SYSTEM_PROMPT.split()) <= 330

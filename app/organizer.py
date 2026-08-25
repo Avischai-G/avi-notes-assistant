@@ -37,9 +37,13 @@ Anything free-form — their own wording, context, a link, a longer description 
 
 Use the board freely: search before creating something that may already exist, rename, correct, delete what they cancel and restore it if they change their mind, and comment when context belongs beside a task.
 
-They can also ask you to run one of their automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now."""
+They can also ask you to run one of their automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now.
+
+When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask."""
 
 DEFAULT_MODEL = "gemini-3.7-flash"
+# The stored user memory rides the system prompt; the cap keeps it a note, not a log.
+MEMORY_WORD_CAP = 150
 _MODEL_FAMILY = re.compile(r"^gemini-(\d+)\.(\d+)")
 
 
@@ -143,6 +147,9 @@ class TaskOrganizerAgent:
         )
         # Settings can replace the base prompt; chat.py points this at the store.
         self.prompt_source: Callable[[], str] = lambda: SYSTEM_PROMPT
+        # The stored user memory; chat.py points both at the settings store.
+        self.memory_source: Callable[[], str] = lambda: ""
+        self.memory_sink: Callable[[str], None] = lambda text: None
         self.automations = None  # set by chat.py so the user can trigger them by name
 
         tools = self._build_tools()
@@ -374,6 +381,32 @@ class TaskOrganizerAgent:
             result = await self.automations.run(match.id)
             return {"ran": True, "name": match.name, "text": result.get("text", "")}
 
+        def remember(memory: str) -> dict:
+            """Replace the stored memory about the user. Call only when they
+            ask you to remember or forget something: rewrite the stored
+            memory, shown in your instructions, with that one change applied.
+
+            Args:
+                memory: The complete new memory text, in short plain lines.
+            """
+            text = memory.strip()
+            words = len(text.split())
+            if words > MEMORY_WORD_CAP:
+                return {
+                    "stored": False,
+                    "reason": (
+                        f"The memory is {words} words; the cap is "
+                        f"{MEMORY_WORD_CAP}. Condense it and call remember again."
+                    ),
+                }
+            self.memory_sink(text)
+            return {"stored": True, "words": words}
+
+        def clear_memory() -> dict:
+            """Erase everything stored about the user. Call only when they ask to forget it all."""
+            self.memory_sink("")
+            return {"cleared": True}
+
         return [
             self._gate_board_tool(tool)
             for tool in (
@@ -389,6 +422,8 @@ class TaskOrganizerAgent:
                 restore_task,
                 add_task_comment,
                 read_task_comments,
+                remember,
+                clear_memory,
                 list_automations,
                 run_automation,
             )

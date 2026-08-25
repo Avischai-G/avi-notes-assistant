@@ -52,6 +52,14 @@ read-only board lookups so it can answer "what's on my board?" directly. It
 can never change the board itself; every request it hands over lands in the
 visible chat with its answer, so nothing happens behind your back.
 
+**Personal memory.** Say "remember that I answer in short sentences" and the
+agent stores it — one plain-text memory with a hard word cap, injected into
+the system prompt only when non-empty, so personalization never bloats the
+context. The agent rewrites the whole memory on each change (the cap forces
+it to condense, not accumulate), and "forget everything" wipes it — a clean
+handover for the next owner. Only what the user explicitly asks to keep is
+stored.
+
 **Settings with device-local key layering.** A Gemini API key pasted into
 Settings lives only in that browser's `localStorage`, rides each request as a
 header, and funds a per-key organizer instance on the server. It is never
@@ -76,8 +84,9 @@ follow-the-system themes, responsive from desktop to mobile.
   `gemini-live-2.5-flash`.
 - The organizer's tool surface is twelve typed board tools — create, rename,
   move fields/Status, list, search, read/write details pages, tick checkboxes,
-  delete/restore, comments — plus `list_automations` and `run_automation`,
-  every one behind the same channel gate.
+  delete/restore, comments — plus `remember`/`clear_memory` for the capped
+  user memory and `list_automations`/`run_automation`, every one behind the
+  same channel gate.
 - A pinned local stdio Notion MCP child exposes exactly a compiled ten-operation
   allowlist (`create_page`, `set_page_title`, `set_page_property`,
   `query_database`, `archive_page`, `restore_page`, `get_page_markdown`,

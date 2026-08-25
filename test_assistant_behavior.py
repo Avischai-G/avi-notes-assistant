@@ -70,7 +70,7 @@ def test_prompt_is_short_and_every_tool_is_gated():
         api_key="offline",
         llm=ScriptedToolLlm(model="gemini-3.5-flash"),
     )
-    assert len(SYSTEM_PROMPT.split()) <= 300
+    assert len(SYSTEM_PROMPT.split()) <= 330
     assert [tool.__name__ for tool in agent.agent.tools] == [
         "create_task",
         "rename_task",
@@ -84,6 +84,8 @@ def test_prompt_is_short_and_every_tool_is_gated():
         "restore_task",
         "add_task_comment",
         "read_task_comments",
+        "remember",
+        "clear_memory",
         "list_automations",
         "run_automation",
     ]

@@ -13,7 +13,7 @@ flowchart LR
     A[Task organizer\nGoogle ADK LlmAgent]
     L[Voice navigator\nGoogle ADK LlmAgent]
     V[Vertex AI · global\ngemini-3.7-flash\ngemini-live-2.5-flash]
-    T[Twelve gated board tools\n+ list/run automations]
+    T[Twelve gated board tools\n+ memory · automations]
     M[Local stdio Notion MCP\nexactly ten operations]
     N[(One existing\nNotion database)]
     F[(Firestore\nchannels · automations\nsettings)]
@@ -42,8 +42,9 @@ The deployed chat request path is:
 The model uses its language understanding to distinguish tasks from ordinary
 chat; there is no regex pre-router. Its board tools are create, rename, change
 fields/Status, list, search, read/write details pages, tick checkboxes,
-delete/restore, and comments — twelve in all — plus `list_automations` and
-`run_automation`. The adapter beneath them compiles to exactly ten MCP
+delete/restore, and comments — twelve in all — plus `remember` and
+`clear_memory` for one word-capped user memory stored in settings, and
+`list_automations` and `run_automation`. The adapter beneath them compiles to exactly ten MCP
 operations: `create_page`, `set_page_title`, `set_page_property`,
 `query_database`, `archive_page`, `restore_page`, `get_page_markdown`,
 `update_page_markdown`, `add_page_comment`, and `list_comments`. The agent has

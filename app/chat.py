@@ -196,6 +196,19 @@ def _named(prompt: str) -> str:
     return f"{prompt}\n\nThe user's preferred name: address them as {name}."
 
 
+def _memory() -> str:
+    """What the organizer has been asked to remember about the user."""
+    return str(_settings_store.get_value("memory") or "").strip()
+
+
+def _with_memory(prompt: str) -> str:
+    """The prompt plus the stored memory, only when there is one."""
+    memory = _memory()
+    if not memory:
+        return prompt
+    return f"{prompt}\n\nStored memory about the user:\n{memory}"
+
+
 def _settings_payload() -> dict:
     """Everything Settings shows. API keys are device-local, never served."""
     return {
@@ -324,7 +337,13 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
         location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         speech_settings=_speech_settings,
     )
-    organizer.prompt_source = lambda: _named(_settings_store.get_system_prompt())
+    organizer.prompt_source = lambda: _with_memory(
+        _named(_settings_store.get_system_prompt())
+    )
+    organizer.memory_source = _memory
+    organizer.memory_sink = lambda text: _settings_store.set_value(
+        "memory", text.strip() or None
+    )
     live.prompt_source = lambda: _named(
         str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
     )
