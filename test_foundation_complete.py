@@ -186,7 +186,7 @@ def test_5_no_dispatch_execute_endpoints():
     assert 'organize' in prompt_lower, "Should mention organize"
     assert 'never do the task itself' in prompt_lower, \
         "Should explicitly state it never does the task"
-    assert len(SYSTEM_PROMPT.split()) <= 260, "System prompt should stay short"
+    assert len(SYSTEM_PROMPT.split()) <= 300, "System prompt should stay short"
 
     print("  ✓ No dispatch endpoints")
     print("  ✓ No launch endpoints")

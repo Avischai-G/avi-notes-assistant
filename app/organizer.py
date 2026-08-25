@@ -33,7 +33,7 @@ A property is only worth having if he can sort or filter on it, so fill one in o
 - When: a real date, and only when he chose a day. Having no date is normal and correct — leave it empty rather than guess one.
 - Place: whatever he names; new values are fine. Empty when he did not say where.
 - Minutes: a number he indicated. Empty when he did not.
-Anything free-form — his own wording, context, a link, a longer description — belongs on the task's own page, through `details` when you create it or `write_task_details` afterwards. Never squeeze prose into a property.
+Anything free-form — his own wording, context, a link, a longer description — belongs on the task's own page, through `details` when you create it or `write_task_details` afterwards. Never squeeze prose into a property. Checklists live there too: `set_task_checkbox` ticks or unticks one item by its text.
 
 Use the board freely: search before creating something that may already exist, rename, correct, delete what he cancels and restore it if he changes his mind, and comment when context belongs beside a task.
 
@@ -269,6 +269,50 @@ class TaskOrganizerAgent:
             self._store.get().write_task_body(task_id, markdown, append=append)
             return {"task_id": task_id, "written": True}
 
+        _CHECKBOX = re.compile(r"^(\s*[-*]\s*\[)([ xX])(\]\s*)(.*)$")
+
+        def set_task_checkbox(task_id: str, item: str, checked: bool = True) -> dict:
+            """Tick or untick one checkbox on a task's details page.
+
+            Args:
+                task_id: The task whose details page holds the checkbox.
+                item: Text of the checkbox line (or enough of it to be unique).
+                checked: True to tick it, False to untick.
+            """
+            store = self._store.get()
+            lines = store.get_task_body(task_id).split("\n")
+            needle = item.strip().casefold()
+            hits = [
+                index
+                for index, line in enumerate(lines)
+                if (match := _CHECKBOX.match(line)) and needle in match.group(4).casefold()
+            ]
+            if not hits:
+                boxes = [
+                    match.group(4).strip()
+                    for line in lines
+                    if (match := _CHECKBOX.match(line))
+                ]
+                return {
+                    "changed": False,
+                    "reason": f"No checkbox matches {item!r}",
+                    "checkboxes": boxes,
+                }
+            if len(hits) > 1:
+                return {
+                    "changed": False,
+                    "reason": "More than one checkbox matches; be more specific",
+                    "matches": [
+                        _CHECKBOX.match(lines[index]).group(4).strip() for index in hits
+                    ],
+                }
+            match = _CHECKBOX.match(lines[hits[0]])
+            lines[hits[0]] = (
+                f"{match.group(1)}{'x' if checked else ' '}{match.group(3)}{match.group(4)}"
+            )
+            store.write_task_body(task_id, "\n".join(lines))
+            return {"changed": True, "item": match.group(4).strip(), "checked": checked}
+
         def delete_task(task_id: str) -> dict:
             """Archive a task Avi cancelled or no longer wants; restore_task undoes it."""
             task = self._store.get().delete_task(task_id)
@@ -338,6 +382,7 @@ class TaskOrganizerAgent:
                 search_tasks,
                 read_task_details,
                 write_task_details,
+                set_task_checkbox,
                 delete_task,
                 restore_task,
                 add_task_comment,

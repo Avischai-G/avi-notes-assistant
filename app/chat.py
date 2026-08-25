@@ -203,6 +203,25 @@ def _app_map() -> str:
     return "\n".join(lines)
 
 
+# The voice agent's rolling memory: the last 8 spoken exchanges per channel,
+# stored in the settings doc so follow-ups survive new sessions and restarts.
+_VOICE_MEMORY_MAX = 16  # 8 user/assistant pairs
+
+
+def _voice_memory_key(channel_id: str) -> str:
+    return f"voice_memory:{channel_id}"
+
+
+def _voice_memory_read(channel_id: str) -> list:
+    entries = _settings_store.get_value(_voice_memory_key(channel_id))
+    return entries if isinstance(entries, list) else []
+
+
+def _voice_memory_append(channel_id: str, entries: list) -> None:
+    kept = (_voice_memory_read(channel_id) + list(entries))[-_VOICE_MEMORY_MAX:]
+    _settings_store.set_value(_voice_memory_key(channel_id), kept)
+
+
 async def _start_automation_by_name(name: str) -> dict:
     """Resolve by name or id and start it without blocking the voice."""
     needle = name.strip().casefold()
@@ -539,6 +558,8 @@ def register_chat_routes(app: FastAPI) -> None:
                 organizer=agent,
                 app_map=_app_map(),
                 automation_starter=_start_automation_by_name,
+                recall=lambda: _voice_memory_read(channel_id),
+                remember=lambda entries: _voice_memory_append(channel_id, entries),
             )
         except WebSocketDisconnect:
             pass

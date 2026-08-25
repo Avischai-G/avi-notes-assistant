@@ -50,19 +50,23 @@ def _tool_names(agent):
     ]
 
 
-def test_life_agent_is_a_pure_navigator():
+def test_life_agent_reads_the_board_and_navigates_but_never_writes():
     agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
-    assert _tool_names(agent) == ["send_task_to_chat", "navigate", "run_automation"]
-    # Nothing that touches the board or the web may ever reach this agent;
-    # every real action travels through the chat handoff.
-    forbidden = {
-        "create_task",
-        "rename_task",
-        "move_task",
+    assert _tool_names(agent) == [
         "list_tasks",
         "search_tasks",
         "read_task_details",
         "read_task_comments",
+        "send_task_to_chat",
+        "navigate",
+        "run_automation",
+    ]
+    # Nothing that mutates the board may ever reach this agent; every change
+    # travels through the chat handoff.
+    forbidden = {
+        "create_task",
+        "rename_task",
+        "move_task",
         "delete_task",
         "restore_task",
         "write_task_details",
@@ -71,6 +75,55 @@ def test_life_agent_is_a_pure_navigator():
         "web_research",
     }
     assert forbidden.isdisjoint(_tool_names(agent))
+
+
+def test_board_reads_answer_directly_without_writing():
+    tasks = FakeTaskStore()
+    tasks.create_task("Call the accountant")
+    channels = LocalChannelStore()
+    channels.ensure_channel("life-chat")
+    agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
+
+    async def run():
+        return [
+            chunk
+            async for chunk in agent.chat(
+                "what's on my board?", channels, tasks, "life-chat"
+            )
+        ]
+
+    chunks = asyncio.run(run())
+
+    text = next(chunk["text"] for chunk in chunks if "text" in chunk)
+    assert text == "Your board has one task."
+    assert {c["tool"] for c in chunks if "tool" in c} == {"list_tasks"}
+    # Only the test's own seed write touched the store.
+    assert [op["action"] for op in tasks.operations] == ["create"]
+
+
+def test_voice_memory_is_a_rolling_window(monkeypatch, tmp_path):
+    from app import chat
+
+    monkeypatch.setenv("TASK_STORE_MODE", "fake")
+    monkeypatch.setenv("CORONER_KNOWLEDGE_ROOT", str(tmp_path / "k"))
+    chat.init_chat_stores(use_firestore=False)
+
+    assert chat._voice_memory_read("home") == []
+    for index in range(12):
+        chat._voice_memory_append(
+            "home",
+            [
+                {"role": "user", "content": f"request {index}"},
+                {"role": "assistant", "content": f"reply {index}"},
+            ],
+        )
+    kept = chat._voice_memory_read("home")
+    # Capped to the newest 8 exchanges (16 entries), oldest dropped.
+    assert len(kept) == 16
+    assert kept[0] == {"role": "user", "content": "request 4"}
+    assert kept[-1] == {"role": "assistant", "content": "reply 11"}
+    # Memory is per channel.
+    assert chat._voice_memory_read("elsewhere") == []
 
 
 def test_navigate_sends_a_frame_and_run_automation_resolves_names():

@@ -70,7 +70,7 @@ def test_prompt_is_short_and_every_tool_is_gated():
         api_key="offline",
         llm=ScriptedToolLlm(model="gemini-3.5-flash"),
     )
-    assert len(SYSTEM_PROMPT.split()) <= 260
+    assert len(SYSTEM_PROMPT.split()) <= 300
     assert [tool.__name__ for tool in agent.agent.tools] == [
         "create_task",
         "rename_task",
@@ -79,6 +79,7 @@ def test_prompt_is_short_and_every_tool_is_gated():
         "search_tasks",
         "read_task_details",
         "write_task_details",
+        "set_task_checkbox",
         "delete_task",
         "restore_task",
         "add_task_comment",
@@ -182,6 +183,34 @@ def test_attachments_reach_the_model_as_inline_parts():
         for part in parts
     )
     assert any(part.text == "Save the attached receipt" for part in parts)
+
+
+def test_set_task_checkbox_ticks_one_item_in_the_body():
+    tasks = FakeTaskStore()
+    task = tasks.create_task("Groceries")
+    tasks.write_task_body(task.id, "- [ ] Milk\n- [ ] Eggs\nNotes below")
+    agent = TaskOrganizerAgent(
+        api_key="offline", llm=ScriptedToolLlm(model="gemini-3.5-flash")
+    )
+    tool = next(t for t in agent.agent.tools if t.__name__ == "set_task_checkbox")
+
+    store_token = agent._store.set(tasks)
+    channel_token = agent._channel_id.set("task-chat")
+    try:
+        ticked = tool(task_id=task.id, item="milk")
+        assert ticked == {"changed": True, "item": "Milk", "checked": True}
+        assert tasks.get_task_body(task.id) == "- [x] Milk\n- [ ] Eggs\nNotes below"
+
+        unticked = tool(task_id=task.id, item="Milk", checked=False)
+        assert unticked["changed"] is True
+        assert tasks.get_task_body(task.id) == "- [ ] Milk\n- [ ] Eggs\nNotes below"
+
+        missing = tool(task_id=task.id, item="Bread")
+        assert missing["changed"] is False
+        assert missing["checkboxes"] == ["Milk", "Eggs"]
+    finally:
+        agent._channel_id.reset(channel_token)
+        agent._store.reset(store_token)
 
 
 def _task_fields(task):

@@ -29,15 +29,16 @@ from app.organizer import (
     USER_ID,
     _eligible_model,
     _model_backend,
+    _task_dict,
 )
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are the app's live voice navigator. Avi speaks; you act on the app, fast.
+LIFE_PROMPT = """You are the app's live voice navigator and board guide. Avi speaks; you act fast.
 
-You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below.
+You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what he is referring to.
 
-You do exactly three things. Anything he wants done, asked, or looked up — including every question about his Notion board you cannot answer yourself — goes through send_task_to_chat as one clear written instruction or question; the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Nothing else is yours to do; never claim you did the work yourself.
+You can read his board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board. Every change, and anything you cannot answer from the board, goes through send_task_to_chat as one clear written instruction or question; the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Never claim you did the work yourself.
 
 send_task_to_chat waits a moment for the reply. When it returns an answer, tell him the substance in your own short words. When it returns answer_pending, tell him it is sent and the reply will land in the chat.
 
@@ -187,6 +188,36 @@ class LifeAgent:
         task.add_done_callback(self._pending.discard)
 
     def _build_tools(self) -> list[Callable]:
+        def list_tasks(status: str | None = None) -> dict:
+            """Read Avi's tasks, optionally filtered by exact Status."""
+            return {
+                "tasks": [
+                    _task_dict(task) for task in self._store.get().list_tasks(status)
+                ]
+            }
+
+        def search_tasks(query: str) -> dict:
+            """Find tasks whose Name or Notes contain the query text."""
+            return {
+                "tasks": [
+                    _task_dict(task) for task in self._store.get().search_tasks(query)
+                ]
+            }
+
+        def read_task_details(task_id: str) -> dict:
+            """Read a task's details page body (markdown)."""
+            return {
+                "task_id": task_id,
+                "details": self._store.get().get_task_body(task_id),
+            }
+
+        def read_task_comments(task_id: str) -> dict:
+            """Read the comments on a task."""
+            return {
+                "task_id": task_id,
+                "comments": self._store.get().list_comments(task_id),
+            }
+
         async def send_task_to_chat(instruction: str) -> dict:
             """Hand anything Avi wants done or asked to the task assistant.
 
@@ -260,7 +291,15 @@ class LifeAgent:
                 return {"started": False, "reason": "No automations in this session."}
             return await bridge["run_automation"](automation.strip())
 
-        return [send_task_to_chat, navigate, run_automation]
+        return [
+            list_tasks,
+            search_tasks,
+            read_task_details,
+            read_task_comments,
+            send_task_to_chat,
+            navigate,
+            run_automation,
+        ]
 
     async def _new_session(self, messages: list[Message]):
         session = await self.session_service.create_session(
@@ -360,14 +399,17 @@ class LifeAgent:
         organizer=None,
         app_map: str = "",
         automation_starter: Callable | None = None,
+        recall: Callable | None = None,
+        remember: Callable | None = None,
     ) -> None:
         """Bridge one browser WebSocket to a bidirectional live-audio session.
 
         Client frames: {type:"audio", data:<b64 pcm16@16k>} and {type:"end"}.
         Server frames: audio (b64 pcm16@24k), interrupted, turn_complete,
-        chat_updated, error. The conversation is voice-only — nothing is
-        persisted or shown as chat bubbles; board changes reach the chat
-        through the send_task_to_chat tool, which runs the task organizer.
+        chat_updated, error. The conversation is voice-only in the UI —
+        nothing becomes chat bubbles — but finished turns are transcribed
+        into a rolling voice memory (`remember`) that seeds the next
+        session's instruction (`recall`), so follow-ups keep their context.
         """
         from google.adk.agents.live_request_queue import LiveRequestQueue
         from google.adk.agents.run_config import RunConfig, StreamingMode
@@ -377,13 +419,44 @@ class LifeAgent:
             response_modalities=["AUDIO"],
             streaming_mode=StreamingMode.BIDI,
             speech_config=self._speech_config(),
+            input_audio_transcription=types.AudioTranscriptionConfig(),
+            output_audio_transcription=types.AudioTranscriptionConfig(),
         )
         session = await self._new_session(channel_store.get_channel(channel_id))
         store_token = self._store.set(task_store)
         instruction = self.prompt_source() or LIFE_PROMPT
+        memory_items = (recall() if recall else None) or []
+        if memory_items:
+            lines = ["Recent voice conversation (newest last):"]
+            for item in memory_items:
+                speaker = "Avi" if item.get("role") == "user" else "You"
+                lines.append(f"{speaker}: {item.get('content', '')}")
+            instruction = f"{instruction}\n\n" + "\n".join(lines)
         if app_map:
             instruction = f"{instruction}\n\n{app_map}"
         instruction_token = self._instruction.set(instruction)
+
+        # Per-turn transcription buffers. ADK yields deltas (finished=False)
+        # and a final aggregated copy (finished=True) that replaces them.
+        user_text: list[str] = []
+        agent_text: list[str] = []
+
+        def flush_memory() -> None:
+            spoken = "".join(user_text).strip()
+            answered = "".join(agent_text).strip()
+            user_text.clear()
+            agent_text.clear()
+            if remember is None or not (spoken or answered):
+                return
+            entries = []
+            if spoken:
+                entries.append({"role": "user", "content": spoken})
+            if answered:
+                entries.append({"role": "assistant", "content": answered})
+            try:
+                remember(entries)
+            except Exception:
+                pass
 
         async def send_frame(frame: dict) -> None:
             try:
@@ -467,9 +540,20 @@ class LifeAgent:
                                     ).decode(),
                                 }
                             )
+                if event.input_transcription and event.input_transcription.text:
+                    if event.input_transcription.finished:
+                        user_text[:] = [event.input_transcription.text]
+                    else:
+                        user_text.append(event.input_transcription.text)
+                if event.output_transcription and event.output_transcription.text:
+                    if event.output_transcription.finished:
+                        agent_text[:] = [event.output_transcription.text]
+                    else:
+                        agent_text.append(event.output_transcription.text)
                 if event.interrupted:
                     await websocket.send_json({"type": "interrupted"})
                 if event.turn_complete:
+                    flush_memory()
                     await websocket.send_json({"type": "turn_complete"})
 
         client_task = asyncio.ensure_future(pump_client())
@@ -493,6 +577,7 @@ class LifeAgent:
             for task in (client_task, agent_task):
                 task.cancel()
             queue.close()
+            flush_memory()
             self._instruction.reset(instruction_token)
             self._bridge.reset(bridge_token)
             self._store.reset(store_token)
