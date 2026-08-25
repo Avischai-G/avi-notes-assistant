@@ -173,7 +173,7 @@ def test_instruction_shows_current_multi_word_board_place():
 
     instruction = agent.get_instruction(store, query="I will be at the office tomorrow")
 
-    assert "Current Place values on Avi's board: Tel Aviv Office." in instruction
+    assert "Current Place values on the board: Tel Aviv Office." in instruction
 
 
 def test_first_turn_in_new_normal_channel_reads_real_board_places():
@@ -195,7 +195,7 @@ def test_first_turn_in_new_normal_channel_reads_real_board_places():
     asyncio.run(_turn(agent, "Hello", channels, store, "fresh-normal-chat"))
 
     instruction = model.calls[0].config.system_instruction
-    assert "Current Place values on Avi's board: Tel Aviv Office." in instruction
+    assert "Current Place values on the board: Tel Aviv Office." in instruction
 
 
 def test_automation_turn_neither_reads_nor_claims_board_places():
@@ -219,4 +219,4 @@ def test_automation_turn_neither_reads_nor_claims_board_places():
     )
 
     instruction = model.calls[0].config.system_instruction
-    assert "Current Place values on Avi's board:" not in instruction
+    assert "Current Place values on the board:" not in instruction

@@ -46,6 +46,37 @@ Speak in short, quick confirmations — a few words. No markdown, no lists."""
 
 APP_NAME = "life"
 
+
+def _shielded(tool):
+    """Any tool failure becomes a result the model can read and recover from."""
+    from functools import wraps
+    from inspect import iscoroutinefunction
+
+    def failure(exc: Exception) -> dict:
+        return {
+            "error": f"{type(exc).__name__}: {exc}",
+            "hint": "Fix the arguments and retry, or tell the user in one plain sentence.",
+        }
+
+    if iscoroutinefunction(tool):
+        @wraps(tool)
+        async def shielded_async(*args, **kwargs):
+            try:
+                return await tool(*args, **kwargs)
+            except Exception as exc:
+                return failure(exc)
+
+        return shielded_async
+
+    @wraps(tool)
+    def shielded(*args, **kwargs):
+        try:
+            return tool(*args, **kwargs)
+        except Exception as exc:
+            return failure(exc)
+
+    return shielded
+
 # How long send_task_to_chat waits before answering "pending", and how long
 # wait_for_chat_answer stays with the organizer after that.
 QUICK_WAIT_SECONDS = 5
@@ -321,7 +352,7 @@ class LifeAgent:
                 return {"started": False, "reason": "No automations in this session."}
             return await bridge["run_automation"](automation.strip())
 
-        return [
+        tools = [
             list_tasks,
             search_tasks,
             read_task_details,
@@ -331,6 +362,9 @@ class LifeAgent:
             navigate,
             run_automation,
         ]
+        # A failing tool answers the model instead of tearing down the live
+        # session — same contract as the organizer's board tools.
+        return [_shielded(tool) for tool in tools]
 
     async def _new_session(self, messages: list[Message]):
         session = await self.session_service.create_session(

@@ -21,7 +21,7 @@ from google.genai import types
 from app.channel_store import ChannelStore, Message
 from app.context_window import ContextWindow
 from app.knowledge import OrganizerKnowledge
-from app.task_planning import TaskFieldWriter, infer_when, recent_places
+from app.task_planning import JERUSALEM, TaskFieldWriter, infer_when, recent_places
 from app.task_store import Task, TaskStore
 
 
@@ -176,8 +176,10 @@ class TaskOrganizerAgent:
 
             Args:
                 title: Short task or reminder name.
-                when: ISO date/datetime, or today/tomorrow. Empty unless Avi
-                    actually chose a day.
+                when: ISO date/datetime, or today/tomorrow. Convert weekdays
+                    and relative phrases ("friday", "next week") to the ISO
+                    date yourself, from today's date in your instructions.
+                    Empty unless the user actually chose a day.
                 place: Where it can be done; any value, new ones are fine.
                 minutes: Rough duration as a number.
                 details: Longer wording, which goes on the task's own page.
@@ -403,20 +405,40 @@ class TaskOrganizerAgent:
         return None
 
     def _gate_board_tool(self, tool: Callable) -> Callable:
-        """Refuse every board tool unless its current channel is known and safe."""
+        """Refuse every board tool unless its current channel is known and safe,
+        and hand any tool failure back to the model as a result instead of
+        letting it kill the turn and land raw in the chat."""
+
+        def failure(exc: Exception) -> dict:
+            return {
+                "error": f"{type(exc).__name__}: {exc}",
+                "hint": "Fix the arguments and retry, or tell the user in one plain sentence.",
+            }
 
         if iscoroutinefunction(tool):
             @wraps(tool)
             async def guarded_async(*args, **kwargs):
                 # An async tool has to stay async, or ADK is handed a coroutine
                 # it never awaits and the call silently does nothing.
-                return self._refusal() or await tool(*args, **kwargs)
+                refusal = self._refusal()
+                if refusal:
+                    return refusal
+                try:
+                    return await tool(*args, **kwargs)
+                except Exception as exc:
+                    return failure(exc)
 
             return guarded_async
 
         @wraps(tool)
         def guarded(*args, **kwargs):
-            return self._refusal() or tool(*args, **kwargs)
+            refusal = self._refusal()
+            if refusal:
+                return refusal
+            try:
+                return tool(*args, **kwargs)
+            except Exception as exc:
+                return failure(exc)
 
         return guarded
 
@@ -431,12 +453,14 @@ class TaskOrganizerAgent:
         include_board_state: bool = True,
     ) -> str:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
+        now = datetime.now(JERUSALEM)
+        date_line = f" Today is {now:%A}, {now:%Y-%m-%d} (Asia/Jerusalem)."
         place_hint = ""
         if task_store is not None and include_board_state:
             places = recent_places(task_store)
-            place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
+            place_hint = f" Current Place values on the board: {', '.join(places)}."
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
-        return f"{self.prompt_source()}{place_hint}{context}"
+        return f"{self.prompt_source()}{date_line}{place_hint}{context}"
 
     def get_config(self) -> dict:
         """Return observed runtime values and fail if eligibility has drifted."""
