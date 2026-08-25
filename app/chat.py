@@ -29,6 +29,7 @@ from app.automations import (
     FirestoreAutomationStore,
     LocalAutomationStore,
     RETIRED_AUTOMATION_IDS,
+    reconcile_triggers,
 )
 from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
 from app.notion_mcp import NotionConfigurationError
@@ -158,10 +159,11 @@ def init_chat_stores(
             _automation_store.delete(retired)
 
     for definition in DEFAULT_AUTOMATIONS:
-        automation = _automation_store.get(definition.id)
-        if automation is None:
+        if _automation_store.get(definition.id) is None:
             _automation_store.save(deepcopy(definition))
-            automation = _automation_store.get(definition.id)
+
+    reconcile_triggers(_automation_store, time.time())
+    for automation in _automation_store.list():
         _channel_store.ensure_channel(automation.channel_id)
 
     _agent.prompt_source = _settings_store.get_system_prompt

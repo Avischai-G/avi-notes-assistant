@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app import chat
+from app.automations import Automation, LocalAutomationStore, reconcile_triggers
 from app.organizer import SYSTEM_PROMPT
 from app.task_planning import JERUSALEM, describe_trigger, next_trigger
 
@@ -80,6 +81,41 @@ def test_a_bad_trigger_is_refused_rather_than_stored(client):
                 {"weekday": 7}, {"hour": "nine"}):
         assert client.patch("/api/automations/probe", json=bad).status_code == 400, bad
     assert client.get("/api/automations").json()["automations"][-1]["schedule"] == "Daily at 09:00"
+
+
+def test_a_pre_trigger_record_is_repaired_rather_than_silently_retimed():
+    """The live nightly plan predated structured triggers.
+
+    Its stored document carried `daily at 21:00 Asia/Jerusalem` as text with no
+    frequency fields, so the dataclass defaults made it 09:00 — the automation
+    would have quietly moved twelve hours.
+    """
+    stale = Automation(
+        id="nightly-plan",
+        name="Plan tomorrow",
+        prompt="Plan tomorrow from Avi's open tasks.",
+        schedule="daily at 21:00 Asia/Jerusalem",
+        enabled=True,
+        channel_id="automation-nightly-plan",
+    )
+    assert (stale.frequency, stale.hour) == ("daily", 9)  # the wrong fallback
+
+    mine = Automation(
+        id="mine", name="Mine", prompt="", schedule="Hourly at :10", enabled=True,
+        channel_id="automation-mine", frequency="hourly", minute=10,
+    )
+    store = LocalAutomationStore([stale, mine])
+    now = datetime(2026, 8, 25, 9, 0, tzinfo=JERUSALEM).timestamp()
+
+    repaired = reconcile_triggers(store, now)
+
+    assert [a.id for a in repaired] == ["nightly-plan"]  # `mine` already agrees
+    fixed = store.get("nightly-plan")
+    assert (fixed.frequency, fixed.hour, fixed.minute) == ("daily", 21, 0)
+    assert fixed.schedule == "Daily at 21:00"
+    assert fixed.next_run_at == datetime(2026, 8, 25, 21, 0, tzinfo=JERUSALEM).timestamp()
+    # Idempotent: a second boot changes nothing.
+    assert reconcile_triggers(store, now) == []
 
 
 def test_next_trigger_lands_on_the_next_matching_moment():

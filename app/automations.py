@@ -61,6 +61,32 @@ NIGHTLY_PLAN = Automation(
 DEFAULT_AUTOMATIONS = (NIGHTLY_PLAN,)
 
 
+def reconcile_triggers(store, now: float) -> list[Automation]:
+    """Repair records written before triggers became structured data.
+
+    Such a document keeps its old free-text schedule while its trigger fields
+    fall back to the dataclass defaults, so the time it states and the time it
+    would actually fire disagree. For a built-in the shipped definition is the
+    truth; for anything else the fields win and only the text is re-derived.
+    """
+    defaults = {definition.id: definition for definition in DEFAULT_AUTOMATIONS}
+    repaired = []
+    for automation in store.list():
+        if automation.schedule == automation.described():
+            continue
+        definition = defaults.get(automation.id)
+        if definition is not None:
+            automation.frequency = definition.frequency
+            automation.hour = definition.hour
+            automation.minute = definition.minute
+            automation.weekday = definition.weekday
+        automation.schedule = automation.described()
+        automation.next_run_at = automation.next_run(now)
+        store.save(automation)
+        repaired.append(automation)
+    return repaired
+
+
 class AutomationStore:
     def list(self) -> list[Automation]: raise NotImplementedError
     def get(self, automation_id: str) -> Automation | None: raise NotImplementedError
