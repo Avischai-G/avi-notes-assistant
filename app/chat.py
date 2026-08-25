@@ -166,6 +166,14 @@ LIVE_VOICES = ("Puck", "Charon", "Kore", "Fenrir", "Aoede", "Leda", "Orus", "Zep
 # The server's own key (Secret Manager → env). Never sent to any client.
 _SERVER_API_KEY = os.environ.get("GEMINI_DEFAULT_API_KEY", "").strip()
 
+# When "1", browser requests must carry a device-local key: the server's own
+# credentials never fund a stranger's chat, voice session, or manual
+# automation run. Scheduled automations still run on server credentials.
+_REQUIRE_DEVICE_KEY = os.environ.get("CORONER_REQUIRE_DEVICE_KEY", "").strip() == "1"
+_KEY_REQUIRED_DETAIL = (
+    "This app runs on your own Gemini API key. Add one in Settings first."
+)
+
 # A visitor's device-local key never touches env or disk: it selects a cached
 # per-key agent pair instead. Bounded so junk keys can't grow it forever.
 _keyed_agents: dict[str, tuple] = {}
@@ -181,6 +189,7 @@ def _settings_payload() -> dict:
         "voice_name": str(_settings_store.get_value("voice_name") or ""),
         "language_code": str(_settings_store.get_value("language_code") or ""),
         "voices": list(LIVE_VOICES),
+        "require_key": _REQUIRE_DEVICE_KEY,
     }
 
 
@@ -474,6 +483,8 @@ def register_chat_routes(app: FastAPI) -> None:
         device_key = _request_api_key(request.headers.get("x-gemini-key"))
         if device_key:
             agent, _ = _agents_for_request_key(device_key)
+        elif _REQUIRE_DEVICE_KEY:
+            raise HTTPException(401, _KEY_REQUIRED_DETAIL)
 
         try:
             body = await request.json()
@@ -546,10 +557,13 @@ def register_chat_routes(app: FastAPI) -> None:
                 raise RuntimeError("Live voice agent not initialized")
             first = await websocket.receive_json()
             live_agent = _live_voice_agent
+            device_key = None
             if isinstance(first, dict) and first.get("type") == "init":
                 device_key = _request_api_key(first.get("api_key"))
-                if device_key:
-                    agent, live_agent = _agents_for_request_key(device_key)
+            if device_key:
+                agent, live_agent = _agents_for_request_key(device_key)
+            elif _REQUIRE_DEVICE_KEY:
+                raise HTTPException(401, _KEY_REQUIRED_DETAIL)
             await live_agent.live_bridge(
                 websocket,
                 channel_store,
@@ -573,6 +587,33 @@ def register_chat_routes(app: FastAPI) -> None:
                 await websocket.close()
             except Exception:
                 pass
+
+    @app.post("/api/key-check")
+    async def key_check(request: Request):
+        """One tiny Gemini API call with the supplied key: works or why not.
+
+        The key rides the X-Gemini-Key header like every chat request and is
+        never stored or logged.
+        """
+        key = _request_api_key(request.headers.get("x-gemini-key"))
+        if not key:
+            raise HTTPException(400, "Send the key to check in the X-Gemini-Key header")
+        from google import genai
+
+        try:
+            client = genai.Client(api_key=key)
+            reply = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+                    contents="Reply with the single word OK.",
+                ),
+                timeout=20,
+            )
+            return {"ok": bool((reply.text or "").strip())}
+        except asyncio.TimeoutError:
+            return {"ok": False, "reason": "The Gemini API did not answer within 20 seconds"}
+        except Exception as exc:
+            return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
     @app.get("/api/settings")
     def get_settings():
@@ -661,7 +702,15 @@ def register_chat_routes(app: FastAPI) -> None:
         return {"deleted": automation_id}
 
     @app.post("/api/automations/{automation_id}/run")
-    async def run_automation(automation_id: str, place: Optional[str] = None):
+    async def run_automation(
+        automation_id: str, request: Request, place: Optional[str] = None
+    ):
+        # ponytail: the key only gates entry here — the run itself still uses
+        # server credentials; rewire the runner per-key if that ever matters.
+        if _REQUIRE_DEVICE_KEY and not _request_api_key(
+            request.headers.get("x-gemini-key")
+        ):
+            raise HTTPException(401, _KEY_REQUIRED_DETAIL)
         try:
             return await _automation_runner.run(
                 automation_id, force=True, place=place

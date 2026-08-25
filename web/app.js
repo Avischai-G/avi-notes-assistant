@@ -302,7 +302,7 @@ async function runAutomation(automation) {
   try {
     const result = await apiJSON(
       `/api/automations/${encodeURIComponent(automation.id)}/run`,
-      { method: "POST" },
+      { method: "POST", headers: deviceKey() ? { "X-Gemini-Key": deviceKey() } : {} },
     );
     // replaceState rather than assigning the hash: hashchange would start a
     // second channel load that can land last and wipe what the run just wrote.
@@ -557,7 +557,11 @@ async function sendMessage() {
         attachments: filePayloads,
       }),
     });
-    if (!response.ok || !response.body) throw new Error(`${response.status} ${response.statusText}`);
+    if (!response.ok || !response.body) {
+      let detail = `${response.status} ${response.statusText}`;
+      try { detail = (await response.json()).detail || detail; } catch {}
+      throw new Error(detail);
+    }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -669,6 +673,7 @@ const settingsApiKey = $("#settings-api-key");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
 const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
+const KEY_REQUIRED_HINT = "No key on this device — paste your Gemini API key to use the app.";
 const KEY_SET_HINT = "A key is saved on this device only. It can be replaced or removed, never shown.";
 
 // The field is write-only: it never shows the saved key, and what is typed
@@ -687,7 +692,9 @@ $("#open-settings").addEventListener("click", async () => {
     settingsLanguage.value = settings.language_code || "";
     settingsLivePrompt.value = settings.live_prompt || "";
     settingsApiKey.value = "";
-    settingsApiKeyState.textContent = deviceKey() ? KEY_SET_HINT : NO_KEY_HINT;
+    settingsApiKeyState.textContent = deviceKey()
+      ? KEY_SET_HINT
+      : (settings.require_key ? KEY_REQUIRED_HINT : NO_KEY_HINT);
     settingsRemoveKey.hidden = !deviceKey();
     drawer.close();
     settingsEditor.showModal();
@@ -717,6 +724,29 @@ $("#settings-save").addEventListener("click", async () => {
   } catch (error) {
     flash(`Error: ${error.message}`);
   }
+});
+
+$("#settings-check-key").addEventListener("click", async () => {
+  const button = $("#settings-check-key");
+  const key = settingsApiKey.value.trim() || deviceKey();
+  if (!key) {
+    settingsApiKeyState.textContent = "Paste a key first, then check it.";
+    return;
+  }
+  button.disabled = true;
+  settingsApiKeyState.textContent = "Checking — asking the model for one word…";
+  try {
+    const result = await apiJSON("/api/key-check", {
+      method: "POST",
+      headers: { "X-Gemini-Key": key },
+    });
+    settingsApiKeyState.textContent = result.ok
+      ? "Key works — the model answered."
+      : `Key failed: ${result.reason}`;
+  } catch (error) {
+    settingsApiKeyState.textContent = `Check failed: ${error.message}`;
+  }
+  button.disabled = false;
 });
 
 settingsRemoveKey.addEventListener("click", () => {
