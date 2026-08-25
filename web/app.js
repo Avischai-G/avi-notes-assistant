@@ -280,6 +280,8 @@ $("#menu").addEventListener("click", () => {
 drawer.addEventListener("click", (event) => {
   const dots = event.target.closest(".dots");
   if (dots) return toggleMenu(dots.dataset.menu, dots);
+  // Clicking anywhere else closes an open ⋯ menu.
+  if (!event.target.closest(".row-menu")) toggleMenu(null);
 
   const action = event.target.closest("[data-action]");
   if (action) {
@@ -293,6 +295,14 @@ drawer.addEventListener("click", (event) => {
   if (event.target.closest(".channel")) return drawer.close();
   // A modal <dialog> fills the viewport for hit-testing; outside the list is the backdrop.
   if (!event.target.closest(".channels")) drawer.close();
+});
+
+// Esc closes an open ⋯ menu first; the drawer itself on the next press.
+drawer.addEventListener("cancel", (event) => {
+  if (drawer.querySelector(".row-menu:not([hidden])")) {
+    event.preventDefault();
+    toggleMenu(null);
+  }
 });
 
 function chooseAction(action, id) {
@@ -690,6 +700,15 @@ liveToggle.addEventListener("click", async () => {
 
 /* Settings: the evaluator's Gemini API key plus the live voice and accent. */
 const settingsEditor = $("#settings-editor");
+
+/* A modal that is not full screen closes on a backdrop click; Esc already
+   comes free with <dialog>. A click on the dialog element itself can only
+   be the backdrop — every visible pixel inside belongs to a child. */
+for (const modal of [editor, settingsEditor]) {
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) modal.close();
+  });
+}
 const settingsVoice = $("#settings-voice");
 const settingsLanguage = $("#settings-language");
 const settingsLivePrompt = $("#settings-live-prompt");
