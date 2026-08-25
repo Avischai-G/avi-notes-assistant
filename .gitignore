@@ -4,13 +4,10 @@ __pycache__/
 *.pyc
 .env
 .knowledge/
-evidence/live/
-evidence/browser/*.png
-evidence/browser-orchestrator/*.png
+evidence/
 node_modules/
 .npm-cache/
 .python/
 .uv-cache/
 .package-inspect/
 notion-mcp-server-*.tgz
-evidence/.notion-live-smoke-state.json

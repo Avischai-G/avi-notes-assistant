@@ -6,12 +6,10 @@ A small chat and live-voice assistant for capturing tasks into one scoped Notion
 
 To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRATCH.md](docs/SETUP-NOTION-FROM-SCRATCH.md).
 
-The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Vertex AI, and Firestore stack. The former product remains available only in git history and the local `pre-rebuild` tag.
-
 ## Product behaviour
 
-- The model distinguishes something Avi wants to remember or do from ordinary conversation. It writes tasks, leaves plain chat alone, and calls the day planner when he asks for a plan or says where he will be tomorrow.
-- It captures first, then proactively asks the one short question a task genuinely needs; a vague answer keeps the stated default.
+- The model distinguishes something the user wants to remember or do from ordinary conversation. It writes tasks and leaves plain chat alone.
+- It captures first, and asks a question only when the task is unusable without the answer — then exactly one.
 - Nothing is invented: a task gets `Not started` and whatever Avi actually said.
   No date, place or duration is guessed, and free text goes on the task's own
   page rather than into a property he cannot sort or filter on.
@@ -30,7 +28,7 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md). The model-backed request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and twelve gated tools: create, rename, change fields/Status, list, search, read/write details pages, delete/restore, comments, and plan tomorrow. There is no regex pre-router.
+See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and twelve gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, delete/restore, and comments — plus `list_automations` and `run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
 
 ## Local offline setup
 
@@ -75,13 +73,13 @@ The suite requires:
 - a running server at `UI_BASE_URL` (defaults to `http://127.0.0.1:8764`)
 - system Google Chrome at a macOS path (set via `CHROME_PATH` env var, defaults to `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`)
 
-Automations are automatically registered when the server starts. The suite verifies two automation channels: "Knowledge cleanup" and "Plan tomorrow".
+Automations are automatically registered when the server starts. The suite verifies the built-in "Organize tasks" automation channel and the new-automation flow.
 
 ## Local authenticated setup
 
 The user-owned file `~/.config/agentonomy/notion.env` must be a regular mode-`0600` file containing exactly `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID`. Never echo either value.
 
-Verify isolation and the pinned five-operation MCP surface before starting the app:
+Verify isolation and the pinned ten-operation MCP surface before starting the app:
 
 ```sh
 ./.venv/bin/python scripts/notion_board_setup.py isolation
@@ -103,18 +101,13 @@ TASK_STORE_MODE=notion \
 ./.venv/bin/uvicorn server:api --host 127.0.0.1 --port 8000
 ```
 
-An authenticated model or embedding call may bill the configured Google Cloud account. Notion writes persist. Run the live acceptance story only after the separate explicit approval described in `docs/LIVE-ACCEPTANCE.md`.
+An authenticated model or embedding call may bill the configured Google Cloud account. Notion writes persist.
 
 ## Deploying
 
 `gcloud run deploy --source .` uploads whatever is on disk at that second, not
-the last commit. On 2026-08-24 a deploy landed between two edits of the same
-change and shipped revision `00004-mzw` with a new `web/index.html` against the
-previous `web/app.css`, which left the live page unstyled. So: commit first,
-confirm `git status` is clean, run `pytest` and `npm run test:ui`, and only then
-deploy — and never start a deploy while another session is mid-edit.
-
-The live revision is behind `main` until the next deploy runs.
+the last commit. So: commit first, confirm `git status` is clean, run `pytest`
+and `npm run test:ui`, and only then deploy.
 
 ## Cloud Run configuration
 
@@ -128,27 +121,24 @@ The approved deployment is live at the URL above. Its runtime provides:
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
 - `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.7-flash`;
-- the existing scheduler, only after separate approval, targeting `POST /api/automations/tick`.
+- a Cloud Scheduler job targeting `POST /api/automations/tick`, which fires any automation whose `next_run_at` has arrived.
 
 Building an image locally is non-deploying:
 
 ```sh
-docker build -t avis-notes-assistant:rc .
+docker build -t agentonomy-tasks:rc .
 ```
-
-Deployment, resource creation, scheduler mutation, repository publication, recording, and submission are separate approval gates and are intentionally absent from this release procedure.
 
 ## Notion boundary and residual exposure
 
 The database already exists. Its frozen properties are `Name`, `Status`, `When`, `Place`, `Minutes`, and `Notes`; `Status` accepts only `Not started`, `In progress`, or `Done`. No database, schema, data-source, or view creation operation exists in the app.
 
-The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives four TaskStore tools plus the deterministic tomorrow-planning tool, and never receives raw MCP or archive access. The planner accepts only recent board Place values plus `Anywhere`.
+The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives twelve typed board tools built on that surface — never raw MCP access — and `delete_task` archives rather than destroys, so `restore_task` can undo it.
 
 This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent unfiltered-search regression therefore hard-fails unless it returns exactly one configured data source, every other result is a page parented to that same data source, and `has_more` is false. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
 
 ## Demo materials
 
 - [Devpost draft](docs/DEVPOST-DRAFT.md)
+- [Video script](docs/VIDEO-SCRIPT.md)
 - [Synthetic demo reset](scripts/demo_reset.py)
-- [Sub-four-minute shot list](docs/SHOT-LIST.md)
-- [Live acceptance gate](docs/LIVE-ACCEPTANCE.md)

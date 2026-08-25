@@ -1,4 +1,4 @@
-"""Small, deterministic policy for defaults and tomorrow's two plans."""
+"""Small, deterministic policy: date inference, board review, triggers."""
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta

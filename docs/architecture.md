@@ -8,23 +8,30 @@ requests use the `global` location.
 
 ```mermaid
 flowchart LR
-    B[Browser\nChat · Automations]
+    B[Browser PWA\nChat · Automations · Voice]
     API[Cloud Run · us-central1\nFastAPI service]
-    A[One Google ADK\nLlmAgent]
-    V[Vertex AI\ngemini-3.5-flash · global]
-    T[Five gated agent tools\n4 TaskStore · plan tomorrow]
-    M[Local stdio Notion MCP\nexactly five operations]
-    N[(Agent Task Board Root\nexisting Notion database)]
-    F[(Firestore\nchannels · automation state\nlearning metadata · embedding cache)]
+    A[Task organizer\nGoogle ADK LlmAgent]
+    L[Voice navigator\nGoogle ADK LlmAgent]
+    V[Vertex AI · global\ngemini-3.7-flash\ngemini-live-2.5-flash]
+    T[Twelve gated board tools\n+ list/run automations]
+    M[Local stdio Notion MCP\nexactly ten operations]
+    N[(One existing\nNotion database)]
+    F[(Firestore\nchannels · automations\nsettings · embedding cache)]
     K[Markdown knowledge store\n/knowledge filesystem contract]
     G[(Cloud Storage\nmounted at /knowledge)]
     E[Vertex AI embeddings\ngemini-embedding-001 · global]
-    S[Secret Manager\n2 Notion configuration secrets\ninjected by reference]
+    S[Secret Manager\nNotion configuration\ninjected by reference]
+    C[Cloud Scheduler\nPOST /api/automations/tick]
 
     B -->|HTTPS / SSE| API
+    B -->|WebSocket PCM audio| API
+    C --> API
     S -->|secret references| API
     API --> A
+    API --> L
+    L -->|send_task_to_chat| A
     A --> V
+    L --> V
     A --> T
     T --> M
     M --> N
@@ -34,30 +41,39 @@ flowchart LR
     K --> E
 ```
 
-The deployed model-backed request path is:
+The deployed chat request path is:
 
-`browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.5-flash (global) -> five gated tools -> TaskStore/Notion MCP -> the configured database`.
+`browser -> Cloud Run/FastAPI -> one Google ADK LlmAgent -> Vertex gemini-3.7-flash (global) -> gated tools -> TaskStore/Notion MCP -> the configured database`.
 
-The model uses its language understanding to distinguish tasks, ordinary chat,
-and tomorrow planning; there is no regex pre-router. Its tools are create,
-rename, change fields/Status, list, and plan tomorrow. The planning tool accepts
-an optional Place, canonicalizes it against recent board values plus `Anywhere`,
-and returns the existing deterministic two-plan sweep. The adapter beneath the
-four TaskStore tools still compiles to exactly five MCP operations:
-`create_page`, `set_page_title`, `set_page_property`, `query_database`, and
-`archive_page`. The agent has no raw MCP access and no archive tool.
+The model uses its language understanding to distinguish tasks from ordinary
+chat; there is no regex pre-router. Its board tools are create, rename, change
+fields/Status, list, search, read/write details pages, tick checkboxes,
+delete/restore, and comments — twelve in all — plus `list_automations` and
+`run_automation`. The adapter beneath them compiles to exactly ten MCP
+operations: `create_page`, `set_page_title`, `set_page_property`,
+`query_database`, `archive_page`, `restore_page`, `get_page_markdown`,
+`update_page_markdown`, `add_page_comment`, and `list_comments`. The agent has
+no raw MCP access; deleting archives rather than destroys, so restoring can
+undo it.
 
-One channel-scoped gate wraps that complete five-tool list. It permits ordinary
-task channels, refuses all five tools in automation channels, and fails closed
-when channel identity is unavailable. Refusals are tool results the same model
-can read and route around; no second agent or Runner exists.
+One channel-scoped gate wraps every one of those tools. It permits ordinary
+task channels, refuses them all in automation channels, and fails closed when
+channel identity is unavailable. Refusals are tool results the same model can
+read and route around.
 
-Cloud Run receives two Notion configuration secrets from Secret Manager through
+The second agent is the live voice navigator: an ADK `LlmAgent` on
+`gemini-live-2.5-flash` speaking over a WebSocket (PCM audio both ways). It can
+read the board — list, search, details pages, comments — but never change it:
+every change goes through `send_task_to_chat` into the visible chat, where the
+task organizer handles it. Its other tools are `navigate` (move the app to a
+pane) and `run_automation`.
+
+Cloud Run receives the Notion configuration secrets from Secret Manager through
 secret references, never as literal environment values. Access is limited to the
 compute runtime identity with `roles/secretmanager.secretAccessor`.
 
-Firestore runs in Native mode and stores durable browser channels, the two stable
-automation records, aggregate source metadata, and embedding-cache metadata.
-Markdown bodies use the `/knowledge` filesystem contract; the deployed Cloud Run
-service mounts a dedicated Cloud Storage volume there. This document reflects the
-live release topology.
+Firestore runs in Native mode and stores durable browser channels, automation
+records with their structured triggers, settings, aggregate source metadata,
+and embedding-cache metadata. Markdown bodies use the `/knowledge` filesystem
+contract; the deployed Cloud Run service mounts a dedicated Cloud Storage
+volume there. This document reflects the live release topology.

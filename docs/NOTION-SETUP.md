@@ -75,18 +75,17 @@ Run:
 ```
 
 The local server must expose only `notion_describe` and `notion_execute`, with
-exactly these five operations:
+exactly these ten operations:
 
 ```text
-create_page,set_page_title,set_page_property,query_database,archive_page
+create_page,set_page_title,set_page_property,query_database,archive_page,restore_page,get_page_markdown,update_page_markdown,add_page_comment,list_comments
 ```
 
 There is no environment-controlled allowlist. The application compiles this
 list in code and passes it through a minimal child environment. Database,
-data-source, schema, view, search, users, comments, files, blocks, move,
-restore, and all other operations are absent. `archive_page` is not exposed as
-an organiser tool; it exists only so the approved verification command can
-remove its own synthetic rows.
+data-source, schema, view, search, users, files, blocks, move, and all other
+operations are absent. `archive_page` and `restore_page` reach the organiser
+only as `delete_task` and `restore_task`, so a delete is always undoable.
 
 Before rename or Status movement, the adapter queries the configured database
 and requires exactly one matching row id. An arbitrary id that is not returned
@@ -122,8 +121,8 @@ closed. Production never falls back to `FakeTaskStore`.
 This is strong grant scoping, not perfect isolation. Today, search proves that
 the token can see only the configured database. Within that database, the
 connection can see its fixed schema and every current or future row and can
-create, rename, change Status, and archive rows through the allowed server
-operations. The organiser receives the four TaskStore tools plus the gated
-tomorrow-planning tool, so it does not receive raw MCP or archive access.
+create, rename, change properties, and archive rows through the allowed server
+operations. The organiser receives twelve typed board tools built on that
+surface, and never raw MCP access.
 Someone who can edit the Notion connection could later widen Content access;
 the permanent isolation regression is intended to detect that change.
