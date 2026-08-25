@@ -1,9 +1,9 @@
-"""Avi's life companion agent: open chat, read-only board access, web research.
+"""The live voice navigator: one fast ADK ``LlmAgent`` beside the organizer.
 
-One second ADK ``LlmAgent`` beside the task organizer. It never mutates the
-board — it holds only read tools — and gains Google Search through a
-``web_research`` sub-agent wrapped as an ``AgentTool`` (Gemini cannot mix the
-built-in search grounding with function tools in a single agent).
+It drives the app and nothing else — hand a prompt to the chat (the task
+assistant executes it), navigate to a pane, or start an automation. It never
+touches the board itself; every session's instruction is the Settings live
+prompt plus a freshly built app map.
 """
 from __future__ import annotations
 
@@ -20,8 +20,6 @@ from google.adk.events import Event
 from google.adk.models.base_llm import BaseLlm
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.tools import google_search
-from google.adk.tools.agent_tool import AgentTool
 from google.genai import types
 
 from app.channel_store import ChannelStore, Message
@@ -31,18 +29,17 @@ from app.organizer import (
     USER_ID,
     _eligible_model,
     _model_backend,
-    _task_dict,
 )
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are Avi's live voice companion: warm, sharp, and spoken. Talk with him about anything — his day, ideas, questions, the world.
+LIFE_PROMPT = """You are the app's live voice navigator. Avi speaks; you act on the app, fast.
 
-You can look at his Notion task board with the board tools to answer questions about what is on it, but you can never change it yourself. When he wants anything created, changed, or removed on the board, call send_task_to_chat with one clear written instruction describing exactly what he wants; the task assistant in the chat does the work. Then tell him briefly what you handed over. Never claim you edited the board.
+You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below.
 
-For current events or anything worth looking up, call web_research and summarize what it found.
+You do exactly three things. Anything he wants done, asked, or looked up goes through send_task_to_chat as one clear written instruction — the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Nothing else is yours to do; never claim you did the work yourself.
 
-You are a voice, not a writer: keep replies short, natural, and speakable — no markdown, no bullet lists, no URLs read aloud."""
+Speak in short, quick confirmations — a few words. No markdown, no lists."""
 
 APP_NAME = "life"
 
@@ -110,7 +107,7 @@ def _install_live_probes() -> None:
 
 
 class LifeAgent:
-    """A thin runner around one read-only, search-capable ADK ``LlmAgent``."""
+    """The voice navigator: one fast ADK ``LlmAgent`` with three app tools."""
 
     def __init__(
         self,
@@ -118,7 +115,6 @@ class LifeAgent:
         location: str = "global",
         *,
         llm: BaseLlm | None = None,
-        research_model: str = DEFAULT_MODEL,
         speech_settings: Callable[[], dict] | None = None,
         api_key: str | None = None,
     ) -> None:
@@ -153,26 +149,24 @@ class LifeAgent:
         self.model = model
         self.location = location
         self.speech_settings = speech_settings
+        # Settings can replace the base prompt; chat.py points this at the store.
+        self.prompt_source: Callable[[], str] = lambda: LIFE_PROMPT
         self._store: ContextVar[TaskStore] = ContextVar("life_task_store")
-        # Set per live session: {"organizer", "channel_store", "channel_id", "notify"}.
+        # Set per live session: organizer, channel_store, channel_id, notify,
+        # send (raw frame sender), and run_automation (name -> coroutine).
         self._bridge: ContextVar[dict | None] = ContextVar("life_bridge", default=None)
-
-        web_agent = LlmAgent(
-            name="web_research",
-            model=llm or _model_backend(research_model, api_key),
-            instruction=(
-                "You are a web research assistant. Use Google Search to find "
-                "current, reliable information for the request. Return a "
-                "concise summary of what you found with the source names and "
-                "links."
-            ),
-            tools=[google_search],
+        self._instruction: ContextVar[str] = ContextVar(
+            "life_instruction", default=LIFE_PROMPT
         )
+        # Fire-and-forget handoffs keep the voice snappy; hold refs so the
+        # tasks survive until they finish.
+        self._pending: set[asyncio.Task] = set()
+
         self.agent = LlmAgent(
             name="life_companion",
             model=llm or _model_backend(model, api_key),
-            instruction=LIFE_PROMPT,
-            tools=[*self._build_tools(), AgentTool(agent=web_agent)],
+            instruction=self._instruction_for_turn,
+            tools=self._build_tools(),
             generate_content_config=types.GenerateContentConfig(temperature=0.6),
         )
         self.session_service = InMemorySessionService()
@@ -182,43 +176,21 @@ class LifeAgent:
             session_service=self.session_service,
         )
 
+    def _instruction_for_turn(self, _context) -> str:
+        return self._instruction.get()
+
+    def _spawn(self, coroutine) -> None:
+        task = asyncio.ensure_future(coroutine)
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+
     def _build_tools(self) -> list[Callable]:
-        def list_tasks(status: str | None = None) -> dict:
-            """Read Avi's tasks, optionally filtered by exact Status."""
-            return {
-                "tasks": [
-                    _task_dict(task) for task in self._store.get().list_tasks(status)
-                ]
-            }
-
-        def search_tasks(query: str) -> dict:
-            """Find tasks whose Name or Notes contain the query text."""
-            return {
-                "tasks": [
-                    _task_dict(task) for task in self._store.get().search_tasks(query)
-                ]
-            }
-
-        def read_task_details(task_id: str) -> dict:
-            """Read a task's details page body (markdown)."""
-            return {
-                "task_id": task_id,
-                "details": self._store.get().get_task_body(task_id),
-            }
-
-        def read_task_comments(task_id: str) -> dict:
-            """Read the comments on a task."""
-            return {
-                "task_id": task_id,
-                "comments": self._store.get().list_comments(task_id),
-            }
-
         async def send_task_to_chat(instruction: str) -> dict:
-            """Hand a board change Avi asked for to the task assistant in the chat.
+            """Hand anything Avi wants done or asked to the task assistant.
 
             Args:
-                instruction: One clear written instruction describing exactly
-                    what to create, change, or remove on the board.
+                instruction: One clear written instruction; it lands in the
+                    chat and the task assistant executes it.
             """
             bridge = self._bridge.get()
             if not bridge:
@@ -226,27 +198,49 @@ class LifeAgent:
                     "delivered": False,
                     "reason": "The chat bridge is not available in this session.",
                 }
-            answer = ""
-            async for chunk in bridge["organizer"].chat(
-                instruction,
-                bridge["channel_store"],
-                self._store.get(),
-                bridge["channel_id"],
-            ):
-                if "text" in chunk:
-                    answer = chunk["text"]
-                if "error" in chunk:
-                    return {"delivered": False, "reason": chunk["error"]}
-            await bridge["notify"]()
-            return {"delivered": True, "task_agent_reply": answer}
+            task_store = self._store.get()
 
-        return [
-            list_tasks,
-            search_tasks,
-            read_task_details,
-            read_task_comments,
-            send_task_to_chat,
-        ]
+            async def hand_off() -> None:
+                try:
+                    async for _chunk in bridge["organizer"].chat(
+                        instruction,
+                        bridge["channel_store"],
+                        task_store,
+                        bridge["channel_id"],
+                    ):
+                        pass
+                finally:
+                    await bridge["notify"]()
+
+            # Fire and forget: the reply appears in the chat when it is ready.
+            self._spawn(hand_off())
+            await bridge["notify"]()
+            return {"delivered": True, "note": "Handed to the chat; it is working on it."}
+
+        async def navigate(target: str) -> dict:
+            """Move the app to a place from the app map.
+
+            Args:
+                target: "chat", "settings", or an automation id from the map.
+            """
+            bridge = self._bridge.get()
+            if not bridge:
+                return {"navigated": False, "reason": "No app to navigate in this session."}
+            await bridge["send"]({"type": "navigate", "target": target.strip()})
+            return {"navigated": target.strip()}
+
+        async def run_automation(automation: str) -> dict:
+            """Start an automation now, by its name or id from the app map.
+
+            Args:
+                automation: The automation's name or id.
+            """
+            bridge = self._bridge.get()
+            if not bridge:
+                return {"started": False, "reason": "No automations in this session."}
+            return await bridge["run_automation"](automation.strip())
+
+        return [send_task_to_chat, navigate, run_automation]
 
     async def _new_session(self, messages: list[Message]):
         session = await self.session_service.create_session(
@@ -344,6 +338,8 @@ class LifeAgent:
         task_store: TaskStore,
         channel_id: str,
         organizer=None,
+        app_map: str = "",
+        automation_starter: Callable | None = None,
     ) -> None:
         """Bridge one browser WebSocket to a bidirectional live-audio session.
 
@@ -364,12 +360,24 @@ class LifeAgent:
         )
         session = await self._new_session(channel_store.get_channel(channel_id))
         store_token = self._store.set(task_store)
+        instruction = self.prompt_source() or LIFE_PROMPT
+        if app_map:
+            instruction = f"{instruction}\n\n{app_map}"
+        instruction_token = self._instruction.set(instruction)
 
-        async def notify_chat_updated() -> None:
+        async def send_frame(frame: dict) -> None:
             try:
-                await websocket.send_json({"type": "chat_updated"})
+                await websocket.send_json(frame)
             except Exception:
                 pass
+
+        async def notify_chat_updated() -> None:
+            await send_frame({"type": "chat_updated"})
+
+        async def start_automation(name: str) -> dict:
+            if automation_starter is None:
+                return {"started": False, "reason": "Automations are unavailable."}
+            return await automation_starter(name)
 
         bridge_token = self._bridge.set(
             {
@@ -377,6 +385,8 @@ class LifeAgent:
                 "channel_store": channel_store,
                 "channel_id": channel_id,
                 "notify": notify_chat_updated,
+                "send": send_frame,
+                "run_automation": start_automation,
             }
             if organizer is not None
             else None
@@ -463,5 +473,6 @@ class LifeAgent:
             for task in (client_task, agent_task):
                 task.cancel()
             queue.close()
+            self._instruction.reset(instruction_token)
             self._bridge.reset(bridge_token)
             self._store.reset(store_token)

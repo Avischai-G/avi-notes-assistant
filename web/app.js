@@ -639,6 +639,11 @@ liveToggle.addEventListener("click", async () => {
         // The voice agent dropped a task into the chat; refresh if visible.
         if (channelId === liveChannelId) await loadChannel(liveChannelId);
       },
+      onNavigate: (target) => {
+        if (target === "settings") $("#open-settings").click();
+        else if (target === "chat" || target === "home") location.hash = "#chat";
+        else location.hash = `#automation/${encodeURIComponent(target)}`;
+      },
       onError: (message) => flash(`Live error: ${message}`),
       onState: (on) => {
         liveToggle.classList.toggle("active", on);
@@ -659,6 +664,7 @@ liveToggle.addEventListener("click", async () => {
 const settingsEditor = $("#settings-editor");
 const settingsVoice = $("#settings-voice");
 const settingsLanguage = $("#settings-language");
+const settingsLivePrompt = $("#settings-live-prompt");
 const settingsApiKey = $("#settings-api-key");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
@@ -679,6 +685,7 @@ $("#open-settings").addEventListener("click", async () => {
     );
     settingsVoice.value = settings.voice_name || "";
     settingsLanguage.value = settings.language_code || "";
+    settingsLivePrompt.value = settings.live_prompt || "";
     settingsApiKey.value = "";
     settingsApiKeyState.textContent = deviceKey() ? KEY_SET_HINT : NO_KEY_HINT;
     settingsRemoveKey.hidden = !deviceKey();
@@ -702,6 +709,7 @@ $("#settings-save").addEventListener("click", async () => {
       body: JSON.stringify({
         voice_name: settingsVoice.value,
         language_code: settingsLanguage.value,
+        live_prompt: settingsLivePrompt.value,
       }),
     });
     settingsEditor.close();

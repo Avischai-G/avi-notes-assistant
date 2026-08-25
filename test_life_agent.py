@@ -50,57 +50,69 @@ def _tool_names(agent):
     ]
 
 
-def test_life_agent_tools_are_read_only_plus_web_research():
+def test_life_agent_is_a_pure_navigator():
     agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
-    assert _tool_names(agent) == [
-        "list_tasks",
-        "search_tasks",
-        "read_task_details",
-        "read_task_comments",
-        "send_task_to_chat",
-        "web_research",
-    ]
-    # No board-mutating tool may ever reach this agent; board changes travel
-    # only through send_task_to_chat, which runs the task organizer.
+    assert _tool_names(agent) == ["send_task_to_chat", "navigate", "run_automation"]
+    # Nothing that touches the board or the web may ever reach this agent;
+    # every real action travels through the chat handoff.
     forbidden = {
         "create_task",
         "rename_task",
         "move_task",
+        "list_tasks",
+        "search_tasks",
+        "read_task_details",
+        "read_task_comments",
         "delete_task",
         "restore_task",
         "write_task_details",
         "add_task_comment",
         "plan_tomorrow",
+        "web_research",
     }
     assert forbidden.isdisjoint(_tool_names(agent))
 
 
-def test_life_turn_reads_the_board_and_writes_nothing():
-    tasks = FakeTaskStore()
-    tasks.create_task("Call the accountant")
-    channels = LocalChannelStore()
-    channels.ensure_channel("life-chat")
-    agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
+def test_navigate_sends_a_frame_and_run_automation_resolves_names():
+    live = LifeAgent(llm=ScriptedLifeLlm(model="gemini-live-2.5-flash"))
+    frames = []
+    starts = []
+
+    async def send(frame):
+        frames.append(frame)
+
+    async def starter(name):
+        starts.append(name)
+        return {"started": True, "automation": name}
+
+    navigate = next(t for t in live.agent.tools if t.__name__ == "navigate")
+    run_automation = next(
+        t for t in live.agent.tools if t.__name__ == "run_automation"
+    )
 
     async def run():
-        return [
-            chunk
-            async for chunk in agent.chat(
-                "what's on my board?", channels, tasks, "life-chat"
-            )
-        ]
+        token = live._bridge.set(
+            {
+                "organizer": object(),
+                "channel_store": None,
+                "channel_id": "home",
+                "notify": send,
+                "send": send,
+                "run_automation": starter,
+            }
+        )
+        try:
+            nav = await navigate(target=" settings ")
+            auto = await run_automation(automation="Organize tasks")
+            return nav, auto
+        finally:
+            live._bridge.reset(token)
 
-    chunks = asyncio.run(run())
-
-    text = next(chunk["text"] for chunk in chunks if "text" in chunk)
-    assert text == "Your board has one task."
-    tool_events = [chunk for chunk in chunks if "tool" in chunk]
-    assert {event["tool"] for event in tool_events} == {"list_tasks"}
-    # Only the test's own seed write touched the store.
-    assert [op["action"] for op in tasks.operations] == ["create"]
-    messages = channels.get_channel("life-chat")
-    assert [message.role for message in messages] == ["user", "assistant"]
-    assert messages[-1].content == "Your board has one task."
+    nav, auto = asyncio.run(run())
+    assert nav == {"navigated": "settings"}
+    assert frames == [{"type": "navigate", "target": "settings"}]
+    assert auto == {"started": True, "automation": "Organize tasks"}
+    assert starts == ["Organize tasks"]
 
 
 def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
@@ -139,7 +151,13 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
             live._bridge.reset(bridge_token)
             live._store.reset(store_token)
 
-    result = asyncio.run(run())
+    async def run_and_settle():
+        result = await run()
+        # The handoff is fire-and-forget; wait for the spawned organizer run.
+        await asyncio.gather(*live._pending)
+        return result
+
+    result = asyncio.run(run_and_settle())
 
     assert result["delivered"] is True
     # The organizer really executed the instruction against the board...
@@ -149,7 +167,8 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
     messages = channels.get_channel("home")
     assert [m.role for m in messages] == ["user", "assistant"]
     assert messages[0].content == "Add a task to call the accountant"
-    assert notified == [True]
+    # Notified at handoff and again when the organizer finished.
+    assert notified == [True, True]
 
 
 def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
@@ -172,6 +191,20 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
     # Keys are device-local; the server neither stores nor reports one.
     assert "api_key_set" not in base
     assert "gemini_api_key" not in base
+
+    # The live prompt is visible (default until overridden) and editable.
+    from app.life import LIFE_PROMPT
+
+    assert base["live_prompt"] == LIFE_PROMPT
+    edited = client.put(
+        "/api/settings", json={"live_prompt": "Only navigate. Be terse."}
+    ).json()
+    assert edited["live_prompt"] == "Only navigate. Be terse."
+    assert chat._live_voice_agent.prompt_source() == "Only navigate. Be terse."
+    # Saving the untouched default clears the override.
+    reset = client.put("/api/settings", json={"live_prompt": LIFE_PROMPT}).json()
+    assert reset["live_prompt"] == LIFE_PROMPT
+    assert chat._live_voice_agent.prompt_source() == ""
 
     updated = client.put(
         "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}

@@ -5,6 +5,7 @@ SSE chat endpoint that distinguishes answer text, tool activity, completion, err
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -39,7 +40,7 @@ from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
 from app.task_planning import BoardReview, FREQUENCIES
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent
-from app.life import LifeAgent
+from app.life import LIFE_PROMPT, LifeAgent
 
 
 # Global instances
@@ -176,10 +177,68 @@ def _settings_payload() -> dict:
     """Everything Settings shows. API keys are device-local, never served."""
     return {
         "system_prompt": _settings_store.get_system_prompt(),
+        "live_prompt": str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT,
         "voice_name": str(_settings_store.get_value("voice_name") or ""),
         "language_code": str(_settings_store.get_value("language_code") or ""),
         "voices": list(LIVE_VOICES),
     }
+
+
+def _app_map() -> str:
+    """What the voice navigator knows about the app, rebuilt per session."""
+    lines = [
+        "App map:",
+        '- Chat channel — navigate target "chat". Instructions you hand off '
+        "land here and the task assistant executes them.",
+    ]
+    for automation in _automation_store.list():
+        lines.append(
+            f'- Automation "{automation.name}" — id "{automation.id}". '
+            "navigate to open its channel; run_automation to start it."
+        )
+    lines.append(
+        '- Settings dialog — navigate target "settings" '
+        "(voice, accent, API key, these instructions)."
+    )
+    return "\n".join(lines)
+
+
+async def _start_automation_by_name(name: str) -> dict:
+    """Resolve by name or id and start it without blocking the voice."""
+    needle = name.strip().casefold()
+    match = next(
+        (
+            automation
+            for automation in _automation_store.list()
+            if automation.id.casefold() == needle
+            or automation.name.casefold() == needle
+        ),
+        None,
+    )
+    if match is None:
+        return {
+            "started": False,
+            "reason": f"No automation called {name!r}",
+            "available": [a.name for a in _automation_store.list()],
+        }
+
+    async def run() -> None:
+        try:
+            await _automation_runner.run(match.id, force=True)
+        except Exception:
+            pass
+
+    task = asyncio.ensure_future(run())
+    _background_runs.add(task)
+    task.add_done_callback(_background_runs.discard)
+    return {
+        "started": True,
+        "automation": match.name,
+        "note": "Running now; its channel will update when it finishes.",
+    }
+
+
+_background_runs: set = set()
 
 
 def _speech_settings() -> dict:
@@ -214,10 +273,10 @@ def _make_agents(api_key: str | None) -> tuple:
     live = LifeAgent(
         model=_live_model_id(),
         location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-        research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
         speech_settings=_speech_settings,
     )
     organizer.prompt_source = _settings_store.get_system_prompt
+    live.prompt_source = lambda: str(_settings_store.get_value("live_prompt") or "")
     return organizer, live
 
 
@@ -473,7 +532,13 @@ def register_chat_routes(app: FastAPI) -> None:
                 if device_key:
                     agent, live_agent = _agents_for_request_key(device_key)
             await live_agent.live_bridge(
-                websocket, channel_store, task_store, channel_id, organizer=agent
+                websocket,
+                channel_store,
+                task_store,
+                channel_id,
+                organizer=agent,
+                app_map=_app_map(),
+                automation_starter=_start_automation_by_name,
             )
         except WebSocketDisconnect:
             pass
@@ -501,6 +566,13 @@ def register_chat_routes(app: FastAPI) -> None:
             if not prompt:
                 raise HTTPException(400, "system_prompt required and non-empty")
             _settings_store.set_system_prompt(prompt)
+
+        if "live_prompt" in body:
+            live_prompt = str(body.get("live_prompt") or "").strip()
+            # Storing the untouched default (or nothing) keeps the override empty.
+            _settings_store.set_value(
+                "live_prompt", "" if live_prompt == LIFE_PROMPT.strip() else live_prompt
+            )
 
         if "voice_name" in body:
             voice = str(body.get("voice_name") or "").strip()
