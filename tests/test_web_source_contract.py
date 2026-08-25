@@ -62,4 +62,7 @@ def test_the_removed_surfaces_leave_nothing_behind():
     assert not (ROOT / "app" / "learning.py").exists()
     markup = (web / "index.html").read_text(encoding="utf-8")
     assert "learning" not in markup.casefold()
-    assert "settings" not in markup.casefold()
+    # The Settings channel and its pane are gone; the word itself is free to be
+    # used by whatever else lives in the editor.
+    assert 'id="channel-settings"' not in markup
+    assert 'id="settings-pane"' not in markup

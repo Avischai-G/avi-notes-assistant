@@ -152,8 +152,77 @@ def init_chat_stores(
     for automation in _automation_store.list():
         _channel_store.ensure_channel(automation.channel_id)
 
-    _agent.prompt_source = _settings_store.get_system_prompt
+    return _channel_store, _task_store, _agent
 
+
+_VERTEX_DEFAULT = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI")
+
+# The Gemini Live prebuilt voices the Settings picker offers.
+LIVE_VOICES = ("Puck", "Charon", "Kore", "Fenrir", "Aoede", "Leda", "Orus", "Zephyr")
+
+
+def _settings_payload() -> dict:
+    """Everything Settings shows. The API key itself is never echoed back."""
+    return {
+        "system_prompt": _settings_store.get_system_prompt(),
+        "voice_name": str(_settings_store.get_value("voice_name") or ""),
+        "language_code": str(_settings_store.get_value("language_code") or ""),
+        "api_key_set": bool(_settings_store.get_value("gemini_api_key")),
+        "voices": list(LIVE_VOICES),
+    }
+
+
+def _apply_model_credentials(api_key: str) -> None:
+    """Point the model stack at a user-supplied Gemini API key, or back at Vertex."""
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
+    else:
+        os.environ.pop("GOOGLE_API_KEY", None)
+        if _VERTEX_DEFAULT is None:
+            os.environ.pop("GOOGLE_GENAI_USE_VERTEXAI", None)
+        else:
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = _VERTEX_DEFAULT
+
+
+def _live_model_id() -> str:
+    """The live-audio model for the active credential mode.
+
+    The Gemini API and Vertex publish the live model under different ids, so
+    the pinned env id only applies in Vertex mode.
+    """
+    if os.environ.get("GOOGLE_API_KEY"):
+        return "gemini-live-2.5-flash-preview"
+    return os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash")
+
+
+def _build_agents() -> None:
+    """(Re)construct both agents and the automation runner they share."""
+    global _agent, _live_voice_agent, _automation_runner
+
+    try:
+        _agent = TaskOrganizerAgent(
+            model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+            knowledge=_knowledge,
+        )
+    except ValueError as e:
+        raise RuntimeError(f"Agent initialization failed: {e}")
+
+    # The live voice session runs on the live-audio model family; its
+    # web_research sub-agent stays on the text model. Voice and accent come
+    # from settings at session start.
+    _live_voice_agent = LifeAgent(
+        model=_live_model_id(),
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+        research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
+        speech_settings=lambda: {
+            "voice_name": _settings_store.get_value("voice_name"),
+            "language_code": _settings_store.get_value("language_code"),
+        },
+    )
+
+    _agent.prompt_source = _settings_store.get_system_prompt
     _automation_runner = AutomationRunner(
         _automation_store,
         _channel_store,
@@ -163,8 +232,6 @@ def init_chat_stores(
     )
     # Avi can ask the chat to run an automation by name.
     _agent.configure_automations(_automation_runner)
-
-    return _channel_store, _task_store, _agent
 
 
 def get_stores() -> tuple:
@@ -365,7 +432,7 @@ def register_chat_routes(app: FastAPI) -> None:
             if _live_voice_agent is None:
                 raise RuntimeError("Live voice agent not initialized")
             await _live_voice_agent.live_bridge(
-                websocket, channel_store, task_store, channel_id
+                websocket, channel_store, task_store, channel_id, organizer=agent
             )
         except WebSocketDisconnect:
             pass
@@ -377,16 +444,40 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.get("/api/settings")
     def get_settings():
-        return {"system_prompt": _settings_store.get_system_prompt()}
+        return _settings_payload()
 
     @app.put("/api/settings")
     async def put_settings(request: Request):
         body = await _body(request)
-        prompt = str(body.get("system_prompt") or "").strip()
-        if not prompt:
-            raise HTTPException(400, "system_prompt required and non-empty")
-        _settings_store.set_system_prompt(prompt)
-        return {"system_prompt": prompt}
+
+        if "system_prompt" in body:
+            prompt = str(body.get("system_prompt") or "").strip()
+            if not prompt:
+                raise HTTPException(400, "system_prompt required and non-empty")
+            _settings_store.set_system_prompt(prompt)
+
+        if "voice_name" in body:
+            voice = str(body.get("voice_name") or "").strip()
+            if voice and voice not in LIVE_VOICES:
+                raise HTTPException(400, f"voice_name must be one of {LIVE_VOICES}")
+            _settings_store.set_value("voice_name", voice)
+
+        if "language_code" in body:
+            language = str(body.get("language_code") or "").strip()
+            if language and not re.fullmatch(r"[a-z]{2,3}-[A-Z]{2}", language):
+                raise HTTPException(400, "language_code must look like en-US")
+            _settings_store.set_value("language_code", language)
+
+        if "gemini_api_key" in body:
+            key = str(body.get("gemini_api_key") or "").strip()
+            if key and not re.fullmatch(r"[A-Za-z0-9_\-]{20,200}", key):
+                raise HTTPException(400, "That does not look like a Gemini API key")
+            _settings_store.set_value("gemini_api_key", key)
+            # Rebuild the agents so the new credentials take effect now.
+            _apply_model_credentials(key)
+            _build_agents()
+
+        return _settings_payload()
 
     @app.get("/api/automations")
     def list_automations():
