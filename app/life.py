@@ -26,7 +26,13 @@ from google.genai import types
 
 from app.channel_store import ChannelStore, Message
 from app.context_window import ContextWindow
-from app.organizer import DEFAULT_MODEL, USER_ID, _eligible_model, _task_dict
+from app.organizer import (
+    DEFAULT_MODEL,
+    USER_ID,
+    _eligible_model,
+    _model_backend,
+    _task_dict,
+)
 from app.task_store import TaskStore
 
 
@@ -114,6 +120,7 @@ class LifeAgent:
         llm: BaseLlm | None = None,
         research_model: str = DEFAULT_MODEL,
         speech_settings: Callable[[], dict] | None = None,
+        api_key: str | None = None,
     ) -> None:
         if location != "global":
             raise ValueError(f"Location must be 'global', got {location}")
@@ -131,9 +138,10 @@ class LifeAgent:
             os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
             or "pytest" in sys.modules
         )
-        # Either Vertex or a user-supplied Gemini API key satisfies auth.
+        # Vertex, an env Gemini key, or an explicit per-agent key satisfies auth.
         if (
             llm is None
+            and api_key is None
             and not is_offline
             and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true"
             and not os.environ.get("GOOGLE_API_KEY")
@@ -151,7 +159,7 @@ class LifeAgent:
 
         web_agent = LlmAgent(
             name="web_research",
-            model=llm or research_model,
+            model=llm or _model_backend(research_model, api_key),
             instruction=(
                 "You are a web research assistant. Use Google Search to find "
                 "current, reliable information for the request. Return a "
@@ -162,7 +170,7 @@ class LifeAgent:
         )
         self.agent = LlmAgent(
             name="life_companion",
-            model=llm or model,
+            model=llm or _model_backend(model, api_key),
             instruction=LIFE_PROMPT,
             tools=[*self._build_tools(), AgentTool(agent=web_agent)],
             generate_content_config=types.GenerateContentConfig(temperature=0.6),

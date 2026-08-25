@@ -50,6 +50,17 @@ def _eligible_model(model: str) -> bool:
         int(family.group(2)),
     ) >= (3, 5)
 
+
+def _model_backend(model: str, api_key: str | None):
+    """The model reference for an agent: a plain id (env credentials — Vertex
+    or GOOGLE_API_KEY), or a Gemini bound to one explicit API key so that
+    per-device keys never touch process-global state."""
+    if not api_key:
+        return model
+    from google.adk.models.google_llm import Gemini
+
+    return Gemini(model=model, client_kwargs={"api_key": api_key, "vertexai": False})
+
 APP_NAME = "taskmaker"
 USER_ID = "avi"
 NOT_STARTED = "Not started"
@@ -101,9 +112,10 @@ class TaskOrganizerAgent:
             os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
             or "pytest" in sys.modules
         )
-        # Either Vertex or a user-supplied Gemini API key satisfies auth.
+        # Vertex, an env Gemini key, or an explicit per-agent key satisfies auth.
         if (
             llm is None
+            and api_key is None
             and not is_offline
             and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true"
             and not os.environ.get("GOOGLE_API_KEY")
@@ -136,7 +148,7 @@ class TaskOrganizerAgent:
         tools = self._build_tools()
         self.agent = LlmAgent(
             name="task_organizer",
-            model=llm or model,
+            model=llm or _model_backend(model, api_key),
             instruction=self._instruction_for_turn,
             tools=tools,
             generate_content_config=types.GenerateContentConfig(temperature=0.2),

@@ -6,6 +6,7 @@ SSE chat endpoint that distinguishes answer text, tool activity, completion, err
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -136,7 +137,10 @@ def init_chat_stores(
     _knowledge = build_organizer_knowledge(db=db)
 
     # An evaluator's stored Gemini API key replaces Vertex for model calls.
-    _apply_model_credentials(str(_settings_store.get_value("gemini_api_key") or ""))
+    # Keys are device-local now; scrub any key an older build left in Firestore.
+    if _settings_store.get_value("gemini_api_key"):
+        _settings_store.set_value("gemini_api_key", None)
+    _keyed_agents.clear()
     _build_agents()
 
     for retired in RETIRED_AUTOMATION_IDS:
@@ -155,74 +159,73 @@ def init_chat_stores(
     return _channel_store, _task_store, _agent
 
 
-_VERTEX_DEFAULT = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI")
-
 # The Gemini Live prebuilt voices the Settings picker offers.
 LIVE_VOICES = ("Puck", "Charon", "Kore", "Fenrir", "Aoede", "Leda", "Orus", "Zephyr")
 
+# The server's own key (Secret Manager → env). Never sent to any client.
+_SERVER_API_KEY = os.environ.get("GEMINI_DEFAULT_API_KEY", "").strip()
+
+# A visitor's device-local key never touches env or disk: it selects a cached
+# per-key agent pair instead. Bounded so junk keys can't grow it forever.
+_keyed_agents: dict[str, tuple] = {}
+_KEYED_AGENTS_MAX = 8
+_API_KEY_PATTERN = re.compile(r"[A-Za-z0-9_\-]{20,200}")
+
 
 def _settings_payload() -> dict:
-    """Everything Settings shows. The API key itself is never echoed back."""
+    """Everything Settings shows. API keys are device-local, never served."""
     return {
         "system_prompt": _settings_store.get_system_prompt(),
         "voice_name": str(_settings_store.get_value("voice_name") or ""),
         "language_code": str(_settings_store.get_value("language_code") or ""),
-        "api_key_set": bool(_settings_store.get_value("gemini_api_key")),
         "voices": list(LIVE_VOICES),
     }
 
 
-def _apply_model_credentials(api_key: str) -> None:
-    """Point the model stack at a user-supplied Gemini API key, or back at Vertex."""
+def _speech_settings() -> dict:
+    return {
+        "voice_name": _settings_store.get_value("voice_name"),
+        "language_code": _settings_store.get_value("language_code"),
+    }
+
+
+def _live_model_id(api_key: str | None) -> str:
+    """The live-audio model: the Gemini API and Vertex publish it under
+    different ids, so the pinned env id only applies in Vertex mode."""
     if api_key:
-        os.environ["GOOGLE_API_KEY"] = api_key
-        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
-    else:
-        os.environ.pop("GOOGLE_API_KEY", None)
-        if _VERTEX_DEFAULT is None:
-            os.environ.pop("GOOGLE_GENAI_USE_VERTEXAI", None)
-        else:
-            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = _VERTEX_DEFAULT
-
-
-def _live_model_id() -> str:
-    """The live-audio model for the active credential mode.
-
-    The Gemini API and Vertex publish the live model under different ids, so
-    the pinned env id only applies in Vertex mode.
-    """
-    if os.environ.get("GOOGLE_API_KEY"):
         return "gemini-live-2.5-flash-preview"
     return os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash")
 
 
-def _build_agents() -> None:
-    """(Re)construct both agents and the automation runner they share."""
-    global _agent, _live_voice_agent, _automation_runner
-
+def _make_agents(api_key: str | None) -> tuple:
+    """One organizer + one live agent bound to the given key (None = server
+    credentials: the server's own key, else Vertex)."""
     try:
-        _agent = TaskOrganizerAgent(
+        organizer = TaskOrganizerAgent(
             model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
             knowledge=_knowledge,
+            api_key=api_key,
         )
     except ValueError as e:
         raise RuntimeError(f"Agent initialization failed: {e}")
 
-    # The live voice session runs on the live-audio model family; its
-    # web_research sub-agent stays on the text model. Voice and accent come
-    # from settings at session start.
-    _live_voice_agent = LifeAgent(
-        model=_live_model_id(),
+    live = LifeAgent(
+        model=_live_model_id(api_key),
         location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
-        speech_settings=lambda: {
-            "voice_name": _settings_store.get_value("voice_name"),
-            "language_code": _settings_store.get_value("language_code"),
-        },
+        speech_settings=_speech_settings,
+        api_key=api_key,
     )
+    organizer.prompt_source = _settings_store.get_system_prompt
+    return organizer, live
 
-    _agent.prompt_source = _settings_store.get_system_prompt
+
+def _build_agents() -> None:
+    """(Re)construct the default agents and the automation runner they share."""
+    global _agent, _live_voice_agent, _automation_runner
+
+    _agent, _live_voice_agent = _make_agents(_SERVER_API_KEY or None)
     _automation_runner = AutomationRunner(
         _automation_store,
         _channel_store,
@@ -232,6 +235,28 @@ def _build_agents() -> None:
     )
     # Avi can ask the chat to run an automation by name.
     _agent.configure_automations(_automation_runner)
+
+
+def _agents_for_request_key(api_key: str) -> tuple:
+    """The agent pair for one device-local key, built on first use."""
+    digest = hashlib.sha256(api_key.encode()).hexdigest()
+    if digest not in _keyed_agents:
+        if len(_keyed_agents) >= _KEYED_AGENTS_MAX:
+            _keyed_agents.pop(next(iter(_keyed_agents)))
+        organizer, live = _make_agents(api_key)
+        organizer.configure_automations(_automation_runner)
+        _keyed_agents[digest] = (organizer, live)
+    return _keyed_agents[digest]
+
+
+def _request_api_key(raw: str | None) -> str | None:
+    """Validate an inbound device key; None when absent, 400 when malformed."""
+    key = (raw or "").strip()
+    if not key:
+        return None
+    if not _API_KEY_PATTERN.fullmatch(key):
+        raise HTTPException(400, "That does not look like a Gemini API key")
+    return key
 
 
 def get_stores() -> tuple:
@@ -364,8 +389,13 @@ def register_chat_routes(app: FastAPI) -> None:
 
         POST body: {"message": "user message"}
         Response: SSE stream with chunks like: data: {"text": "..."} or data: {"done": true}
+        A device-local Gemini key may ride in the X-Gemini-Key header; it
+        selects a per-key agent and is never stored or logged.
         """
         channel_store, task_store, agent = get_stores()
+        device_key = _request_api_key(request.headers.get("x-gemini-key"))
+        if device_key:
+            agent, _ = _agents_for_request_key(device_key)
 
         try:
             body = await request.json()
@@ -425,17 +455,33 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.websocket("/api/live/{channel_id}")
     async def live_session(websocket: WebSocket, channel_id: str):
-        """One live voice session: browser audio in, agent audio + transcripts out."""
+        """One live voice session: browser audio in, agent audio out.
+
+        The first client frame must be {"type": "init"}; it may carry the
+        device-local Gemini key (headers are unavailable to browser
+        WebSockets, and a query parameter would land in request logs).
+        """
         await websocket.accept()
         try:
             channel_store, task_store, agent = get_stores()
             if _live_voice_agent is None:
                 raise RuntimeError("Live voice agent not initialized")
-            await _live_voice_agent.live_bridge(
+            first = await websocket.receive_json()
+            live_agent = _live_voice_agent
+            if isinstance(first, dict) and first.get("type") == "init":
+                device_key = _request_api_key(first.get("api_key"))
+                if device_key:
+                    agent, live_agent = _agents_for_request_key(device_key)
+            await live_agent.live_bridge(
                 websocket, channel_store, task_store, channel_id, organizer=agent
             )
         except WebSocketDisconnect:
             pass
+        except HTTPException as exc:
+            try:
+                await websocket.send_json({"type": "error", "message": exc.detail})
+            except Exception:
+                pass
         finally:
             try:
                 await websocket.close()
@@ -468,14 +514,8 @@ def register_chat_routes(app: FastAPI) -> None:
                 raise HTTPException(400, "language_code must look like en-US")
             _settings_store.set_value("language_code", language)
 
-        if "gemini_api_key" in body:
-            key = str(body.get("gemini_api_key") or "").strip()
-            if key and not re.fullmatch(r"[A-Za-z0-9_\-]{20,200}", key):
-                raise HTTPException(400, "That does not look like a Gemini API key")
-            _settings_store.set_value("gemini_api_key", key)
-            # Rebuild the agents so the new credentials take effect now.
-            _apply_model_credentials(key)
-            _build_agents()
+        # gemini_api_key is deliberately not accepted here: device keys live in
+        # the browser's local storage and ride per-request headers only.
 
         return _settings_payload()
 

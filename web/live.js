@@ -131,8 +131,9 @@
     };
   }
 
-  async function start(channelId, sessionHandlers) {
+  async function start(channelId, sessionHandlers, options) {
     handlers = sessionHandlers || {};
+    const apiKey = options?.apiKey || handlers.apiKey || undefined;
     playContext = new AudioContext();
     gain = playContext.createGain();
     analyser = playContext.createAnalyser();
@@ -156,6 +157,9 @@
       socket.onopen = resolve;
       socket.onerror = () => reject(new Error("Could not reach the live session"));
     });
+    // The server expects an init frame first; the device-local key rides here
+    // because browser WebSockets cannot carry custom headers.
+    socket.send(JSON.stringify({ type: "init", api_key: apiKey }));
     await startMic();
     window.LiveFx.start();
     watchLevel();

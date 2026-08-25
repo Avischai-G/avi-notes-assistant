@@ -168,8 +168,10 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
     client = TestClient(api)
 
     base = client.get("/api/settings").json()
-    assert base["api_key_set"] is False
     assert "Puck" in base["voices"]
+    # Keys are device-local; the server neither stores nor reports one.
+    assert "api_key_set" not in base
+    assert "gemini_api_key" not in base
 
     updated = client.put(
         "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}
@@ -180,21 +182,44 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
         "language_code": "en-GB",
     }
 
-    with_key = client.put(
-        "/api/settings", json={"gemini_api_key": "AIza" + "x" * 30}
-    ).json()
-    assert with_key["api_key_set"] is True
-    assert "gemini_api_key" not in with_key  # the key is never echoed back
-    assert os.environ.get("GOOGLE_API_KEY", "").startswith("AIza")
-    assert chat._live_voice_agent.model == "gemini-live-2.5-flash-preview"
-
-    cleared = client.put("/api/settings", json={"gemini_api_key": ""}).json()
-    assert cleared["api_key_set"] is False
+    # A stored key sent by an old client is ignored, never persisted.
+    client.put("/api/settings", json={"gemini_api_key": "AIza" + "x" * 30})
+    assert chat._settings_store.get_value("gemini_api_key") is None
     assert "GOOGLE_API_KEY" not in os.environ
-    assert chat._live_voice_agent.model.startswith("gemini-live-2.5-flash")
 
     assert client.put("/api/settings", json={"voice_name": "NotAVoice"}).status_code == 400
     assert client.put("/api/settings", json={"language_code": "bad!"}).status_code == 400
+
+
+def test_device_key_header_selects_a_cached_per_key_agent(monkeypatch, tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app import chat
+
+    monkeypatch.setenv("TASK_STORE_MODE", "fake")
+    monkeypatch.setenv("CORONER_KNOWLEDGE_ROOT", str(tmp_path / "k"))
+    chat.init_chat_stores(use_firestore=False)
+    api = FastAPI()
+    chat.register_chat_routes(api)
+    client = TestClient(api)
+
+    default_agent = chat._agent
+    key = "AIza" + "d" * 30
+    organizer_a, live_a = chat._agents_for_request_key(key)
+    organizer_b, live_b = chat._agents_for_request_key(key)
+    # Same key → same cached pair, distinct from the server-credential agents.
+    assert organizer_a is organizer_b and live_a is live_b
+    assert organizer_a is not default_agent
+    assert live_a.model == "gemini-live-2.5-flash-preview"
+    # Rejected before any model call; nothing about the key is stored.
+    response = client.post(
+        "/api/channels/x/chat",
+        json={"message": "hi"},
+        headers={"X-Gemini-Key": "not a key!!"},
+    )
+    assert response.status_code == 400
+    assert chat._settings_store.get_value("gemini_api_key") is None
 
 
 def test_live_voice_route_is_registered_and_live_models_construct():

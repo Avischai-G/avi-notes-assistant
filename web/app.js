@@ -8,6 +8,10 @@ const editor = $("#editor");
 const automationChannels = $("#automation-channels");
 const toast = $("#toast");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
+// The Gemini API key lives ONLY in this device's local storage: it rides each
+// request as a header, is never written server-side, and is never displayed.
+const GEMINI_KEY_STORAGE = "agentonomy-gemini-key";
+const deviceKey = () => localStorage.getItem(GEMINI_KEY_STORAGE) || "";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const PAGE = 30;
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
@@ -543,9 +547,11 @@ async function sendMessage() {
 
   let full = "";
   try {
+    const chatHeaders = { "Content-Type": "application/json" };
+    if (deviceKey()) chatHeaders["X-Gemini-Key"] = deviceKey();
     const response = await fetch(`/api/channels/${encodeURIComponent(channelId)}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: chatHeaders,
       body: JSON.stringify({
         message: submitted,
         attachments: filePayloads,
@@ -628,6 +634,7 @@ liveToggle.addEventListener("click", async () => {
   try {
     liveChannelId = await ensureChannel(TASK_CHANNEL_KEY);
     await window.LiveSession.start(liveChannelId, {
+      apiKey: deviceKey() || undefined,
       onChatUpdated: async () => {
         // The voice agent dropped a task into the chat; refresh if visible.
         if (channelId === liveChannelId) await loadChannel(liveChannelId);
@@ -655,8 +662,13 @@ const settingsLanguage = $("#settings-language");
 const settingsApiKey = $("#settings-api-key");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
-const NO_KEY_HINT = "No key saved — the app runs on this project's Google Cloud billing.";
-const KEY_SET_HINT = "A key is saved and in use. Leave blank to keep it, or remove it below.";
+const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
+const KEY_SET_HINT = "A key is saved on this device only. It can be replaced or removed, never shown.";
+
+// The field is write-only: it never shows the saved key, and what is typed
+// can't be copied back out.
+settingsApiKey.addEventListener("copy", (event) => event.preventDefault());
+settingsApiKey.addEventListener("cut", (event) => event.preventDefault());
 
 $("#open-settings").addEventListener("click", async () => {
   try {
@@ -668,8 +680,8 @@ $("#open-settings").addEventListener("click", async () => {
     settingsVoice.value = settings.voice_name || "";
     settingsLanguage.value = settings.language_code || "";
     settingsApiKey.value = "";
-    settingsApiKeyState.textContent = settings.api_key_set ? KEY_SET_HINT : NO_KEY_HINT;
-    settingsRemoveKey.hidden = !settings.api_key_set;
+    settingsApiKeyState.textContent = deviceKey() ? KEY_SET_HINT : NO_KEY_HINT;
+    settingsRemoveKey.hidden = !deviceKey();
     drawer.close();
     settingsEditor.showModal();
   } catch (error) {
@@ -678,37 +690,32 @@ $("#open-settings").addEventListener("click", async () => {
 });
 
 $("#settings-save").addEventListener("click", async () => {
-  const payload = {
-    voice_name: settingsVoice.value,
-    language_code: settingsLanguage.value,
-  };
-  if (settingsApiKey.value.trim()) payload.gemini_api_key = settingsApiKey.value.trim();
+  const typedKey = settingsApiKey.value.trim();
+  if (typedKey) {
+    localStorage.setItem(GEMINI_KEY_STORAGE, typedKey);
+    settingsApiKey.value = "";
+  }
   try {
     await apiJSON("/api/settings", {
       method: "PUT",
       headers: JSON_HEADERS,
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        voice_name: settingsVoice.value,
+        language_code: settingsLanguage.value,
+      }),
     });
     settingsEditor.close();
-    flash("Settings saved");
+    flash(typedKey ? "Saved — key stays on this device" : "Settings saved");
   } catch (error) {
     flash(`Error: ${error.message}`);
   }
 });
 
-settingsRemoveKey.addEventListener("click", async () => {
-  try {
-    await apiJSON("/api/settings", {
-      method: "PUT",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ gemini_api_key: "" }),
-    });
-    settingsRemoveKey.hidden = true;
-    settingsApiKeyState.textContent = NO_KEY_HINT;
-    flash("Key removed");
-  } catch (error) {
-    flash(`Error: ${error.message}`);
-  }
+settingsRemoveKey.addEventListener("click", () => {
+  localStorage.removeItem(GEMINI_KEY_STORAGE);
+  settingsRemoveKey.hidden = true;
+  settingsApiKeyState.textContent = NO_KEY_HINT;
+  flash("Key removed from this device");
 });
 window.addEventListener("hashchange", () => route().catch(showLoadError));
 
