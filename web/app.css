@@ -748,3 +748,66 @@ body.automation-view {
   --composer-bg: #d3c49a;
   --line: rgb(146 100 13 / 0.18);
 }
+
+/* ── Sent files show as chips above the words in a user bubble. ───────── */
+.bubble-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.bubble-attachments:only-child { margin-bottom: 0; }
+.bubble-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgb(var(--ink) / 0.14);
+  background: rgb(var(--ink) / 0.08);
+  font-size: var(--type-small);
+  color: var(--text-2);
+}
+.bubble-attachment svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bubble-attachment span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Settings fold into labelled groups; the name field stays on top. ── */
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: rgb(var(--ink) / 0.02);
+}
+.settings-group summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: var(--text-2);
+  list-style: none;
+}
+.settings-group summary::-webkit-details-marker { display: none; }
+.settings-group summary::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-right: 1.8px solid var(--muted);
+  border-bottom: 1.8px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform var(--motion-fast) ease;
+}
+.settings-group[open] summary::before { transform: rotate(45deg); }
+.settings-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 2px 14px 16px;
+}

@@ -69,6 +69,9 @@
         <input class="field" id="settings-call-name" type="text" spellcheck="false" autocomplete="off" maxlength="60">
         <p class="hint">How the assistants address you. The prompts point here instead of hardcoding a name.</p>
       </div>
+      <details class="settings-group" open>
+      <summary>Model setup</summary>
+      <div class="settings-group-body">
       <div class="field-group">
         <label for="settings-api-key" id="settings-api-key-label">Gemini API key</label>
         <div class="key-row">
@@ -82,6 +85,11 @@
         <input class="field" id="settings-model" type="text" spellcheck="false" autocomplete="off">
         <p class="hint" id="settings-model-hint">The model the chat talks to. Check tests the key and this model together.</p>
       </div>
+      </div>
+      </details>
+      <details class="settings-group" open>
+      <summary>Live agent</summary>
+      <div class="settings-group-body">
       <div class="field-group">
         <label for="settings-voice" id="settings-voice-label">Live voice</label>
         <select class="field" id="settings-voice"></select>
@@ -111,6 +119,8 @@
         </select>
         <p class="hint">Language and accent for the live voice.</p>
       </div>
+      </div>
+      </details>
     </div>
     <div class="editor-foot">
       <button class="danger" id="settings-remove-key" type="button" hidden>Remove key</button>

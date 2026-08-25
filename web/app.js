@@ -60,6 +60,23 @@ function assistantStack(row) {
   return stack;
 }
 
+const CLIP_PATH = "m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.82-2.83l8.49-8.48";
+
+function attachmentChips(names) {
+  const rowEl = document.createElement("div");
+  rowEl.className = "bubble-attachments";
+  for (const name of names) {
+    const chip = document.createElement("span");
+    chip.className = "bubble-attachment";
+    chip.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${CLIP_PATH}"/></svg>`;
+    const label = document.createElement("span");
+    label.textContent = name;
+    chip.append(label);
+    rowEl.append(chip);
+  }
+  return rowEl;
+}
+
 function buildMessage(role, content) {
   const row = document.createElement("div");
   row.className = `message-row ${role}`;
@@ -70,7 +87,19 @@ function buildMessage(role, content) {
     bubble.classList.add("markdown");
     bubble.innerHTML = markdown(content);
   } else {
-    bubble.textContent = content;
+    // A sent file shows as a small chip above the words, not as bracket text.
+    const attached = content.match(/\n?\[Attached: ([^\]]+)\]\s*$/);
+    if (attached) {
+      bubble.append(attachmentChips(attached[1].split(", ")));
+      const text = content.slice(0, attached.index).trim();
+      if (text) {
+        const words = document.createElement("div");
+        words.textContent = text;
+        bubble.append(words);
+      }
+    } else {
+      bubble.textContent = content;
+    }
   }
   parent.append(bubble);
   return { row, bubble, parent };
