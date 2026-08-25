@@ -199,5 +199,40 @@ def test_no_agent_orchestration_tools():
         assert 'launch' not in instruction.lower()
 
 
+def test_the_transcript_window_pages_backwards(tmp_path, monkeypatch):
+    """What the "Load earlier messages" button rides on.
+
+    The client shows the newest `limit` messages and passes the returned
+    `start` back as `before` to walk further into the history.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app import chat
+
+    monkeypatch.setenv('CORONER_KNOWLEDGE_ROOT', str(tmp_path))
+    channel_store, _, _ = chat.init_chat_stores(use_firestore=False)
+    api = FastAPI()
+    chat.register_chat_routes(api)
+    client = TestClient(api)
+
+    channel_store.create_channel('window')
+    for index in range(70):
+        channel_store.append_message('window', Message('user', f'message {index}', 1.0))
+
+    newest = client.get('/api/channels/window?limit=30').json()
+    assert (newest['total'], newest['start']) == (70, 40)
+    assert [m['content'] for m in newest['messages']][0] == 'message 40'
+    assert len(newest['messages']) == 30
+
+    older = client.get(f"/api/channels/window?limit=30&before={newest['start']}").json()
+    assert (older['total'], older['start']) == (70, 10)
+    assert [m['content'] for m in older['messages']][0] == 'message 10'
+
+    oldest = client.get(f"/api/channels/window?limit=30&before={older['start']}").json()
+    assert oldest['start'] == 0  # start of 0 is what hides the button
+    assert [m['content'] for m in oldest['messages']] == [f'message {i}' for i in range(10)]
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

@@ -100,6 +100,8 @@ class NotionTaskStore(TaskStore):
         # Restore is scoped to rows this process archived, keeping the
         # archive/restore surface inside the configured database boundary.
         self._archived: dict[str, Task] = {}
+        # Which optional columns the board actually has, learned from a row.
+        self._columns: set[str] | None = None
 
     @classmethod
     def from_env(cls) -> NotionTaskStore:
@@ -189,17 +191,37 @@ class NotionTaskStore(TaskStore):
             raise RuntimeError("Notion MCP returned a malformed task query")
         if data.get("truncated") is True:
             raise RuntimeError("Notion task query exceeded the 1000-row safety limit")
+        if rows and isinstance(rows[0], dict):
+            properties = rows[0].get("properties")
+            if isinstance(properties, dict):
+                self._columns = set(properties)
         return [self._task_from_page(row) for row in rows]
+
+    def has_column(self, name: str) -> bool:
+        """Whether the board carries an optional column such as Notes.
+
+        A board that has been edited by hand may simply not have one. There is
+        no schema operation in the approved MCP allowlist, so the column set is
+        read off a row; naming a column that is absent makes Notion reject the
+        whole request, which would otherwise break every turn.
+
+        An empty board teaches nothing, and there the answer is yes: dropping a
+        column we merely cannot see would throw Avi's words away silently,
+        while naming one that is missing fails loudly and is recoverable.
+        """
+        if self._columns is None:
+            self._query_tasks()
+        return self._columns is None or name in self._columns
 
     def search_tasks(self, query: str) -> list[Task]:
         needle = _text(query, "query", max_length=200)
+        clauses: list[dict[str, Any]] = [
+            {"property": NAME, "title": {"contains": needle}}
+        ]
+        if self.has_column(NOTES):
+            clauses.append({"property": NOTES, "rich_text": {"contains": needle}})
         return self._query_tasks(
-            {
-                "or": [
-                    {"property": NAME, "title": {"contains": needle}},
-                    {"property": NOTES, "rich_text": {"contains": needle}},
-                ]
-            }
+            clauses[0] if len(clauses) == 1 else {"or": clauses}
         )
 
     def create_task(
@@ -229,7 +251,7 @@ class NotionTaskStore(TaskStore):
             properties[PLACE] = {"select": {"name": clean_place}}
         if clean_minutes is not None:
             properties[MINUTES] = {"number": clean_minutes}
-        if clean_notes:
+        if clean_notes and self.has_column(NOTES):
             properties[NOTES] = {
                 "rich_text": [{"type": "text", "text": {"content": clean_notes}}]
             }

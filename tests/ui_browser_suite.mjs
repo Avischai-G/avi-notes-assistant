@@ -191,6 +191,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   assert.equal(await page.locator("#editor-weekday").isVisible(), false);
   assert.equal(await page.locator("#editor-minute").isVisible(), false);
   assert.equal(await page.locator("#editor-delete").isVisible(), false);
+  assert.equal(await page.locator("#editor-save").isDisabled(), false);
   const layout = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     width: innerWidth,
@@ -203,35 +204,110 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
 
   if (!functional) return;
 
-  // A new automation opens straight into its editor, and its "when" control
-  // follows the frequency. Deleting it puts the drawer back where it started.
+  const automationCount = () =>
+    page.evaluate(() => document.querySelectorAll("#automation-channels .channel").length);
+  const listed = async () =>
+    (await (await page.request.get(`${baseURL}/api/automations`)).json()).automations;
+
+  // "+ New automation" opens the config first and saves nothing on its own.
   await openDrawer(page);
   await page.locator("#add-automation").click();
   await openEditor(page);
-  assert.equal(await page.locator("#editor-name").inputValue(), "New automation");
-  assert.equal(await page.locator("#editor-delete").isVisible(), true);
+  assert.equal(await page.locator("#editor-title").innerText(), "New automation");
+  assert.equal(await page.locator("#editor-name").inputValue(), "");
+  assert.equal(await page.locator("#editor-delete").isVisible(), false);
+  assert.equal(await page.locator("#editor-save").isDisabled(), true);
+  assert.match(await page.locator("#editor-required").innerText(), /needs a name and a prompt/i);
 
+  // A name alone is not enough, and the "when" control follows the frequency.
+  await page.locator("#editor-name").fill("Draft brief");
+  assert.equal(await page.locator("#editor-save").isDisabled(), true);
   await page.locator("#editor-frequency").selectOption("weekly");
-  await page.waitForFunction(() => document.getElementById("editor-next").textContent.startsWith("Weekly"));
+  await page.waitForFunction(() => document.getElementById("editor-trigger").dataset.frequency === "weekly");
   assert.equal(await page.locator("#editor-weekday").isVisible(), true);
   assert.equal(await page.locator("#editor-minute").isVisible(), false);
-  await page.locator("#editor-weekday").selectOption("2");
-  await page.locator("#editor-time").fill("18:15");
-  await page.waitForFunction(
-    () => document.getElementById("editor-next").textContent === "Weekly on Wednesday at 18:15",
-  );
-
   await page.locator("#editor-frequency").selectOption("hourly");
-  await page.waitForFunction(() => document.getElementById("editor-next").textContent.startsWith("Hourly"));
+  await page.waitForFunction(() => document.getElementById("editor-trigger").dataset.frequency === "hourly");
   assert.equal(await page.locator("#editor-minute").isVisible(), true);
   assert.equal(await page.locator("#editor-time").isVisible(), false);
-  assert.equal(await page.locator("#editor-weekday").isVisible(), false);
 
+  // Abandoning the draft leaves the board exactly as it was.
+  await page.keyboard.press("Escape");
+  await closedEditor(page);
+  assert.equal(await automationCount(), 1);
+  assert.deepEqual((await listed()).map((item) => item.id), ["nightly-plan"]);
+
+  // Filled in and saved, it appears as a channel with the trigger it was given.
+  await openDrawer(page);
+  await page.locator("#add-automation").click();
+  await openEditor(page);
+  await page.locator("#editor-name").fill("Draft brief");
+  await page.locator("#editor-prompt").fill("Summarise the day.");
+  await page.locator("#editor-frequency").selectOption("weekly");
+  await page.locator("#editor-weekday").selectOption("2");
+  await page.locator("#editor-time").fill("18:15");
+  await page.waitForFunction(() => !document.getElementById("editor-save").disabled);
+  await page.locator("#editor-save").click();
+  await closedEditor(page);
+  await page.waitForFunction(
+    () => document.querySelectorAll("#automation-channels .channel").length === 2,
+  );
+  const saved = (await listed()).find((item) => item.name === "Draft brief");
+  assert.equal(saved.schedule, "Weekly on Wednesday at 18:15");
+  assert.equal(saved.prompt, "Summarise the day.");
+
+  // Its ⋯ offers Delete, which the built-in does not.
+  await openDrawer(page);
+  await page.locator(`[data-menu="${saved.id}"]`).click();
+  assert.deepEqual(
+    await page.locator(`.row-menu[data-menu-for="${saved.id}"] button`).allInnerTexts(),
+    ["Run now", "Edit", "Delete"],
+  );
+  await page.locator(`[data-action="edit"][data-id="${saved.id}"]`).click();
+  await openEditor(page);
+  assert.equal(await page.locator("#editor-name").inputValue(), "Draft brief");
+  assert.equal(await page.locator("#editor-frequency").inputValue(), "weekly");
+  assert.equal(await page.locator("#editor-weekday").inputValue(), "2");
+  assert.equal(await page.locator("#editor-time").inputValue(), "18:15");
+
+  // The editor's own Delete removes it; the close button just closes.
   await page.locator("#editor-delete").click();
   await closedEditor(page);
   await page.waitForFunction(
     () => document.querySelectorAll("#automation-channels .channel").length === 1,
   );
+  assert.deepEqual((await listed()).map((item) => item.id), ["nightly-plan"]);
+
+  await openDrawer(page);
+  await page.locator('[data-menu="chat"]').click();
+  await page.locator('[data-action="edit-chat"]').click();
+  await openEditor(page);
+  await page.getByRole("button", { name: "Close editor" }).click();
+  await closedEditor(page);
+
+  // One control, three modes, each showing the icon for the mode it is in.
+  const themeState = async () => page.evaluate(() => ({
+    mode: document.documentElement.dataset.themeMode,
+    theme: document.documentElement.dataset.theme,
+    label: document.getElementById("theme").getAttribute("aria-label"),
+    icon: [...document.querySelectorAll("#theme svg")]
+      .filter((svg) => getComputedStyle(svg).display !== "none")
+      .map((svg) => svg.getAttribute("class"))
+      .join(),
+  }));
+  const cycle = [];
+  for (let step = 0; step < 4; step += 1) {
+    cycle.push(await themeState());
+    if (step < 3) await page.locator("#theme").click(); // ends on the theme it began with
+  }
+  assert.deepEqual(cycle.map((item) => item.mode), ["dark", "system", "light", "dark"]);
+  assert.deepEqual(
+    cycle.map((item) => item.icon),
+    ["mode-dark", "mode-system", "mode-light", "mode-dark"],
+  );
+  assert.match(cycle[1].label, /system/i);
+  assert.equal(cycle[2].theme, "light");
+  assert.equal(await page.evaluate(() => localStorage.getItem("agentonomy-theme")), "dark");
 }
 
 

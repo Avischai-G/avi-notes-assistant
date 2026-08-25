@@ -255,6 +255,35 @@ class TaskStoreTests(unittest.TestCase):
         self.client = FakeMcpClient()
         self.store = NotionTaskStore(self.config, self.client)
 
+    def test_a_board_without_a_notes_column_still_works(self):
+        """Avi's live board has no Notes column, and every turn searched it.
+
+        Notion rejects the whole request when a filter or a write names a
+        property the database does not have, so search_tasks failed on every
+        prompt. The store reads the column set off a row and leaves Notes out.
+        """
+        self.store.create_task("Existing row", place="Office")
+        for page in self.client.pages.values():
+            page["properties"].pop(NOTES, None)  # a board edited by hand
+        self.store._columns = None  # a fresh process, learning from scratch
+
+        self.assertFalse(self.store.has_column(NOTES))
+        self.store.search_tasks("passport")
+        operation, payload = self.client.calls[-1]
+        self.assertEqual(operation, "query_database")
+        self.assertEqual(payload["filter"], {"property": NAME, "title": {"contains": "passport"}})
+
+        self.store.create_task("Second row", notes="dropped rather than rejected")
+        _, created = self.client.calls[-1]
+        self.assertNotIn(NOTES, created["properties"])
+
+    def test_an_unreadable_board_keeps_notes_rather_than_dropping_them(self):
+        """An empty board teaches nothing; assume the column is there."""
+        self.assertTrue(self.store.has_column(NOTES))
+        self.store.create_task("First ever", notes="Avi's words")
+        _, created = self.client.calls[-1]
+        self.assertIn(NOTES, created["properties"])
+
     def test_create_maps_all_six_properties_and_allows_new_place(self):
         task = self.store.create_task(
             "  Remember passport  ",

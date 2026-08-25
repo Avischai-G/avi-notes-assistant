@@ -314,7 +314,7 @@ drawer.addEventListener("click", (event) => {
   }
   if (event.target.closest("#add-automation")) {
     drawer.close();
-    return addAutomation();
+    return openNewAutomationEditor();
   }
   if (event.target.closest(".channel")) return drawer.close();
   // A modal <dialog> fills the viewport for hit-testing; outside the list is the backdrop.
@@ -361,18 +361,25 @@ async function deleteAutomation(automation) {
   }
 }
 
-async function addAutomation() {
-  try {
-    await apiJSON("/api/automations", {
-      method: "POST",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ name: "New automation", prompt: "", frequency: "daily", hour: 9, minute: 0 }),
-    });
-    await loadAutomations();
-    openAutomationEditor(automations.at(-1));
-  } catch (error) {
-    flash(`Not created: ${error.message}`);
-  }
+/* Nothing is created until Save: the config comes first, and closing the
+   editor on a draft leaves the board exactly as it was. */
+function openNewAutomationEditor() {
+  editorMode = "new";
+  editing = null;
+  editor.dataset.kind = "automation";
+  editorTitle.textContent = "New automation";
+  editorPromptLabel.textContent = "Prompt";
+  editorName.value = "";
+  editorPrompt.value = "";
+  editorFrequency.value = "daily";
+  editorWeekday.value = "0";
+  editorTime.value = "09:00";
+  editorMinute.value = "0";
+  editorDelete.hidden = true;
+  editorNext.textContent = "";
+  syncEditor();
+  editor.showModal();
+  editorName.focus();
 }
 
 /* ── Editor: the one place a prompt or a trigger changes ─────────────── */
@@ -387,7 +394,10 @@ const editorTime = $("#editor-time");
 const editorMinute = $("#editor-minute");
 const editorNext = $("#editor-next");
 const editorDelete = $("#editor-delete");
-let editing = null; // null while editing the chat's own instructions
+const editorSave = $("#editor-save");
+const editorRequired = $("#editor-required");
+let editorMode = "chat"; // "chat" | "automation" | "new"
+let editing = null;
 let toastTimer = 0;
 
 editorMinute.replaceChildren(...Array.from({ length: 12 }, (_, index) => {
@@ -406,22 +416,40 @@ function flash(message) {
 
 const twoDigits = (value) => String(value ?? 0).padStart(2, "0");
 
+/* Save stays out of reach until the editor holds everything it needs. */
+function syncEditor() {
+  editorTrigger.dataset.frequency = editorFrequency.value;
+  const missing = [];
+  if (editorMode !== "chat" && !editorName.value.trim()) missing.push("a name");
+  if (!editorPrompt.value.trim()) missing.push("a prompt");
+  editorSave.disabled = missing.length > 0;
+  editorRequired.textContent = missing.length
+    ? `Needs ${missing.join(" and ")} before it can be saved.`
+    : "";
+}
+
 async function openChatEditor() {
+  editorMode = "chat";
   editing = null;
   editor.dataset.kind = "chat";
   editorTitle.textContent = "Chat instructions";
   editorPromptLabel.textContent = "How the assistant behaves";
   editorPrompt.value = "";
+  editorDelete.hidden = true;
+  editorNext.textContent = "";
+  syncEditor();
   editor.showModal();
   try {
     editorPrompt.value = (await apiJSON("/api/settings")).system_prompt || "";
   } catch (error) {
     flash(`Could not load: ${error.message}`);
   }
+  syncEditor();
 }
 
 function openAutomationEditor(automation) {
   if (!automation) return;
+  editorMode = "automation";
   editing = automation;
   editor.dataset.kind = "automation";
   editorTitle.textContent = automation.name;
@@ -433,8 +461,8 @@ function openAutomationEditor(automation) {
   editorTime.value = `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
   editorMinute.value = String(automation.minute ?? 0);
   editorDelete.hidden = Boolean(automation.built_in);
-  editorTrigger.dataset.frequency = editorFrequency.value;
   editorNext.textContent = automation.schedule || "";
+  syncEditor();
   editor.showModal();
 }
 
@@ -448,46 +476,43 @@ function triggerFromForm() {
 }
 
 async function saveEditor() {
-  if (!editing) {
-    const prompt = editorPrompt.value.trim();
-    if (!prompt) return flash("Instructions can't be empty");
-    try {
+  if (editorSave.disabled) return;
+  editorSave.disabled = true;
+  try {
+    if (editorMode === "chat") {
       await apiJSON("/api/settings", {
         method: "PUT",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ system_prompt: prompt }),
+        body: JSON.stringify({ system_prompt: editorPrompt.value.trim() }),
       });
-      return flash("Saved");
-    } catch (error) {
-      return flash(`Not saved: ${error.message}`);
-    }
-  }
-  try {
-    const saved = await apiJSON(`/api/automations/${encodeURIComponent(editing.id)}`, {
-      method: "PATCH",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        name: editorName.value.trim() || editing.name,
-        prompt: editorPrompt.value,
+    } else {
+      const body = JSON.stringify({
+        name: editorName.value.trim(),
+        prompt: editorPrompt.value.trim(),
         ...triggerFromForm(),
-      }),
-    });
-    editing = saved;
-    automations = automations.map((item) => (item.id === saved.id ? saved : item));
-    if (activeAutomation?.id === saved.id) activeAutomation = saved;
-    editorTitle.textContent = saved.name;
-    editorNext.textContent = saved.schedule;
-    renderChannels();
-    return flash("Saved");
+      });
+      const saved = editorMode === "new"
+        ? await apiJSON("/api/automations", { method: "POST", headers: JSON_HEADERS, body })
+        : await apiJSON(`/api/automations/${encodeURIComponent(editing.id)}`, {
+          method: "PATCH", headers: JSON_HEADERS, body,
+        });
+      await loadAutomations();
+      if (activeAutomation?.id === saved.id) {
+        activeAutomation = automations.find((item) => item.id === saved.id) || activeAutomation;
+      }
+    }
+    editor.close();
+    flash("Saved");
   } catch (error) {
-    return flash(`Not saved: ${error.message}`);
+    flash(`Not saved: ${error.message}`);
+  } finally {
+    syncEditor();
   }
 }
 
-editor.addEventListener("change", () => {
-  editorTrigger.dataset.frequency = editorFrequency.value;
-  saveEditor();
-});
+editor.addEventListener("change", syncEditor);
+editor.addEventListener("input", syncEditor);
+editorSave.addEventListener("click", saveEditor);
 
 editorDelete.addEventListener("click", () => {
   const target = editing;

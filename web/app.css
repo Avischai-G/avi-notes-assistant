@@ -540,6 +540,28 @@ textarea.field { resize: vertical; }
 .trigger-row[data-frequency="daily"] .when-weekday,
 .trigger-row[data-frequency="weekly"] .when-minute { display: none; }
 
+.editor-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+.editor-foot .hint { flex: 1; margin: 0; text-align: right; }
+.primary {
+  flex: none;
+  padding: 9px 18px;
+  border-radius: var(--radius-control);
+  background: var(--button-invert-bg);
+  color: var(--button-invert-fg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.primary:hover:not(:disabled) { transform: translateY(-1px); }
+.primary:disabled { opacity: 0.35; cursor: default; }
+
 .danger {
   align-self: flex-start;
   padding: 8px 12px;
@@ -599,6 +621,7 @@ textarea.field { resize: vertical; }
 .field:focus-visible,
 .row-menu button:focus-visible,
 .danger:focus-visible,
+.primary:focus-visible,
 .attach-button:focus-visible,
 .live-toggle:focus-visible,
 .send-button:focus-visible,

@@ -153,7 +153,12 @@ class TaskFieldWriter:
             "minutes": "Minutes",
             "notes": "Notes",
         }
+        has_column = getattr(self.task_store, "has_column", None)
         for field, value in changes.items():
+            # A board edited by hand may have no Notes column; naming it would
+            # make Notion reject the write outright.
+            if field == "notes" and has_column is not None and not has_column("Notes"):
+                continue
             client.execute(
                 "set_page_property",
                 {
