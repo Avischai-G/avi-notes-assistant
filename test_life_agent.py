@@ -153,13 +153,15 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
 
     async def run_and_settle():
         result = await run()
-        # The handoff is fire-and-forget; wait for the spawned organizer run.
+        # The background task may already be done; settle any stragglers.
         await asyncio.gather(*live._pending)
         return result
 
     result = asyncio.run(run_and_settle())
 
     assert result["delivered"] is True
+    # A quick organizer reply is read back to the voice agent directly.
+    assert result["answer"] == "Saved it."
     # The organizer really executed the instruction against the board...
     [task] = tasks.list_tasks()
     assert task.title == "Call the accountant"
@@ -167,8 +169,7 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
     messages = channels.get_channel("home")
     assert [m.role for m in messages] == ["user", "assistant"]
     assert messages[0].content == "Add a task to call the accountant"
-    # Notified at handoff and again when the organizer finished.
-    assert notified == [True, True]
+    assert notified == [True]
 
 
 def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):

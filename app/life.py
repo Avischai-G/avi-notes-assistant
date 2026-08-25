@@ -37,7 +37,9 @@ LIFE_PROMPT = """You are the app's live voice navigator. Avi speaks; you act on 
 
 You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below.
 
-You do exactly three things. Anything he wants done, asked, or looked up goes through send_task_to_chat as one clear written instruction — the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Nothing else is yours to do; never claim you did the work yourself.
+You do exactly three things. Anything he wants done, asked, or looked up — including every question about his Notion board you cannot answer yourself — goes through send_task_to_chat as one clear written instruction or question; the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Nothing else is yours to do; never claim you did the work yourself.
+
+send_task_to_chat waits a moment for the reply. When it returns an answer, tell him the substance in your own short words. When it returns answer_pending, tell him it is sent and the reply will land in the chat.
 
 Speak in short, quick confirmations — a few words. No markdown, no lists."""
 
@@ -188,9 +190,12 @@ class LifeAgent:
         async def send_task_to_chat(instruction: str) -> dict:
             """Hand anything Avi wants done or asked to the task assistant.
 
+            Waits a moment for the reply: an `answer` comes back when it is
+            quick, otherwise `answer_pending` and it lands in the chat.
+
             Args:
-                instruction: One clear written instruction; it lands in the
-                    chat and the task assistant executes it.
+                instruction: One clear written instruction or question; it
+                    lands in the chat and the task assistant handles it.
             """
             bridge = self._bridge.get()
             if not bridge:
@@ -199,23 +204,38 @@ class LifeAgent:
                     "reason": "The chat bridge is not available in this session.",
                 }
             task_store = self._store.get()
+            outcome = {"text": "", "error": ""}
 
             async def hand_off() -> None:
                 try:
-                    async for _chunk in bridge["organizer"].chat(
+                    async for chunk in bridge["organizer"].chat(
                         instruction,
                         bridge["channel_store"],
                         task_store,
                         bridge["channel_id"],
                     ):
-                        pass
+                        if "text" in chunk:
+                            outcome["text"] = chunk["text"]
+                        if "error" in chunk:
+                            outcome["error"] = chunk["error"]
                 finally:
                     await bridge["notify"]()
 
-            # Fire and forget: the reply appears in the chat when it is ready.
-            self._spawn(hand_off())
-            await bridge["notify"]()
-            return {"delivered": True, "note": "Handed to the chat; it is working on it."}
+            task = asyncio.ensure_future(hand_off())
+            self._pending.add(task)
+            task.add_done_callback(self._pending.discard)
+            try:
+                # A short beat: quick answers get read back to Avi directly.
+                await asyncio.wait_for(asyncio.shield(task), timeout=5)
+            except asyncio.TimeoutError:
+                return {
+                    "delivered": True,
+                    "answer_pending": True,
+                    "note": "Still working; the reply will appear in the chat.",
+                }
+            if outcome["error"]:
+                return {"delivered": False, "reason": outcome["error"]}
+            return {"delivered": True, "answer": outcome["text"]}
 
         async def navigate(target: str) -> dict:
             """Move the app to a place from the app map.
