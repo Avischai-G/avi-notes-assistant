@@ -58,6 +58,7 @@ def test_life_agent_reads_the_board_and_navigates_but_never_writes():
         "read_task_details",
         "read_task_comments",
         "send_task_to_chat",
+        "wait_for_chat_answer",
         "navigate",
         "run_automation",
     ]

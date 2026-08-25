@@ -38,13 +38,18 @@ LIFE_PROMPT = """You are the app's live voice navigator and board guide. Avi spe
 
 You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what he is referring to.
 
-You can read his board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board. Every change, and anything you cannot answer from the board, goes through send_task_to_chat as one clear written instruction or question; the task assistant in the chat handles it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Never claim you did the work yourself.
+You can read his board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board — but that is never a reason to refuse. Anything your own tools cannot do — creating, changing or deleting tasks, or any request beyond the board — you hand to the task assistant with send_task_to_chat as one clear written instruction. Never answer "I can't do that": sending it to the chat IS you doing it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Never claim you did the work yourself.
 
-send_task_to_chat waits a moment for the reply. When it returns an answer, tell him the substance in your own short words. When it returns answer_pending, tell him it is sent and the reply will land in the chat.
+send_task_to_chat waits a moment for the reply. When it returns an answer, tell him the substance in your own short words. When it returns answer_pending, call wait_for_chat_answer to stay with it, then tell him what came back; only if even that is still pending, tell him the reply will land in the chat.
 
 Speak in short, quick confirmations — a few words. No markdown, no lists."""
 
 APP_NAME = "life"
+
+# How long send_task_to_chat waits before answering "pending", and how long
+# wait_for_chat_answer stays with the organizer after that.
+QUICK_WAIT_SECONDS = 5
+LONG_WAIT_SECONDS = 30
 
 
 def _install_live_probes() -> None:
@@ -255,18 +260,41 @@ class LifeAgent:
             task = asyncio.ensure_future(hand_off())
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
+            bridge["last_handoff"] = (task, outcome)
             try:
                 # A short beat: quick answers get read back to Avi directly.
-                await asyncio.wait_for(asyncio.shield(task), timeout=5)
+                await asyncio.wait_for(asyncio.shield(task), timeout=QUICK_WAIT_SECONDS)
             except asyncio.TimeoutError:
                 return {
                     "delivered": True,
+                    "answer_pending": True,
+                    "note": "Still working; call wait_for_chat_answer to get the reply.",
+                }
+            if outcome["error"]:
+                return {"delivered": False, "reason": outcome["error"]}
+            return {"delivered": True, "answer": outcome["text"]}
+
+        async def wait_for_chat_answer() -> dict:
+            """Wait for the task assistant to finish the last handoff.
+
+            Returns its answer so it can be spoken back; after a long wait
+            it reports pending and the reply lands in the chat instead.
+            """
+            bridge = self._bridge.get()
+            handoff = (bridge or {}).get("last_handoff")
+            if not handoff:
+                return {"answer": "", "note": "Nothing was handed to the chat yet."}
+            task, outcome = handoff
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=LONG_WAIT_SECONDS)
+            except asyncio.TimeoutError:
+                return {
                     "answer_pending": True,
                     "note": "Still working; the reply will appear in the chat.",
                 }
             if outcome["error"]:
                 return {"delivered": False, "reason": outcome["error"]}
-            return {"delivered": True, "answer": outcome["text"]}
+            return {"answer": outcome["text"]}
 
         async def navigate(target: str) -> dict:
             """Move the app to a place from the app map.
@@ -297,6 +325,7 @@ class LifeAgent:
             read_task_details,
             read_task_comments,
             send_task_to_chat,
+            wait_for_chat_answer,
             navigate,
             run_automation,
         ]
