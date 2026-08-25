@@ -1,6 +1,6 @@
 # Agentonomy Tasks
 
-Live deployment: https://avi-notes-assistant-295057934762.us-central1.run.app
+Live deployment: https://agentonomy-tasks-295057934762.us-central1.run.app
 
 A small chat and live-voice assistant for capturing tasks into one scoped Notion database, with automations that review the board on a schedule. It organises records; it never claims to perform the underlying work.
 
