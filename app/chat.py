@@ -35,7 +35,7 @@ from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
 from app.notion_mcp import NotionConfigurationError
 from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge
-from app.task_planning import DayPlanner, FREQUENCIES
+from app.task_planning import BoardReview, FREQUENCIES
 from app.task_store import FakeTaskStore
 from app.organizer import TaskOrganizerAgent
 from app.life import LifeAgent
@@ -135,23 +135,9 @@ def init_chat_stores(
     # Firestore holds only durable embedding metadata and private learning events.
     _knowledge = build_organizer_knowledge(db=db)
 
-    # Agent
-    try:
-        _agent = TaskOrganizerAgent(
-            model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-            knowledge=_knowledge,
-        )
-    except ValueError as e:
-        raise RuntimeError(f"Agent initialization failed: {e}")
-
-    # The live voice session runs on the live-audio model family; its
-    # web_research sub-agent stays on the text model.
-    _live_voice_agent = LifeAgent(
-        model=os.environ.get("CORONER_LIVE_MODEL", "gemini-live-2.5-flash"),
-        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-        research_model=os.environ.get("CORONER_MODEL", "gemini-3.7-flash"),
-    )
+    # An evaluator's stored Gemini API key replaces Vertex for model calls.
+    _apply_model_credentials(str(_settings_store.get_value("gemini_api_key") or ""))
+    _build_agents()
 
     for retired in RETIRED_AUTOMATION_IDS:
         # Dropped automations would otherwise sit in Firestore forever.
@@ -168,15 +154,15 @@ def init_chat_stores(
 
     _agent.prompt_source = _settings_store.get_system_prompt
 
-    planner = DayPlanner(_task_store)
     _automation_runner = AutomationRunner(
         _automation_store,
         _channel_store,
         _task_store,
         _agent,
-        planner=planner,
+        review=BoardReview(_task_store),
     )
-    _agent.configure_planning(planner, _automation_runner.save_sweep)
+    # Avi can ask the chat to run an automation by name.
+    _agent.configure_automations(_automation_runner)
 
     return _channel_store, _task_store, _agent
 
@@ -458,20 +444,6 @@ def register_chat_routes(app: FastAPI) -> None:
             )
         except KeyError:
             raise HTTPException(404, "automation not found")
-
-    @app.post("/api/automations/nightly-plan/pick")
-    async def pick_nightly_plan(request: Request):
-        try:
-            body = await request.json()
-        except Exception as exc:
-            raise HTTPException(400, f"Invalid JSON: {exc}")
-        plan = body.get("plan")
-        if plan not in {"A", "B"}:
-            raise HTTPException(400, "plan must be A or B")
-        try:
-            return _automation_runner.pick_plan(plan)
-        except ValueError as exc:
-            raise HTTPException(409, str(exc))
 
     @app.post("/api/automations/tick")
     async def automation_tick():

@@ -1,11 +1,9 @@
 """Small, deterministic policy for defaults and tomorrow's two plans."""
 from __future__ import annotations
 
-from collections import Counter
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 import re
-from typing import Callable, Iterable
-import uuid
+from typing import Callable
 from zoneinfo import ZoneInfo
 
 from app.task_store import Task, TaskStore
@@ -59,7 +57,9 @@ def infer_when(
     iso_date = re.search(r"\b\d{4}-\d{2}-\d{2}\b", message)
     if iso_date:
         return iso_date.group(0)
-    return (today + timedelta(days=1)).isoformat()
+    # No date was named, so the task gets none. A guessed "tomorrow" reads as a
+    # commitment Avi never made.
+    return None
 
 
 def friendly_when(value: str | dict[str, str] | None, now: datetime) -> str:
@@ -170,188 +170,111 @@ class TaskFieldWriter:
             setattr(task, field, value)
         return task
 
-    def set_plan_times(self, items: Iterable[dict]) -> list[Task]:
-        """Set only `When`, validating every task before the first write."""
-        items = list(items)
-        tasks = self._tasks_by_id()
-        resolved: list[tuple[Task, str]] = []
-        for item in items:
-            task = tasks.get(self._normalized(item["task_id"]))
-            if task is None:
-                raise ValueError("A planned task is no longer in the task store")
-            resolved.append((task, item["when"]))
 
-        local_update = getattr(self.task_store, "update_task_fields", None)
-        if callable(local_update):
-            return [local_update(task.id, when=when) for task, when in resolved]
-
-        client = getattr(self.task_store, "client", None)
-        if client is None:
-            raise TypeError("Task store cannot schedule tasks")
-        for task, when in resolved:
-            client.execute(
-                "set_page_property",
-                {
-                    "page_id": task.id,
-                    "name": "When",
-                    "value": self._notion_value("when", when),
-                },
-            )
-            task.when = when
-        return [task for task, _ in resolved]
+DUPLICATE_SIMILARITY = 0.5  # knob: lower catches more pairs and nags more
+_SPLIT_MARKERS = (" and ", " & ", " + ", ", ")
+_FILLER = frozenset(
+    "a an the my his her our to for of in on at with into from do go get make "
+    "some any this that it is be".split()
+)
 
 
-class DayPlanner:
-    """Build two felt-different, eight-hour plans from open place-matched tasks."""
+def _content_words(title: str) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", title.casefold())
+    return {word for word in words if word not in _FILLER}
 
-    def __init__(
-        self,
-        task_store: TaskStore,
-        *,
-        clock: Callable[[], datetime] | None = None,
-        day_minutes: int = DAY_MINUTES,
-    ) -> None:
+
+def _similarity(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    return len(left & right) / len(left | right)
+
+
+def recent_places(task_store: TaskStore, limit: int = 30) -> list[str]:
+    """Place values already on the board, newest first, for the prompt hint."""
+    seen: list[str] = []
+    tasks = [task for task in task_store.list_tasks() if task.status != DONE]
+    for task in reversed(tasks[-limit:]):
+        place = (task.place or "").strip()
+        if place and place not in seen:
+            seen.append(place)
+    return seen
+
+
+class BoardReview:
+    """A read-only organising pass over the board.
+
+    Guidance on task hygiene converges on the same few failure modes — near
+    duplicates, overdue leftovers, titles too vague to act on, and titles
+    hiding more than one action — and on proposing rather than deleting: only
+    the person who wrote them knows which copy of a duplicate is the keeper.
+    So this reports and never writes.
+    """
+
+    def __init__(self, task_store: TaskStore, *, clock: Callable[[], datetime] | None = None):
         self.task_store = task_store
         self.clock = clock
-        self.day_minutes = day_minutes
-        self.writer = TaskFieldWriter(task_store)
 
-    def _open_recent(self) -> list[Task]:
-        tasks = [task for task in self.task_store.list_tasks() if task.status != DONE]
-        return tasks[-30:]
+    def _open(self) -> list[Task]:
+        return [task for task in self.task_store.list_tasks() if task.status != DONE]
 
-    def recent_places(self) -> list[str]:
-        seen: list[str] = []
-        for task in reversed(self._open_recent()):
-            place = (task.place or "").strip()
-            if place and place.casefold() != ANYWHERE.casefold() and place not in seen:
-                seen.append(place)
-        return [*seen, ANYWHERE]
+    def findings(self) -> dict[str, list]:
+        tasks = self._open()
+        today = local_now(self.clock).date()
+        words = {task.id: _content_words(task.title) for task in tasks}
 
-    def default_place(self) -> str:
-        places = [(task.place or "").strip() for task in self._open_recent()]
-        places = [place for place in places if place]
-        if not places:
-            return ANYWHERE
-        counts = Counter(places)
-        highest = max(counts.values())
-        tied = {place for place, count in counts.items() if count == highest}
-        for place in reversed(places):
-            if place in tied:
-                return place
-        return ANYWHERE
+        duplicates = []
+        for index, task in enumerate(tasks):
+            for other in tasks[index + 1:]:
+                if _similarity(words[task.id], words[other.id]) >= DUPLICATE_SIMILARITY:
+                    duplicates.append((task, other))
 
-    @staticmethod
-    def _duration(task: Task) -> int:
-        if task.minutes is None:
-            return DEFAULT_MINUTES
-        return max(0, int(task.minutes))
+        overdue = []
+        for task in tasks:
+            raw = task.when.get("start") if isinstance(task.when, dict) else task.when
+            if isinstance(raw, str) and raw[:10] < today.isoformat():
+                overdue.append(task)
 
-    def _eligible(self, place: str) -> list[Task]:
-        allowed = {place.casefold(), ANYWHERE.casefold()}
-        return [
+        vague = [task for task in tasks if len(words[task.id]) <= 1]
+        crowded = [
             task
-            for task in self.task_store.list_tasks()
-            if task.status != DONE
-            and (task.place or ANYWHERE).casefold() in allowed
+            for task in tasks
+            if any(marker in f" {task.title.casefold()} " for marker in _SPLIT_MARKERS)
         ]
-
-    def _fit_day(self, tasks: list[Task]) -> list[Task]:
-        chosen: list[Task] = []
-        used = 0
-        for task in tasks:
-            duration = self._duration(task)
-            if used + duration <= self.day_minutes:
-                chosen.append(task)
-                used += duration
-        return chosen
-
-    def _schedule(self, tasks: list[Task], target: date) -> list[dict]:
-        cursor = datetime.combine(target, DAY_START, tzinfo=JERUSALEM)
-        items = []
-        for task in tasks:
-            duration = self._duration(task)
-            items.append(
-                {
-                    "task_id": task.id,
-                    "title": task.title,
-                    "minutes": duration,
-                    "when": cursor.isoformat(timespec="minutes"),
-                }
-            )
-            cursor += timedelta(minutes=duration)
-        return items
-
-    @staticmethod
-    def _render_plan(label: str, subtitle: str, items: list[dict]) -> list[str]:
-        lines = [f"Plan {label} \u2014 {subtitle}"]
-        if not items:
-            return [*lines, "No matching open tasks."]
-        for item in items:
-            start = item["when"][11:16]
-            lines.append(f"{start} \u00b7 {item['title']} \u00b7 {item['minutes']} min")
-        return lines
-
-    def build(self, place: str | None = None) -> dict:
-        now = local_now(self.clock)
-        target = now.date() + timedelta(days=1)
-        offered = self.recent_places()
-        requested = (place or "").strip()
-        known_place = next(
-            (known for known in offered if requested.casefold() == known.casefold()),
-            None,
-        )
-        chosen_place = known_place or self.default_place()
-        fitted = self._fit_day(self._eligible(chosen_place))
-
-        heavy = sorted(fitted, key=self._duration, reverse=True)
-        light_sorted = sorted(fitted, key=self._duration)
-        quick_count = min(2, max(1, len(light_sorted) // 3)) if light_sorted else 0
-        light = light_sorted[:quick_count] + sorted(
-            light_sorted[quick_count:], key=self._duration, reverse=True
-        )
-        plan_a = self._schedule(heavy, target)
-        plan_b = self._schedule(light, target)
-        same_order = [item["task_id"] for item in plan_a] == [
-            item["task_id"] for item in plan_b
-        ]
-
-        if known_place is None:
-            opening = (
-                f"Where will you be tomorrow \u2014 {', '.join(offered)}?\n"
-                f"I used {chosen_place} by default."
-            )
-        else:
-            opening = f"Planning tomorrow for {chosen_place}."
-        lines = [opening, ""]
-        lines.extend(self._render_plan("A", "heavy first", plan_a))
-        lines.append("")
-        lines.extend(self._render_plan("B", "light first", plan_b))
-        if same_order:
-            lines.extend(
-                ["", "These are nearly identical because the matching tasks do not offer a meaningful reorder."]
-            )
-
         return {
-            "plan_id": str(uuid.uuid4()),
-            "date": target.isoformat(),
-            "place": chosen_place,
-            "plans": {"A": plan_a, "B": plan_b},
-            "controls": [
-                {"id": "A", "label": "Pick Plan A"},
-                {"id": "B", "label": "Pick Plan B"},
-            ],
-            "similar": same_order,
-            "text": "\n".join(lines),
+            "open": tasks,
+            "duplicates": duplicates,
+            "overdue": overdue,
+            "vague": vague,
+            "crowded": crowded,
         }
 
-    def pick(self, sweep: dict, plan: str) -> list[Task]:
-        if plan not in {"A", "B"}:
-            raise ValueError("plan must be A or B")
-        plans = sweep.get("plans") if isinstance(sweep, dict) else None
-        if not isinstance(plans, dict) or plan not in plans:
-            raise ValueError("No pending plan to pick")
-        return self.writer.set_plan_times(plans[plan])
+    def build(self) -> dict:
+        found = self.findings()
+        lines: list[str] = []
+        if found["duplicates"]:
+            lines.append("**Possible duplicates** — keep one, fold the rest into it:")
+            lines += [f"- {a.title} / {b.title}" for a, b in found["duplicates"]]
+        if found["overdue"]:
+            lines.append("**Past their date** — do, redate, or drop:")
+            lines += [f"- {task.title}" for task in found["overdue"]]
+        if found["vague"]:
+            lines.append("**Too vague to act on** — name the outcome:")
+            lines += [f"- {task.title}" for task in found["vague"]]
+        if found["crowded"]:
+            lines.append("**More than one action** — worth splitting:")
+            lines += [f"- {task.title}" for task in found["crowded"]]
+
+        total = len(found["open"])
+        if not lines:
+            text = f"Board is tidy — {total} open task{'' if total == 1 else 's'}, nothing to merge or clarify."
+        else:
+            text = "\n".join([f"{total} open tasks.", ""] + lines + ["", "Tell me which to change."])
+        return {
+            "text": text,
+            "open": total,
+            "counts": {key: len(found[key]) for key in ("duplicates", "overdue", "vague", "crowded")},
+        }
 
 
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")

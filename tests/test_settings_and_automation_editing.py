@@ -34,13 +34,15 @@ def test_system_prompt_round_trips_and_reaches_the_agent(client):
     assert client.put("/api/settings", json={"system_prompt": "   "}).status_code == 400
 
 
-def test_the_board_ships_with_one_automation_and_retires_knowledge_cleanup(client):
+def test_the_board_ships_with_one_organising_automation(client):
     listed = client.get("/api/automations").json()["automations"]
-    assert [a["id"] for a in listed] == ["nightly-plan"]
+    assert [a["id"] for a in listed] == ["organize-tasks"]
+    assert listed[0]["name"] == "Organize tasks"
     assert listed[0]["built_in"] is True
-    assert (listed[0]["frequency"], listed[0]["hour"]) == ("daily", 21)
-    assert listed[0]["schedule"] == "Daily at 21:00"
-    assert client.get("/api/channels/automation-knowledge-cleanup").json()["total"] == 0
+    # A review is a weekly habit, not a nightly one.
+    assert listed[0]["schedule"] == "Weekly on Sunday at 09:00"
+    for retired in ("knowledge-cleanup", "nightly-plan"):
+        assert client.get(f"/api/channels/automation-{retired}").json()["total"] == 0
 
 
 def test_an_automation_carries_a_frequency_and_a_when(client):
@@ -71,7 +73,7 @@ def test_an_automation_carries_a_frequency_and_a_when(client):
     assert client.delete("/api/automations/morning-brief").status_code == 200
     assert client.delete("/api/automations/morning-brief").status_code == 404
     # The planning path looks the built-in up by id, so it stays.
-    assert client.delete("/api/automations/nightly-plan").status_code == 409
+    assert client.delete("/api/automations/organize-tasks").status_code == 409
     assert client.patch("/api/automations/nope", json={}).status_code == 404
 
 
@@ -91,12 +93,12 @@ def test_a_pre_trigger_record_is_repaired_rather_than_silently_retimed():
     would have quietly moved twelve hours.
     """
     stale = Automation(
-        id="nightly-plan",
-        name="Plan tomorrow",
-        prompt="Plan tomorrow from Avi's open tasks.",
+        id="organize-tasks",
+        name="Organize tasks",
+        prompt="Look over the open tasks.",
         schedule="daily at 21:00 Asia/Jerusalem",
         enabled=True,
-        channel_id="automation-nightly-plan",
+        channel_id="automation-organize-tasks",
     )
     assert (stale.frequency, stale.hour) == ("daily", 9)  # the wrong fallback
 
@@ -109,11 +111,12 @@ def test_a_pre_trigger_record_is_repaired_rather_than_silently_retimed():
 
     repaired = reconcile_triggers(store, now)
 
-    assert [a.id for a in repaired] == ["nightly-plan"]  # `mine` already agrees
-    fixed = store.get("nightly-plan")
-    assert (fixed.frequency, fixed.hour, fixed.minute) == ("daily", 21, 0)
-    assert fixed.schedule == "Daily at 21:00"
-    assert fixed.next_run_at == datetime(2026, 8, 25, 21, 0, tzinfo=JERUSALEM).timestamp()
+    assert [a.id for a in repaired] == ["organize-tasks"]  # `mine` already agrees
+    fixed = store.get("organize-tasks")
+    assert (fixed.frequency, fixed.hour, fixed.weekday) == ("weekly", 9, 6)
+    assert fixed.schedule == "Weekly on Sunday at 09:00"
+    # 2026-08-25 is a Tuesday, so the next Sunday 09:00 is the 30th.
+    assert fixed.next_run_at == datetime(2026, 8, 30, 9, 0, tzinfo=JERUSALEM).timestamp()
     # Idempotent: a second boot changes nothing.
     assert reconcile_triggers(store, now) == []
 

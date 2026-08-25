@@ -11,10 +11,10 @@ from dataclasses import asdict, dataclass
 import time
 
 from app.channel_store import Message
-from app.task_planning import DayPlanner, describe_trigger, next_trigger
+from app.task_planning import BoardReview, describe_trigger, next_trigger
 
 
-RETIRED_AUTOMATION_IDS = ("knowledge-cleanup",)
+RETIRED_AUTOMATION_IDS = ("knowledge-cleanup", "nightly-plan")
 
 
 @dataclass
@@ -47,18 +47,24 @@ class Automation:
         )
 
 
-NIGHTLY_PLAN = Automation(
-    id="nightly-plan",
-    name="Plan tomorrow",
-    prompt="Plan tomorrow from Avi's open tasks.",
-    schedule="Daily at 21:00",
+ORGANIZE_TASKS = Automation(
+    id="organize-tasks",
+    name="Organize tasks",
+    prompt=(
+        "Look over the open tasks for duplicates, items past their date, titles "
+        "too vague to act on, and titles hiding more than one action; report what "
+        "is worth changing and change nothing."
+    ),
+    # A review is a weekly habit, not a daily one; Sunday morning starts Avi's week.
+    schedule="Weekly on Sunday at 09:00",
     enabled=True,
-    channel_id="automation-nightly-plan",
-    frequency="daily",
-    hour=21,
+    channel_id="automation-organize-tasks",
+    frequency="weekly",
+    hour=9,
+    weekday=6,
 )
 
-DEFAULT_AUTOMATIONS = (NIGHTLY_PLAN,)
+DEFAULT_AUTOMATIONS = (ORGANIZE_TASKS,)
 
 
 def reconcile_triggers(store, now: float) -> list[Automation]:
@@ -148,11 +154,11 @@ class AutomationRunner:
         task_store,
         agent,
         clock=time.time,
-        planner: DayPlanner | None = None,
+        review: BoardReview | None = None,
     ):
         self.store, self.channel_store, self.task_store = store, channel_store, task_store
         self.agent, self.clock = agent, clock
-        self.planner = planner or DayPlanner(task_store)
+        self.review = review or BoardReview(task_store)
 
     def _due(self, a: Automation, now: float, force: bool) -> bool:
         """One rule for every automation: its own trigger says when it is due."""
@@ -161,13 +167,6 @@ class AutomationRunner:
         if not a.enabled:
             return False
         return a.next_run_at is None or a.next_run_at <= now
-
-    def save_sweep(self, sweep: dict) -> None:
-        automation = self.store.get(NIGHTLY_PLAN.id)
-        if automation is None:
-            raise RuntimeError("Nightly planning automation is not initialized")
-        automation.state = {"sweep": sweep}
-        self.store.save(automation)
 
     async def run(
         self, automation_id: str, force: bool = True, *, place: str | None = None
@@ -178,23 +177,21 @@ class AutomationRunner:
         if not self._due(a, now, force):
             return {"status": "not-due", "automation_id": a.id, "channel_id": a.channel_id}
 
-        if a.id == NIGHTLY_PLAN.id:
-            sweep = self.planner.build(place)
-            sweep["channel_id"] = a.channel_id
-            a.state = {"sweep": sweep}
-            a.last_run_at = now
-            a.next_run_at = a.next_run(now)
+        # Organising is deterministic, so it costs no model call and never
+        # mutates the board: it reports, and Avi decides.
+        if a.id == ORGANIZE_TASKS.id:
+            report = self.review.build()
+            a.last_run_at, a.next_run_at = now, a.next_run(now)
             self.store.save(a)
             self.channel_store.append_message(
-                a.channel_id,
-                Message("assistant", sweep["text"], now),
+                a.channel_id, Message("assistant", report["text"], now)
             )
             return {
                 "status": "ran",
                 "automation_id": a.id,
                 "channel_id": a.channel_id,
                 "model_called": False,
-                **sweep,
+                **report,
             }
 
         chunks = []
@@ -204,30 +201,6 @@ class AutomationRunner:
         self.store.save(a)
         return {"status": "ran", "automation_id": a.id, "channel_id": a.channel_id,
                 "model_called": True, "chunks": chunks}
-
-    def pick_plan(self, plan: str) -> dict:
-        automation = self.store.get(NIGHTLY_PLAN.id)
-        sweep = (automation.state or {}).get("sweep") if automation else None
-        if automation is None or sweep is None:
-            raise ValueError("No pending nightly plan")
-        tasks = self.planner.pick(sweep, plan)
-        now = self.clock()
-        channel_id = sweep.get("channel_id") or automation.channel_id
-        self.channel_store.append_message(
-            channel_id, Message("user", f"Pick Plan {plan}", now)
-        )
-        answer = f"Plan {plan} is set for {sweep['date']}."
-        self.channel_store.append_message(
-            channel_id, Message("assistant", answer, now)
-        )
-        return {
-            "status": "picked",
-            "automation_id": automation.id,
-            "channel_id": channel_id,
-            "plan": plan,
-            "scheduled_task_ids": [task.id for task in tasks],
-            "text": answer,
-        }
 
     async def tick(self) -> list[dict]:
         results = []

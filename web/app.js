@@ -70,11 +70,10 @@ function buildMessage(role, content) {
   return { row, bubble, parent };
 }
 
-function addMessage(role, content, controls = null, { animate = false } = {}) {
+function addMessage(role, content, { animate = false } = {}) {
   const built = buildMessage(role, content);
   if (animate) built.row.classList.add("entering");
   transcript.append(built.row);
-  if (controls) renderPlanControls(built.parent, controls);
   bottom();
   return built;
 }
@@ -84,41 +83,6 @@ async function apiJSON(url, options = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || `${response.status} ${response.statusText}`);
   return data;
-}
-
-function renderPlanControls(parent, controls) {
-  if (!Array.isArray(controls) || controls.length !== 2) return;
-  if (controls.some((control) => !["A", "B"].includes(control.id))) return;
-  parent.querySelector(".plan-controls")?.remove();
-  const group = document.createElement("div");
-  group.className = "plan-controls";
-  group.setAttribute("role", "group");
-  group.setAttribute("aria-label", "Choose tomorrow's plan");
-  for (const control of controls) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "plan-control";
-    button.textContent = control.label;
-    button.addEventListener("click", async () => {
-      const buttons = [...group.querySelectorAll("button")];
-      buttons.forEach((item) => { item.disabled = true; });
-      try {
-        const data = await apiJSON("/api/automations/nightly-plan/pick", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: control.id }),
-        });
-        group.remove();
-        addMessage("assistant", data.text, null, { animate: true });
-      } catch (error) {
-        buttons.forEach((item) => { item.disabled = false; });
-        addMessage("assistant", `Error: ${error.message}`);
-      }
-    });
-    group.append(button);
-  }
-  parent.append(group);
-  bottom();
 }
 
 function resize() {
@@ -337,13 +301,10 @@ async function runAutomation(automation) {
       { method: "POST" },
     );
     // replaceState rather than assigning the hash: hashchange would start a
-    // second channel load that can land last and wipe the run's own controls.
+    // second channel load that can land last and wipe what the run just wrote.
     history.replaceState(null, "", `#automation/${encodeURIComponent(automation.id)}`);
     await showChat(automation);
-    if (result.controls) {
-      const parent = [...transcript.querySelectorAll(".assistant-stack")].at(-1);
-      if (parent) renderPlanControls(parent, result.controls);
-    }
+    if (result.text) flash(result.text.split("\n", 1)[0].slice(0, 60));
   } catch (error) {
     addMessage("assistant", `Error: ${error.message}`);
   }
@@ -552,7 +513,7 @@ async function sendMessage() {
   if (attachments.length) {
     submitted += `\n[Attached: ${attachments.map((file) => file.name).join(", ")}]`;
   }
-  addMessage("user", submitted, null, { animate: true });
+  addMessage("user", submitted, { animate: true });
   input.value = "";
   resize();
 
@@ -607,7 +568,6 @@ async function sendMessage() {
         const data = JSON.parse(line.slice(5));
         if (data.text) full += data.text;
         if (data.error) full += `\n\n${data.error}`;
-        if (data.controls) renderPlanControls(parent, data.controls);
         bubble.innerHTML = markdown(full);
         bottom();
       }

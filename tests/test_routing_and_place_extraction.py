@@ -12,7 +12,7 @@ import pytest
 
 from app.channel_store import LocalChannelStore
 from app.organizer import TaskOrganizerAgent
-from app.task_planning import DayPlanner
+from app.task_planning import recent_places
 from app.task_store import FakeTaskStore
 
 
@@ -91,14 +91,9 @@ def _exercise(
         final_text=final_text,
     )
     agent = TaskOrganizerAgent(llm=model, clock=lambda: NOW)
-    saved = []
-    agent.configure_planning(
-        DayPlanner(store, clock=lambda: NOW),
-        saved.append,
-    )
     chunks = asyncio.run(_turn(agent, message, channels, store, channel_id))
     response = next(chunk for chunk in chunks if "text" in chunk)
-    return store, before, model, saved, response
+    return store, before, model, response
 
 
 TASK_MESSAGES = [
@@ -114,7 +109,7 @@ TASK_MESSAGES = [
 
 @pytest.mark.parametrize("message", TASK_MESSAGES)
 def test_something_to_remember_creates_exactly_one_row(message):
-    store, before, model, saved, response = _exercise(
+    store, before, model, response = _exercise(
         message,
         tool_name="create_task",
         tool_args={"title": "Captured task"},
@@ -123,7 +118,7 @@ def test_something_to_remember_creates_exactly_one_row(message):
     assert before == 0
     assert len(store.list_tasks()) == 1
     assert len([op for op in store.operations if op["action"] == "create"]) == 1
-    assert model.calls and saved == []
+    assert model.calls
     assert "Plan A" not in response["text"]
     assert "controls" not in response
 
@@ -141,81 +136,24 @@ PLAN_MESSAGES = [
 ]
 
 
-@pytest.mark.parametrize("message,place", PLAN_MESSAGES)
-def test_model_chosen_plan_tool_produces_two_plans_and_no_row(message, place):
-    args = {"place": place} if place else {}
-    store, before, model, saved, response = _exercise(
-        message,
-        tool_name="plan_tomorrow",
-        tool_args=args,
-        places=("Office", "Home", "Anywhere"),
-    )
-
-    assert len(store.list_tasks()) == before
-    assert len(saved) == 1
-    assert len(model.calls) == 2
-    assert response["text"] == saved[0]["text"]
-    assert "Plan A \u2014 heavy first" in response["text"]
-    assert "Plan B \u2014 light first" in response["text"]
-    assert [control["label"] for control in response["controls"]] == [
-        "Pick Plan A",
-        "Pick Plan B",
-    ]
-    if place:
-        assert saved[0]["place"] == place
-        assert f"Planning tomorrow for {place}." in response["text"]
-        assert "?" not in response["text"]
-
-
-def test_shot_list_place_statement_names_office_without_a_question():
-    _, _, _, saved, response = _exercise(
-        "I will be at Office tomorrow.",
-        tool_name="plan_tomorrow",
-        tool_args={"place": "Office"},
-        places=("Office", "Anywhere"),
-    )
-
-    assert saved[0]["place"] == "Office"
-    assert "Office" in response["text"]
-    assert "?" not in response["text"]
-
-
-@pytest.mark.parametrize("place", ["Studio", "Coffee Shop"])
-def test_board_owned_and_multi_word_places_are_used_without_literal_lists(place):
-    store, before, _, saved, response = _exercise(
-        f"I will be at {place} tomorrow",
-        tool_name="plan_tomorrow",
-        tool_args={"place": place},
-        places=(place,),
-    )
-
-    assert DayPlanner(store, clock=lambda: NOW).recent_places() == [place, "Anywhere"]
-    assert len(store.list_tasks()) == before
-    assert saved[0]["place"] == place
-    assert response["text"].startswith(f"Planning tomorrow for {place}.")
-    assert "?" not in response["text"]
-
-
 def test_task_only_reply_is_the_models_own_text():
-    _, _, _, saved, response = _exercise(
+    _, _, _, response = _exercise(
         "remind me to call the dentist tomorrow",
         tool_name="create_task",
         tool_args={"title": "Call the dentist"},
     )
 
-    assert saved == []
     assert response["text"] == "Conversation only; nothing was written."
 
 
 def test_plain_chat_reply_passes_through_unmodified():
-    store, before, model, saved, response = _exercise(
+    store, before, model, response = _exercise(
         "How are you today?",
         final_text="I am well. What are you working on? What is most urgent?",
     )
 
     assert len(store.list_tasks()) == before == 0
     assert len(model.calls) == 1
-    assert saved == []
     assert response["text"] == (
         "I am well. What are you working on? What is most urgent?"
     )
@@ -223,35 +161,9 @@ def test_plain_chat_reply_passes_through_unmodified():
 
 
 def test_empty_plain_chat_reply_uses_done_fallback():
-    _, _, _, saved, response = _exercise("Hello", final_text="")
+    _, _, _, response = _exercise("Hello", final_text="")
 
-    assert saved == []
     assert response["text"] == "Done."
-
-
-def test_created_task_remains_visible_when_model_plans_in_same_turn():
-    store = FakeTaskStore()
-    store.create_task("Office seed", place="Office")
-    channels = LocalChannelStore()
-    channel_id = channels.create_channel()
-    model = ScriptedLlm(
-        model="gemini-3.5-flash",
-        tool_sequence=[
-            ("create_task", {"title": "Buy milk"}),
-            ("plan_tomorrow", {"place": "Office"}),
-        ],
-        final_text="Task written.",
-    )
-    agent = TaskOrganizerAgent(llm=model, clock=lambda: NOW)
-    saved = []
-    agent.configure_planning(DayPlanner(store, clock=lambda: NOW), saved.append)
-
-    chunks = asyncio.run(_turn(agent, "buy milk and plan my day at the office", channels, store, channel_id))
-    response = next(chunk for chunk in chunks if "text" in chunk)
-
-    assert len(store.list_tasks()) == 2
-    assert len(saved) == 1
-    assert response["text"] == "Task written.\n\n" + saved[0]["text"]
 
 
 def test_instruction_shows_current_multi_word_board_place():
@@ -261,7 +173,7 @@ def test_instruction_shows_current_multi_word_board_place():
 
     instruction = agent.get_instruction(store, query="I will be at the office tomorrow")
 
-    assert "Current Place values on Avi's board: Tel Aviv Office, Anywhere." in instruction
+    assert "Current Place values on Avi's board: Tel Aviv Office." in instruction
 
 
 def test_first_turn_in_new_normal_channel_reads_real_board_places():
@@ -283,7 +195,7 @@ def test_first_turn_in_new_normal_channel_reads_real_board_places():
     asyncio.run(_turn(agent, "Hello", channels, store, "fresh-normal-chat"))
 
     instruction = model.calls[0].config.system_instruction
-    assert "Current Place values on Avi's board: Tel Aviv Office, Anywhere." in instruction
+    assert "Current Place values on Avi's board: Tel Aviv Office." in instruction
 
 
 def test_automation_turn_neither_reads_nor_claims_board_places():

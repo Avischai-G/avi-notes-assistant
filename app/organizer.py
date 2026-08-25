@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from datetime import datetime
 from functools import wraps
+from inspect import iscoroutinefunction
 import os
 import re
 import time
@@ -20,25 +21,23 @@ from google.genai import types
 from app.channel_store import ChannelStore, Message
 from app.context_window import ContextWindow
 from app.knowledge import OrganizerKnowledge
-from app.task_planning import (
-    ANYWHERE,
-    DEFAULT_MINUTES,
-    DayPlanner,
-    TaskFieldWriter,
-    friendly_when,
-    infer_when,
-    local_now,
-)
+from app.task_planning import TaskFieldWriter, infer_when, recent_places
 from app.task_store import Task, TaskStore
 
 
-SYSTEM_PROMPT = """You are Avi's assistant. He talks naturally; you organize his notes and tasks in one Notion board, say what you did, and never do the task itself. A task is something he wants to remember or do; questions and conversation are not tasks. For a day plan or his tomorrow location, call plan_tomorrow and pass any place he names.
+SYSTEM_PROMPT = """You are Avi's assistant. He talks; you organize his Notion task board and keep it in order. You never do the task itself, and questions or conversation are not tasks.
 
-Capture tasks immediately with the defaults, then be proactive: when a task is missing something you genuinely need to handle it well — an unclear what, a missing when for something time-bound, which of two things he meant — ask one short, concrete question about it. Ask only what the task itself requires, never interrogate. If he answers, update the item; if he is vague or moves on, keep the stated default and do not ask again.
+Reply in one short line. "Added Grocery list." is a complete answer. Do not list the fields you set, do not explain a default, do not repeat his message back to him. He wants to glance at the reply and move on. Ask a question only when the task is unusable without it, and then ask exactly one.
 
-Use the board tools freely: search_tasks before creating near-duplicates, read or write a task's details page when he gives longer material, add comments for context worth keeping next to a task, delete tasks he cancels and restore them if he changes his mind.
+A property is only worth having if he can sort or filter on it, so fill one in only when Avi actually gave it:
+- When: a real date, and only when he chose a day. Having no date is normal and correct — leave it empty rather than guess one.
+- Place: whatever he names; new values are fine. Empty when he did not say where.
+- Minutes: a number he indicated. Empty when he did not.
+Anything free-form — his own wording, context, a link, a longer description — belongs on the task's own page, through `details` when you create it or `write_task_details` afterwards. Never squeeze prose into a property.
 
-Defaults: Status=Not started; Place=Anywhere; Minutes=30; Notes=his words; When=explicit time, today for today/now/tonight/urgent, tomorrow for a plain reminder, empty for a someday idea. Briefly state what you wrote and the applied defaults."""
+Use the board freely: search before creating something that may already exist, rename, correct, delete what he cancels and restore it if he changes his mind, and comment when context belongs beside a task.
+
+He can also ask you to run one of his automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now."""
 
 DEFAULT_MODEL = "gemini-3.7-flash"
 _MODEL_FAMILY = re.compile(r"^gemini-(\d+)\.(\d+)")
@@ -102,10 +101,16 @@ class TaskOrganizerAgent:
             os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
             or "pytest" in sys.modules
         )
-        if llm is None and not is_offline and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
+        # Either Vertex or a user-supplied Gemini API key satisfies auth.
+        if (
+            llm is None
+            and not is_offline
+            and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true"
+            and not os.environ.get("GOOGLE_API_KEY")
+        ):
             raise ValueError(
-                "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true' for contest eligibility, "
-                f"got {os.environ.get('GOOGLE_GENAI_USE_VERTEXAI')!r}"
+                "Set GOOGLE_GENAI_USE_VERTEXAI=true or provide GOOGLE_API_KEY, "
+                f"got GOOGLE_GENAI_USE_VERTEXAI={os.environ.get('GOOGLE_GENAI_USE_VERTEXAI')!r}"
             )
 
         self.api_key = api_key
@@ -126,8 +131,7 @@ class TaskOrganizerAgent:
         )
         # Settings can replace the base prompt; chat.py points this at the store.
         self.prompt_source: Callable[[], str] = lambda: SYSTEM_PROMPT
-        self.day_planner: DayPlanner | None = None
-        self._save_sweep: Callable[[dict], None] | None = None
+        self.automations = None  # set by chat.py so Avi can trigger them by name
 
         tools = self._build_tools()
         self.agent = LlmAgent(
@@ -144,11 +148,8 @@ class TaskOrganizerAgent:
             session_service=self.session_service,
         )
 
-    def configure_planning(
-        self, planner: DayPlanner, save_sweep: Callable[[dict], None]
-    ) -> None:
-        self.day_planner = planner
-        self._save_sweep = save_sweep
+    def configure_automations(self, runner) -> None:
+        self.automations = runner
 
     def _build_tools(self) -> list[Callable]:
         def create_task(
@@ -156,28 +157,30 @@ class TaskOrganizerAgent:
             when: str | None = None,
             place: str | None = None,
             minutes: int | None = None,
-            notes: str | None = None,
+            details: str = "",
             status: str = NOT_STARTED,
         ) -> dict:
-            """Write a task immediately. Omit fields to apply Avi's defaults.
+            """Write a task immediately. Leave a field out rather than guess it.
 
             Args:
                 title: Short task or reminder name.
-                when: ISO date/datetime, today/tomorrow, or empty for no date.
-                place: Where it can be done.
-                minutes: Rough duration.
-                notes: Avi's wording or useful detail.
+                when: ISO date/datetime, or today/tomorrow. Empty unless Avi
+                    actually chose a day.
+                place: Where it can be done; any value, new ones are fine.
+                minutes: Rough duration as a number.
+                details: Longer wording, which goes on the task's own page.
                 status: Not started, In progress, or Done.
             """
-            message = self._message.get()
-            task = self._store.get().create_task(
+            store = self._store.get()
+            task = store.create_task(
                 title=title.strip(),
                 lane=status,
-                when=infer_when(message, when, self.clock),
-                place=(place or ANYWHERE).strip() or ANYWHERE,
-                minutes=DEFAULT_MINUTES if minutes is None else minutes,
-                notes=(notes or message or title).strip(),
+                when=infer_when(self._message.get(), when, self.clock),
+                place=(place or "").strip() or None,
+                minutes=minutes,
             )
+            if details.strip():
+                store.write_task_body(task.id, details.strip())
             self._created.get().append(task)
             return {"created": _task_dict(task)}
 
@@ -278,20 +281,40 @@ class TaskOrganizerAgent:
                 "comments": self._store.get().list_comments(task_id),
             }
 
-        def plan_tomorrow(place: str = "") -> dict:
-            """Build two plans for tomorrow without changing any task.
+        def list_automations() -> dict:
+            """List Avi's automations: what each is called and when it runs."""
+            if self.automations is None:
+                raise RuntimeError("Automations are not configured")
+            return {
+                "automations": [
+                    {"name": item.name, "trigger": item.schedule, "does": item.prompt}
+                    for item in self.automations.store.list()
+                ]
+            }
+
+        async def run_automation(name: str) -> dict:
+            """Run one of Avi's automations now, matched by its name.
 
             Args:
-                place: A Place value from Avi's board, or empty if none was named.
+                name: The automation's name, or a distinctive part of it.
             """
-            if self.day_planner is None:
-                raise RuntimeError("Day planning is not configured")
-            sweep = self.day_planner.build(place or None)
-            sweep["channel_id"] = self._channel_id.get()
-            if self._save_sweep:
-                self._save_sweep(sweep)
-            self._planned.get().append(sweep)
-            return {"planned": sweep}
+            if self.automations is None:
+                raise RuntimeError("Automations are not configured")
+            wanted = name.strip().casefold()
+            items = self.automations.store.list()
+            match = next((item for item in items if item.name.casefold() == wanted), None)
+            if match is None:
+                partial = [item for item in items if wanted and wanted in item.name.casefold()]
+                if len(partial) != 1:
+                    # Say what exists rather than guess between two automations.
+                    return {
+                        "ran": False,
+                        "reason": "no single automation matches that name",
+                        "automations": [item.name for item in items],
+                    }
+                match = partial[0]
+            result = await self.automations.run(match.id)
+            return {"ran": True, "name": match.name, "text": result.get("text", "")}
 
         return [
             self._gate_board_tool(tool)
@@ -307,23 +330,36 @@ class TaskOrganizerAgent:
                 restore_task,
                 add_task_comment,
                 read_task_comments,
-                plan_tomorrow,
+                list_automations,
+                run_automation,
             )
         ]
+
+    def _refusal(self) -> dict | None:
+        channel_id = self._channel_id.get()
+        if (
+            not isinstance(channel_id, str)
+            or not channel_id
+            or channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
+        ):
+            return {"refused": True, "reason": _BOARD_TOOL_REFUSAL}
+        return None
 
     def _gate_board_tool(self, tool: Callable) -> Callable:
         """Refuse every board tool unless its current channel is known and safe."""
 
+        if iscoroutinefunction(tool):
+            @wraps(tool)
+            async def guarded_async(*args, **kwargs):
+                # An async tool has to stay async, or ADK is handed a coroutine
+                # it never awaits and the call silently does nothing.
+                return self._refusal() or await tool(*args, **kwargs)
+
+            return guarded_async
+
         @wraps(tool)
         def guarded(*args, **kwargs):
-            channel_id = self._channel_id.get()
-            if (
-                not isinstance(channel_id, str)
-                or not channel_id
-                or channel_id.startswith(_AUTOMATION_CHANNEL_PREFIX)
-            ):
-                return {"refused": True, "reason": _BOARD_TOOL_REFUSAL}
-            return tool(*args, **kwargs)
+            return self._refusal() or tool(*args, **kwargs)
 
         return guarded
 
@@ -340,7 +376,7 @@ class TaskOrganizerAgent:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
         place_hint = ""
         if task_store is not None and include_board_state:
-            places = DayPlanner(task_store, clock=self.clock).recent_places()
+            places = recent_places(task_store)
             place_hint = f" Current Place values on Avi's board: {', '.join(places)}."
         context = self.knowledge.instruction_context(query) if self.knowledge else ""
         return f"{self.prompt_source()}{place_hint}{context}"
@@ -365,11 +401,7 @@ class TaskOrganizerAgent:
         }
 
     def _confirmation(self, task: Task) -> str:
-        now = local_now(self.clock)
-        return (
-            f"Noted \u2014 {friendly_when(task.when, now)}, "
-            f"{task.place or ANYWHERE}, {int(task.minutes or DEFAULT_MINUTES)} min."
-        )
+        return f"Added {task.title}."
 
     def _final_text(
         self, user_message: str, created: list[Task], model_text: str

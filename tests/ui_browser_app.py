@@ -11,7 +11,7 @@ from app.organizer import TaskOrganizerAgent as RealTaskOrganizerAgent
 
 
 class BrowserPlanLlm(BaseLlm):
-    """Call the planner for the one documented browser-suite message."""
+    """Create one task for the one documented browser-suite message."""
 
     _calls: int = PrivateAttr(default=0)
 
@@ -24,15 +24,15 @@ class BrowserPlanLlm(BaseLlm):
                 parts=[
                     types.Part(
                         function_call=types.FunctionCall(
-                            name="plan_tomorrow",
-                            args={"place": "Office"},
+                            name="create_task",
+                            args={"title": "Print the contract", "place": "Office"},
                         )
                     )
                 ],
             )
         else:
             content = types.Content(
-                role="model", parts=[types.Part(text="Prepared two plans.")]
+                role="model", parts=[types.Part(text="Added Print the contract.")]
             )
         yield LlmResponse(content=content, partial=False)
 

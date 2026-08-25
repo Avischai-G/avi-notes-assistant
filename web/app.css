@@ -596,23 +596,6 @@ textarea.field { resize: vertical; }
 }
 .toast.show { opacity: 1; translate: -50% 0; }
 
-/* ── Controls ────────────────────────────────────────────────────────── */
-.plan-control {
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
-}
-.plan-control:hover:not(:disabled) {
-  background: var(--panel-hover);
-  border-color: rgb(var(--ink) / 0.16);
-}
-.plan-control:disabled { opacity: 0.45; cursor: default; }
-.plan-controls { display: flex; flex-wrap: wrap; gap: 8px; }
-
 .learning-state { margin: auto; color: var(--muted); text-align: center; font-size: var(--type-emphasis); }
 .learning-state h1 { color: var(--text); font-size: var(--type-title); font-weight: 500; margin: 0 0 6px; }
 
@@ -625,7 +608,6 @@ textarea.field { resize: vertical; }
 .attach-button:focus-visible,
 .live-toggle:focus-visible,
 .send-button:focus-visible,
-.plan-control:focus-visible,
 .load-more:focus-visible,
 .attachment-chip button:focus-visible {
   outline: 2px solid var(--accent);

@@ -10,8 +10,13 @@ The release candidate reuses Coroner's proven FastAPI, Cloud Run, Google ADK, Ve
 
 - The model distinguishes something Avi wants to remember or do from ordinary conversation. It writes tasks, leaves plain chat alone, and calls the day planner when he asks for a plan or says where he will be tomorrow.
 - It captures first, then proactively asks the one short question a task genuinely needs; a vague answer keeps the stated default.
-- Defaults are `Not started`, `Anywhere`, 30 minutes, Avi's wording in Notes, and tomorrow for a plain reminder.
-- A 21:00 `Asia/Jerusalem` nightly sweep offers exactly two plans: heavy-first and light-first. Picking one changes only `When` for included tasks.
+- Nothing is invented: a task gets `Not started` and whatever Avi actually said.
+  No date, place or duration is guessed, and free text goes on the task's own
+  page rather than into a property he cannot sort or filter on.
+- `Organize tasks` reviews the board weekly for duplicates, items past their
+  date, titles too vague to act on, and titles hiding more than one action. It
+  reports and changes nothing: only Avi knows which copy of a duplicate to keep.
+- The chat can list and run automations by name.
 - Automation channels cannot access any board or planning tool. One shared channel gate
   returns a model-readable refusal without calling Notion; unknown channel
   identity also denies.

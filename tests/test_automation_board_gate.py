@@ -55,7 +55,7 @@ class AttemptBoardToolLlm(BaseLlm):
             yield LlmResponse(
                 content=types.Content(
                     role="model",
-                    parts=[types.Part(text="Knowledge cleanup finished without board access.")],
+                    parts=[types.Part(text="Finished without board access.")],
                 ),
                 partial=False,
             )
@@ -94,21 +94,23 @@ async def run_attempt(tool_name: str, tool_args: dict, channel_id: str):
         ("rename_task", {"task_id": "page", "new_title": "Out-of-scope rename"}),
         ("move_task", {"task_id": "page", "status": "Done"}),
         ("list_tasks", {}),
-        ("plan_tomorrow", {"place": "Office"}),
+        # An automation must not be able to set another one running.
+        ("list_automations", {}),
+        ("run_automation", {"name": "Organize tasks"}),
     ],
 )
 def test_automation_channel_refuses_every_board_tool_without_notion_call(
     tool_name, tool_args
 ):
     chunks, history, notion_calls = asyncio.run(
-        run_attempt(tool_name, tool_args, "automation-knowledge-cleanup")
+        run_attempt(tool_name, tool_args, "automation-organize-tasks")
     )
 
     assert notion_calls == []
     assert not any("error" in chunk for chunk in chunks)
     assert {"tool": tool_name, "status": "completed"} in chunks
     assert chunks[-2:] == [
-        {"text": "Knowledge cleanup finished without board access."},
+        {"text": "Finished without board access."},
         {"done": True},
     ]
     [tool_result] = history[-1].tool_results

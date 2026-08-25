@@ -123,6 +123,15 @@ async function assertAccessibleControls(page, label) {
 }
 
 
+async function until(check, message, timeout = 15000) {
+  for (let waited = 0; waited < timeout; waited += 250) {
+    if (await check()) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(message);
+}
+
+
 async function openDrawer(page) {
   await page.locator("#menu").click();
   await page.waitForFunction(() => {
@@ -155,7 +164,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   // The chat may already hold messages from the surface run before this one,
   // so wait on the channel list rather than on an empty transcript.
   await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
-  await page.waitForSelector('#automation-channels [data-menu="nightly-plan"]', { state: "attached" });
+  await page.waitForSelector('#automation-channels [data-menu="organize-tasks"]', { state: "attached" });
 
   // Chat can only be edited: there is nothing to run without something typed.
   await openDrawer(page);
@@ -177,18 +186,18 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
 
   // An automation carries a prompt and a trigger, and the built-in has no delete.
   await openDrawer(page);
-  await page.locator('[data-menu="nightly-plan"]').click();
+  await page.locator('[data-menu="organize-tasks"]').click();
   assert.deepEqual(
-    await page.locator('.row-menu[data-menu-for="nightly-plan"] button').allInnerTexts(),
+    await page.locator('.row-menu[data-menu-for="organize-tasks"] button').allInnerTexts(),
     ["Run now", "Edit"],
   );
-  await page.locator('[data-action="edit"][data-id="nightly-plan"]').click();
+  await page.locator('[data-action="edit"][data-id="organize-tasks"]').click();
   await openEditor(page);
-  assert.equal(await page.locator("#editor-frequency").inputValue(), "daily");
-  assert.equal(await page.locator("#editor-time").inputValue(), "21:00");
-  assert.equal((await page.locator("#editor-next").innerText()).trim(), "Daily at 21:00");
+  assert.equal(await page.locator("#editor-frequency").inputValue(), "weekly");
+  assert.equal(await page.locator("#editor-time").inputValue(), "09:00");
+  assert.equal((await page.locator("#editor-next").innerText()).trim(), "Weekly on Sunday at 09:00");
   assert.equal(await page.locator("#editor-time").isVisible(), true);
-  assert.equal(await page.locator("#editor-weekday").isVisible(), false);
+  assert.equal(await page.locator("#editor-weekday").isVisible(), true);
   assert.equal(await page.locator("#editor-minute").isVisible(), false);
   assert.equal(await page.locator("#editor-delete").isVisible(), false);
   assert.equal(await page.locator("#editor-save").isDisabled(), false);
@@ -235,7 +244,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   await page.keyboard.press("Escape");
   await closedEditor(page);
   assert.equal(await automationCount(), 1);
-  assert.deepEqual((await listed()).map((item) => item.id), ["nightly-plan"]);
+  assert.deepEqual((await listed()).map((item) => item.id), ["organize-tasks"]);
 
   // Filled in and saved, it appears as a channel with the trigger it was given.
   await openDrawer(page);
@@ -276,7 +285,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   await page.waitForFunction(
     () => document.querySelectorAll("#automation-channels .channel").length === 1,
   );
-  assert.deepEqual((await listed()).map((item) => item.id), ["nightly-plan"]);
+  assert.deepEqual((await listed()).map((item) => item.id), ["organize-tasks"]);
 
   await openDrawer(page);
   await page.locator('[data-menu="chat"]').click();
@@ -368,7 +377,7 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   );
   assert.deepEqual(
     (await page.locator("#drawer .channel").allInnerTexts()).map((item) => item.trim()),
-    ["Chat", "Plan tomorrow", "New automation"],
+    ["Chat", "Organize tasks", "New automation"],
   );
   assert.equal(await page.locator("#drawer .dots").count(), 2);
   assert.equal(await page.locator("#drawer .row-menu:not([hidden])").count(), 0);
@@ -453,12 +462,15 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     // An automation runs from its own ⋯ menu, reached by keyboard.
     await openDrawer(page);
     await page.locator("#channel-chat").focus();
-    assert.match(await tabUntil(page, /^Plan tomorrow options$/), /^Plan tomorrow options$/);
+    assert.match(await tabUntil(page, /^Organize tasks options$/), /^Organize tasks options$/);
     await page.keyboard.press("Enter");
     assert.match(await tabUntil(page, /^Run now$/), /^Run now$/);
     await page.keyboard.press("Enter");
     await closedDrawer(page);
-    await page.getByRole("button", { name: "Pick Plan A" }).waitFor();
+    // The organiser reports on the board and changes nothing.
+    await page.waitForFunction(
+      () => /open task|Board is tidy/.test(document.querySelector("#transcript")?.textContent || ""),
+    );
     await page.screenshot({ path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-automation.png`) });
 
     await openDrawer(page);
@@ -478,15 +490,13 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     await page.getByRole("button", { name: "Remove synthetic-attachment.pdf" }).waitFor();
 
     await page.locator("#input").focus();
-    await page.keyboard.type("I will be at Office tomorrow.");
+    await page.keyboard.type("print the contract at the office");
     await page.keyboard.press("Enter");
-    await page.getByRole("button", { name: "Pick Plan A" }).waitFor();
     const replyBubble = page.locator(".message-row.assistant .message-bubble").last();
+    await until(async () => (await replyBubble.innerText()).includes("Added"), "reply never arrived");
     const replyText = await replyBubble.innerText();
-    assert.match(replyText, /Planning tomorrow for Office\./);
-    assert.equal(replyText.includes("?"), false, `place reply asked again: ${replyText}`);
-    assert.equal(await page.locator(".plan-control").count(), 2);
-    assert.deepEqual(await page.locator(".plan-control").allTextContents(), ["Pick Plan A", "Pick Plan B"]);
+    // One short line: the reply names the task and stops there.
+    assert.equal(replyText.trim(), "Added Print the contract.");
 
     const user = page.locator(".message-row.user .message-bubble").last();
     const assistant = replyBubble;
@@ -535,13 +545,6 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     assert.equal(assistantStyle.animation, "none");
     assert.equal(assistantStyle.transition, "0s");
 
-    await resetTabOrder(page);
-    assert.match(await tabUntil(page, /^Pick Plan A$/), /^Pick Plan A$/);
-    await page.keyboard.press("Tab");
-    assert.match(await accessibleName(page), /^Pick Plan B$/);
-    await page.keyboard.press("Shift+Tab");
-    await page.keyboard.press("Enter");
-    await page.getByText(/Plan A is set for/).last().waitFor();
   }
 
   await assertAccessibleControls(page, `task ${theme} ${mobile ? "mobile" : "desktop"}`);
