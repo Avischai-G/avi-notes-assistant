@@ -31,15 +31,15 @@ Anyone can point this at their own board in five minutes: create an internal Not
 
 *[Back to the app. Open the drawer, point at the automations]*
 
-Automations live here, each with a structured trigger — hourly, daily, or weekly. This one, Organize tasks, reviews the whole board weekly for duplicates, overdue items, vague titles, and titles hiding several actions — and it only proposes, because only I know which duplicate to keep. *[press Run on its row, show the report arriving]* I can also run any of these from chat, just by name.
+Automations live here, each with a structured trigger — hourly, daily, or weekly — fired on schedule by Cloud Scheduler. This one, Organize tasks, reviews the whole board weekly for duplicates, overdue items, vague titles, and titles hiding several actions — and it only proposes, because only I know which duplicate to keep. *[press Run on its row, show the report arriving]* I can also run any of these from chat, just by name.
 
 *[Start a live voice session. Say: "Add a task: print the contest poster."]*
 
 There's also a live voice mode — a real-time Gemini session over WebSockets. The voice agent is a navigator: it can read the board, hand work to the organiser, switch panes, or start an automation — nothing else. *[show the handoff landing in the chat]* And every request it sends to the organiser lands in this visible chat, with the answer — nothing happens behind my back.
 
-*[Open Settings — key field must stay empty. Then cycle the theme once]*
+*[Open Settings — the key shows only as dots, which is safe on camera. Point at the fields top to bottom, press Check, then cycle the theme once]*
 
-The details are done properly too. I can bring my own Gemini API key — write-only, never echoed back — and pick the assistant's voice and accent. The app installs as a progressive web app, follows system, light, or dark theme, works on mobile, and every prompt — including each automation's — is editable in place.
+The details are done properly too. The app runs on each user's own Gemini API key — stored only in this browser, shown masked, and this Check button verifies the key and my chosen model together with one live call. I can tell it what to call me, pick the chat model, the assistant's voice and accent — and every prompt, including each automation's, is editable in place. It installs as a progressive web app, follows system, light, or dark theme, and works on mobile.
 
 *[Back on the chat, hold on the created task's confirmation]*
 
@@ -56,7 +56,7 @@ So: one FastAPI service on Cloud Run, one Google ADK agent on Gemini 3.7 Flash t
 
 ## Never show on screen
 
-API keys or a filled Settings key field · billing pages · terminals · notifications · your real personal tasks · the unfiltered Notion sidebar.
+An API key in plain text anywhere (the Settings field's dots are safe) · billing pages · terminals · notifications · your real personal tasks · the unfiltered Notion sidebar.
 
 ## Devpost checklist (verified 2026-08-25)
 
