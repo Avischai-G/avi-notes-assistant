@@ -4,18 +4,21 @@ Live deployment: https://agentonomy-tasks-295057934762.us-central1.run.app
 
 A small chat and live-voice assistant for capturing tasks into one scoped Notion database, with automations that review the board on a schedule. It organises records; it never claims to perform the underlying work.
 
+Built by [Avischai-G](https://github.com/Avischai-G).
+
 To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRATCH.md](docs/SETUP-NOTION-FROM-SCRATCH.md).
 
 ## Product behaviour
 
 - The model distinguishes something the user wants to remember or do from ordinary conversation. It writes tasks and leaves plain chat alone.
 - It captures first, and asks a question only when the task is unusable without the answer — then exactly one.
-- Nothing is invented: a task gets `Not started` and whatever Avi actually said.
-  No date, place or duration is guessed, and free text goes on the task's own
-  page rather than into a property he cannot sort or filter on.
+- Nothing is invented: a task gets `Not started` and whatever the user actually
+  said. No date, place or duration is guessed, and free text goes on the task's
+  own page rather than into a property they cannot sort or filter on.
 - `Organize tasks` reviews the board weekly for duplicates, items past their
   date, titles too vague to act on, and titles hiding more than one action. It
-  reports and changes nothing: only Avi knows which copy of a duplicate to keep.
+  reports and changes nothing: only the user knows which copy of a duplicate
+  to keep.
 - The chat can list and run automations by name.
 - Automation channels cannot access any board or planning tool. One shared channel gate
   returns a model-readable refusal without calling Notion; unknown channel

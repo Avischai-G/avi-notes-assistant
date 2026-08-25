@@ -227,7 +227,7 @@ class LifeAgent:
 
     def _build_tools(self) -> list[Callable]:
         def list_tasks(status: str | None = None) -> dict:
-            """Read Avi's tasks, optionally filtered by exact Status."""
+            """Read the user's tasks, optionally filtered by exact Status."""
             return {
                 "tasks": [
                     _task_dict(task) for task in self._store.get().list_tasks(status)
@@ -257,7 +257,7 @@ class LifeAgent:
             }
 
         async def send_task_to_chat(instruction: str) -> dict:
-            """Hand anything Avi wants done or asked to the task assistant.
+            """Hand anything the user wants done or asked to the task assistant.
 
             Waits a moment for the reply: an `answer` comes back when it is
             quick, otherwise `answer_pending` and it lands in the chat.
@@ -295,7 +295,7 @@ class LifeAgent:
             task.add_done_callback(self._pending.discard)
             bridge["last_handoff"] = (task, outcome)
             try:
-                # A short beat: quick answers get read back to Avi directly.
+                # A short beat: quick answers get read back to the user directly.
                 await asyncio.wait_for(asyncio.shield(task), timeout=QUICK_WAIT_SECONDS)
             except asyncio.TimeoutError:
                 return {

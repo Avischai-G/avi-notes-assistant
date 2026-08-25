@@ -1,4 +1,4 @@
-"""Avi's one Google ADK LlmAgent and its gated board and planning tools."""
+"""The user's one Google ADK LlmAgent and its gated board tools."""
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -143,7 +143,7 @@ class TaskOrganizerAgent:
         )
         # Settings can replace the base prompt; chat.py points this at the store.
         self.prompt_source: Callable[[], str] = lambda: SYSTEM_PROMPT
-        self.automations = None  # set by chat.py so Avi can trigger them by name
+        self.automations = None  # set by chat.py so the user can trigger them by name
 
         tools = self._build_tools()
         self.agent = LlmAgent(
@@ -199,7 +199,7 @@ class TaskOrganizerAgent:
             return {"created": _task_dict(task)}
 
         def rename_task(task_id: str, new_title: str) -> dict:
-            """Rename one task found on Avi's task board."""
+            """Rename one task found on the user's task board."""
             task = self._store.get().rename_task(task_id, new_title)
             self._updated.get().append(task)
             return {"renamed": _task_dict(task)}
@@ -238,7 +238,7 @@ class TaskOrganizerAgent:
             return {"updated": _task_dict(task)}
 
         def list_tasks(status: str | None = None) -> dict:
-            """Read Avi's tasks, optionally filtered by exact Status."""
+            """Read the user's tasks, optionally filtered by exact Status."""
             return {
                 "tasks": [
                     _task_dict(task) for task in self._store.get().list_tasks(status)
@@ -316,7 +316,7 @@ class TaskOrganizerAgent:
             return {"changed": True, "item": match.group(4).strip(), "checked": checked}
 
         def delete_task(task_id: str) -> dict:
-            """Archive a task Avi cancelled or no longer wants; restore_task undoes it."""
+            """Archive a task the user cancelled or no longer wants; restore_task undoes it."""
             task = self._store.get().delete_task(task_id)
             self._updated.get().append(task)
             return {"deleted": _task_dict(task)}
@@ -340,7 +340,7 @@ class TaskOrganizerAgent:
             }
 
         def list_automations() -> dict:
-            """List Avi's automations: what each is called and when it runs."""
+            """List the user's automations: what each is called and when it runs."""
             if self.automations is None:
                 raise RuntimeError("Automations are not configured")
             return {
@@ -351,7 +351,7 @@ class TaskOrganizerAgent:
             }
 
         async def run_automation(name: str) -> dict:
-            """Run one of Avi's automations now, matched by its name.
+            """Run one of the user's automations now, matched by its name.
 
             Args:
                 name: The automation's name, or a distinctive part of it.
@@ -628,13 +628,13 @@ class TaskOrganizerAgent:
         content: str,
         change_summary: str,
         *,
-        explicit_avi_instruction: bool,
+        explicit_user_instruction: bool,
     ) -> str:
         return self._knowledge().record_rule(
             name,
             content,
             change_summary,
-            explicit_avi_instruction=explicit_avi_instruction,
+            explicit_user_instruction=explicit_user_instruction,
         )
 
     def dream_skill(self, name: str, observation: str, change_summary: str) -> str:

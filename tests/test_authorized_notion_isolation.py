@@ -1,4 +1,4 @@
-"""Regression tests for Avi's authorized row-aware Notion isolation boundary."""
+"""Regression tests for the authorized row-aware Notion isolation boundary."""
 
 from __future__ import annotations
 

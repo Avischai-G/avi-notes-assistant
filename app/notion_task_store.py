@@ -206,7 +206,7 @@ class NotionTaskStore(TaskStore):
         whole request, which would otherwise break every turn.
 
         An empty board teaches nothing, and there the answer is yes: dropping a
-        column we merely cannot see would throw Avi's words away silently,
+        column we merely cannot see would throw the user's words away silently,
         while naming one that is missing fails loudly and is recoverable.
         """
         if self._columns is None:

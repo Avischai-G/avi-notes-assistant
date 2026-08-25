@@ -256,7 +256,7 @@ class TaskStoreTests(unittest.TestCase):
         self.store = NotionTaskStore(self.config, self.client)
 
     def test_a_board_without_a_notes_column_still_works(self):
-        """Avi's live board has no Notes column, and every turn searched it.
+        """A live board may have no Notes column while every turn searches it.
 
         Notion rejects the whole request when a filter or a write names a
         property the database does not have, so search_tasks failed on every
@@ -280,7 +280,7 @@ class TaskStoreTests(unittest.TestCase):
     def test_an_unreadable_board_keeps_notes_rather_than_dropping_them(self):
         """An empty board teaches nothing; assume the column is there."""
         self.assertTrue(self.store.has_column(NOTES))
-        self.store.create_task("First ever", notes="Avi's words")
+        self.store.create_task("First ever", notes="the user's words")
         _, created = self.client.calls[-1]
         self.assertIn(NOTES, created["properties"])
 

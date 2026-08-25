@@ -94,20 +94,20 @@ def test_exact_markdown_layout_utf8_word_boundary_and_rule_provenance(tmp_path: 
         store.write_skill("too-long", rejected, summary="Must not be written.")
     assert not (store.skills_dir / "too-long.md").exists()
 
-    with pytest.raises(KnowledgeValidationError, match="explicit Avi instruction"):
+    with pytest.raises(KnowledgeValidationError, match="explicit user instruction"):
         store.write_rule(
             "invented-rule",
             "An observation is not a rule.",
-            explicit_avi_instruction=False,
+            explicit_user_instruction=False,
             summary="Must not be written.",
         )
     assert list(store.rules_dir.glob("*.md")) == []
 
     rule_path = store.write_rule(
         "avi-language",
-        "Avi explicitly said: תמיד שמור על ניסוח קצר.",
-        explicit_avi_instruction=True,
-        summary="Recorded Avi's language rule.",
+        "The user explicitly said: תמיד שמור על ניסוח קצר.",
+        explicit_user_instruction=True,
+        summary="Recorded the user's language rule.",
     )
     assert rule_path == tmp_path / "knowledge" / "rules" / "avi-language.md"
     assert "תמיד" in rule_path.read_bytes().decode("utf-8")
@@ -197,9 +197,9 @@ def test_three_dream_facts_consolidate_without_touching_unrelated_files(tmp_path
     )
     rule = store.write_rule(
         "explicit-only",
-        "Only Avi's explicit constraints are rules.",
-        explicit_avi_instruction=True,
-        summary="Recorded Avi's rule.",
+        "Only the user's explicit constraints are rules.",
+        explicit_user_instruction=True,
+        summary="Recorded the user's rule.",
     )
     unrelated_before = sha(unrelated)
     rule_before = sha(rule)
@@ -395,15 +395,15 @@ def test_single_instruction_contains_all_rules_and_only_top_three_skills(tmp_pat
     knowledge, _, _ = make_knowledge(tmp_path)
     knowledge.record_rule(
         "first",
-        "Always keep Avi's explicit deadline.",
+        "Always keep the user's explicit deadline.",
         "Recorded first rule.",
-        explicit_avi_instruction=True,
+        explicit_user_instruction=True,
     )
     knowledge.record_rule(
         "second",
         "Never turn an observation into a rule.",
         "Recorded second rule.",
-        explicit_avi_instruction=True,
+        explicit_user_instruction=True,
     )
     knowledge.create_skill("calendar", "Calendar planning procedure.", "Created calendar.")
     knowledge.create_skill("projects", "Project breakdown procedure.", "Created projects.")

@@ -1,7 +1,7 @@
 """A test-only Notion guard that can see and mutate one synthetic marker.
 
 The production app never constructs this wrapper. The live release-candidate
-story uses it so planning and model tools cannot read or change Avi's existing
+story uses it so planning and model tools cannot read or change the user's existing
 row, even when the model asks to list every open task.
 """
 from __future__ import annotations

@@ -55,7 +55,7 @@ ORGANIZE_TASKS = Automation(
         "too vague to act on, and titles hiding more than one action; report what "
         "is worth changing and change nothing."
     ),
-    # A review is a weekly habit, not a daily one; Sunday morning starts Avi's week.
+    # A review is a weekly habit, not a daily one; Sunday morning starts the week.
     schedule="Weekly on Sunday at 09:00",
     enabled=True,
     channel_id="automation-organize-tasks",
@@ -178,7 +178,7 @@ class AutomationRunner:
             return {"status": "not-due", "automation_id": a.id, "channel_id": a.channel_id}
 
         # Organising is deterministic, so it costs no model call and never
-        # mutates the board: it reports, and Avi decides.
+        # mutates the board: it reports, and the user decides.
         if a.id == ORGANIZE_TASKS.id:
             report = self.review.build()
             a.last_run_at, a.next_run_at = now, a.next_run(now)

@@ -58,7 +58,7 @@ def infer_when(
     if iso_date:
         return iso_date.group(0)
     # No date was named, so the task gets none. A guessed "tomorrow" reads as a
-    # commitment Avi never made.
+    # commitment the user never made.
     return None
 
 

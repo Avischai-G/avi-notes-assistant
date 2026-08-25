@@ -257,13 +257,13 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
     assert edited["live_prompt"] == "Only navigate. Be terse."
     # The served prompt always ends by pointing at the Settings name field.
     assert chat._live_voice_agent.prompt_source() == (
-        "Only navigate. Be terse.\n\nThe user's preferred name: address them as Avi."
+        "Only navigate. Be terse."
     )
     # Saving the untouched default clears the override.
     reset = client.put("/api/settings", json={"live_prompt": LIFE_PROMPT}).json()
     assert reset["live_prompt"] == LIFE_PROMPT
     assert chat._live_voice_agent.prompt_source() == (
-        f"{LIFE_PROMPT}\n\nThe user's preferred name: address them as Avi."
+        LIFE_PROMPT
     )
 
     # The name is a setting, not a hardcode: changing it re-points every prompt.

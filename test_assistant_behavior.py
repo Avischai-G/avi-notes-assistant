@@ -109,7 +109,7 @@ def test_bare_reminder_is_captured_before_question_with_stated_defaults():
     )
 
     # Nothing is invented: a reminder with no day, place or size gets none of
-    # them, because a guessed value is one Avi cannot sort or filter on.
+    # them, because a guessed value is one the user cannot sort or filter on.
     [task] = tasks.list_tasks()
     assert task.title == "Call the accountant"
     assert task.status == "Not started"

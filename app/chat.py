@@ -185,12 +185,15 @@ _MODEL_PATTERN = re.compile(r"[A-Za-z0-9._\-/]{1,120}")
 
 def _call_name() -> str:
     """How the assistant addresses the user, from Settings."""
-    return str(_settings_store.get_value("call_name") or "").strip() or "Avi"
+    return str(_settings_store.get_value("call_name") or "").strip()
 
 
 def _named(prompt: str) -> str:
     """The prompt plus the one line it points to for the user's name."""
-    return f"{prompt}\n\nThe user's preferred name: address them as {_call_name()}."
+    name = _call_name()
+    if not name:
+        return prompt
+    return f"{prompt}\n\nThe user's preferred name: address them as {name}."
 
 
 def _settings_payload() -> dict:
@@ -325,7 +328,7 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
     live.prompt_source = lambda: _named(
         str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
     )
-    live.name_source = _call_name
+    live.name_source = lambda: _call_name() or "User"
     return organizer, live
 
 
@@ -341,7 +344,7 @@ def _build_agents() -> None:
         _agent,
         review=BoardReview(_task_store),
     )
-    # Avi can ask the chat to run an automation by name.
+    # The user can ask the chat to run an automation by name.
     _agent.configure_automations(_automation_runner)
 
 

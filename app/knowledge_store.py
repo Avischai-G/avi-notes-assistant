@@ -12,7 +12,9 @@ from app.learning_store import LearningEvent, LearningEventStore, utc_now
 
 MAX_SKILL_WORDS = 499
 _SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$")
-_RULE_MARKER = "<!-- agentonomy: explicit-avi-instruction -->"
+_RULE_MARKER = "<!-- agentonomy: explicit-user-instruction -->"
+# Rules written before the rename carry the old marker; keep reading them.
+_LEGACY_RULE_MARKER = "<!-- agentonomy: explicit-avi-instruction -->"
 _INCORPORATED_HEADING = "## Incorporated dream notes"
 
 
@@ -154,13 +156,13 @@ class MarkdownKnowledgeStore:
         name: str,
         content: str,
         *,
-        explicit_avi_instruction: bool,
+        explicit_user_instruction: bool,
         summary: str,
         timestamp: datetime | None = None,
     ) -> Path:
-        if explicit_avi_instruction is not True:
+        if explicit_user_instruction is not True:
             raise KnowledgeValidationError(
-                "a rule requires an explicit Avi instruction; observations belong in dreams"
+                "a rule requires an explicit user instruction; observations belong in dreams"
             )
         path = self.rule_path(name)
         rule = _validated_text(content, "rule")
@@ -204,11 +206,12 @@ class MarkdownKnowledgeStore:
 
     def read_rule(self, name: str) -> str:
         body = self.rule_path(name).read_text(encoding="utf-8")
-        if not body.startswith(_RULE_MARKER):
-            raise KnowledgeValidationError(
-                f"rules/{name}.md has no explicit-Avi provenance marker"
-            )
-        return body[len(_RULE_MARKER) :].strip() + "\n"
+        for marker in (_RULE_MARKER, _LEGACY_RULE_MARKER):
+            if body.startswith(marker):
+                return body[len(marker) :].strip() + "\n"
+        raise KnowledgeValidationError(
+            f"rules/{name}.md has no explicit-instruction provenance marker"
+        )
 
     def list_skill_paths(self) -> list[Path]:
         return sorted(self.skills_dir.glob("*.md"))
@@ -217,8 +220,10 @@ class MarkdownKnowledgeStore:
         rules: list[tuple[str, str]] = []
         for path in sorted(self.rules_dir.glob("*.md")):
             body = path.read_text(encoding="utf-8")
-            if body.startswith(_RULE_MARKER):
-                rules.append((self.logical_path(path), body[len(_RULE_MARKER) :].strip()))
+            for marker in (_RULE_MARKER, _LEGACY_RULE_MARKER):
+                if body.startswith(marker):
+                    rules.append((self.logical_path(path), body[len(marker) :].strip()))
+                    break
         return rules
 
     def list_dream_paths(self, target_skill: str) -> list[Path]:

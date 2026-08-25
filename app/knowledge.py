@@ -53,7 +53,7 @@ class OrganizerKnowledge:
                 f"Source: {path}\n{content}" for path, content in rules
             )
             sections.append(
-                "Avi's explicit rules (hard constraints; do not infer new rules):\n"
+                "The user's explicit rules (hard constraints; do not infer new rules):\n"
                 + rule_text
             )
 
@@ -79,13 +79,13 @@ class OrganizerKnowledge:
         content: str,
         change_summary: str,
         *,
-        explicit_avi_instruction: bool,
+        explicit_user_instruction: bool,
     ) -> str:
         return self.store.logical_path(
             self.store.write_rule(
                 name,
                 content,
-                explicit_avi_instruction=explicit_avi_instruction,
+                explicit_user_instruction=explicit_user_instruction,
                 summary=change_summary,
             )
         )
