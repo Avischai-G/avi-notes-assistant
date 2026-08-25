@@ -55,6 +55,21 @@ def test_a_malformed_model_identifier_is_a_client_error(client):
     assert response.status_code == 400
 
 
+def test_deleting_a_chat_is_gated_and_really_empties_it(client):
+    from app.channel_store import Message
+
+    store, _, _ = chat.get_stores()
+    store.append_message("home", Message("user", "hello", 0.0))
+    assert client.delete("/api/channels/home").status_code == 401
+    assert store.get_channel("home") != []
+
+    assert client.delete(
+        "/api/channels/home", headers={"X-Gemini-Key": "k" * 30}
+    ).json() == {"cleared": "home"}
+    assert store.get_channel("home") == []
+    assert client.get("/api/channels/home").json()["total"] == 0
+
+
 def test_chat_with_an_ineligible_model_fails_closed(client):
     response = client.post(
         "/api/channels/home/chat",

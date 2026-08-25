@@ -505,6 +505,19 @@ def register_chat_routes(app: FastAPI) -> None:
             ],
         }
 
+    @app.delete("/api/channels/{channel_id}")
+    async def clear_channel(channel_id: str, request: Request):
+        """Delete a chat's history: the channel stays, emptied, and the
+        voice agent's rolling memory of it goes with it."""
+        if _REQUIRE_DEVICE_KEY and not _request_api_key(
+            request.headers.get("x-gemini-key")
+        ):
+            raise HTTPException(401, _KEY_REQUIRED_DETAIL)
+        channel_store, _, _ = get_stores()
+        channel_store.create_channel(channel_id)
+        _settings_store.set_value(_voice_memory_key(channel_id), [])
+        return {"cleared": channel_id}
+
     @app.post("/api/channels/{channel_id}/chat")
     async def chat(channel_id: str, request: Request):
         """Stream a chat response for the organizer agent.

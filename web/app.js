@@ -297,6 +297,7 @@ drawer.addEventListener("click", (event) => {
 
 function chooseAction(action, id) {
   if (action === "edit-chat") return openChatEditor();
+  if (action === "clear-chat") return clearChat();
   const automation = automations.find((item) => item.id === id);
   if (!automation) return undefined;
   if (action === "edit") return openAutomationEditor(automation);
@@ -317,6 +318,21 @@ async function runAutomation(automation) {
     if (result.text) flash(result.text.split("\n", 1)[0].slice(0, 60));
   } catch (error) {
     addMessage("assistant", `Error: ${error.message}`);
+  }
+}
+
+async function clearChat() {
+  try {
+    const id = await ensureChannel(TASK_CHANNEL_KEY);
+    await apiJSON(`/api/channels/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: deviceKey() ? { "X-Gemini-Key": deviceKey() } : {},
+    });
+    history.replaceState(null, "", "#chat");
+    await showChat(null);
+    flash("Chat deleted");
+  } catch (error) {
+    flash(`Error: ${error.message}`);
   }
 }
 

@@ -166,12 +166,12 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   await page.waitForSelector('#automation-channels [data-menu="organize-tasks"]', { state: "attached" });
 
-  // Chat can only be edited: there is nothing to run without something typed.
+  // Chat can be edited or deleted: there is nothing to run without something typed.
   await openDrawer(page);
   await page.locator('[data-menu="chat"]').click();
   assert.deepEqual(
     await page.locator('.row-menu[data-menu-for="chat"] button').allInnerTexts(),
-    ["Edit instructions"],
+    ["Edit instructions", "Delete chat"],
   );
   await page.locator('[data-action="edit-chat"]').click();
   await openEditor(page);

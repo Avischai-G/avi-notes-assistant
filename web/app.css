@@ -149,6 +149,11 @@ button { border: 0; color: inherit; }
 html[data-theme-mode="light"] #theme .mode-light,
 html[data-theme-mode="dark"] #theme .mode-dark,
 html[data-theme-mode="system"] #theme .mode-system { display: block; }
+/* On a phone, "follow system" is a phone screen, not a computer screen. */
+@media (max-width: 759px) {
+  html[data-theme-mode="system"] #theme .mode-system { display: none; }
+  html[data-theme-mode="system"] #theme .mode-system-mobile { display: block; }
+}
 
 /* ── Channel drawer ──────────────────────────────────────────────────
    A <dialog>, so Esc, the focus trap, and the inert backdrop are free. */
