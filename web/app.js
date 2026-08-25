@@ -257,10 +257,14 @@ async function loadAutomations() {
   renderChannels();
 }
 
-/* At most one row menu is open, and opening the drawer starts with none. */
-function toggleMenu(id) {
+/* At most one row menu is open, and opening the drawer starts with none.
+   An open menu floats beside its ⋯ button, so it takes the button's offset. */
+function toggleMenu(id, dots) {
   for (const menu of drawer.querySelectorAll(".row-menu")) {
     menu.hidden = !(menu.dataset.menuFor === id && menu.hidden);
+    if (!menu.hidden && dots) {
+      menu.style.top = `${dots.offsetTop + dots.offsetHeight + 4}px`;
+    }
   }
   for (const dots of drawer.querySelectorAll(".dots")) {
     const menu = drawer.querySelector(`.row-menu[data-menu-for="${dots.dataset.menu}"]`);
@@ -275,7 +279,7 @@ $("#menu").addEventListener("click", () => {
 
 drawer.addEventListener("click", (event) => {
   const dots = event.target.closest(".dots");
-  if (dots) return toggleMenu(dots.dataset.menu);
+  if (dots) return toggleMenu(dots.dataset.menu, dots);
 
   const action = event.target.closest("[data-action]");
   if (action) {
@@ -675,6 +679,7 @@ const settingsLanguage = $("#settings-language");
 const settingsLivePrompt = $("#settings-live-prompt");
 const settingsApiKey = $("#settings-api-key");
 const settingsModel = $("#settings-model");
+const settingsCallName = $("#settings-call-name");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
 const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
@@ -702,6 +707,7 @@ $("#open-settings").addEventListener("click", async () => {
       : (settings.require_key ? KEY_REQUIRED_HINT : NO_KEY_HINT);
     settingsModel.value = deviceModel();
     settingsModel.placeholder = settings.default_model || "";
+    settingsCallName.value = settings.call_name || "";
     settingsRemoveKey.hidden = !deviceKey();
     drawer.close();
     settingsEditor.showModal();
@@ -724,6 +730,7 @@ $("#settings-save").addEventListener("click", async () => {
       method: "PUT",
       headers: JSON_HEADERS,
       body: JSON.stringify({
+        call_name: settingsCallName.value,
         voice_name: settingsVoice.value,
         language_code: settingsLanguage.value,
         live_prompt: settingsLivePrompt.value,

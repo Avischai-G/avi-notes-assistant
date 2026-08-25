@@ -183,6 +183,16 @@ _API_KEY_PATTERN = re.compile(r"[A-Za-z0-9_\-]{20,200}")
 _MODEL_PATTERN = re.compile(r"[A-Za-z0-9._\-/]{1,120}")
 
 
+def _call_name() -> str:
+    """How the assistant addresses the user, from Settings."""
+    return str(_settings_store.get_value("call_name") or "").strip() or "Avi"
+
+
+def _named(prompt: str) -> str:
+    """The prompt plus the one line it points to for the user's name."""
+    return f"{prompt}\n\nThe user's preferred name: address them as {_call_name()}."
+
+
 def _settings_payload() -> dict:
     """Everything Settings shows. API keys are device-local, never served."""
     return {
@@ -193,6 +203,7 @@ def _settings_payload() -> dict:
         "voices": list(LIVE_VOICES),
         "require_key": _REQUIRE_DEVICE_KEY,
         "default_model": _default_model(),
+        "call_name": _call_name(),
     }
 
 
@@ -310,8 +321,11 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
         location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         speech_settings=_speech_settings,
     )
-    organizer.prompt_source = _settings_store.get_system_prompt
-    live.prompt_source = lambda: str(_settings_store.get_value("live_prompt") or "")
+    organizer.prompt_source = lambda: _named(_settings_store.get_system_prompt())
+    live.prompt_source = lambda: _named(
+        str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
+    )
+    live.name_source = _call_name
     return organizer, live
 
 
@@ -672,6 +686,12 @@ def register_chat_routes(app: FastAPI) -> None:
             _settings_store.set_value(
                 "live_prompt", "" if live_prompt == LIFE_PROMPT.strip() else live_prompt
             )
+
+        if "call_name" in body:
+            name = str(body.get("call_name") or "").strip()
+            if len(name) > 60:
+                raise HTTPException(400, "call_name must be 60 characters or fewer")
+            _settings_store.set_value("call_name", name)
 
         if "voice_name" in body:
             voice = str(body.get("voice_name") or "").strip()

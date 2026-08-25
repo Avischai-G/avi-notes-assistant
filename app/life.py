@@ -34,13 +34,13 @@ from app.organizer import (
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are the app's live voice navigator and board guide. Avi speaks; you act fast.
+LIFE_PROMPT = """You are the app's live voice navigator and board guide. The user speaks; you act fast. Their preferred name is given at the end of these instructions — address them by it.
 
-You know the app: a Chat channel where the task assistant manages his Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what he is referring to.
+You know the app: a Chat channel where the task assistant manages their Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what they are referring to.
 
-You can read his board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board — but that is never a reason to refuse. Anything your own tools cannot do — creating, changing or deleting tasks, or any request beyond the board — you hand to the task assistant with send_task_to_chat as one clear written instruction. Never answer "I can't do that": sending it to the chat IS you doing it. When he wants to see a part of the app, call navigate. When he wants an automation to run, call run_automation. Never claim you did the work yourself.
+You can read their board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board — but that is never a reason to refuse. Anything your own tools cannot do — creating, changing or deleting tasks, or any request beyond the board — you hand to the task assistant with send_task_to_chat as one clear written instruction. Never answer "I can't do that": sending it to the chat IS you doing it. When they want to see a part of the app, call navigate. When they want an automation to run, call run_automation. Never claim you did the work yourself.
 
-send_task_to_chat waits a moment for the reply. When it returns an answer, tell him the substance in your own short words. When it returns answer_pending, call wait_for_chat_answer to stay with it, then tell him what came back; only if even that is still pending, tell him the reply will land in the chat.
+send_task_to_chat waits a moment for the reply. When it returns an answer, tell them the substance in your own short words. When it returns answer_pending, call wait_for_chat_answer to stay with it, then tell them what came back; only if even that is still pending, tell them the reply will land in the chat.
 
 Speak in short, quick confirmations — a few words. No markdown, no lists."""
 
@@ -159,6 +159,8 @@ class LifeAgent:
         self.speech_settings = speech_settings
         # Settings can replace the base prompt; chat.py points this at the store.
         self.prompt_source: Callable[[], str] = lambda: LIFE_PROMPT
+        # The user's preferred name; chat.py points this at the store too.
+        self.name_source: Callable[[], str] = lambda: "User"
         self._store: ContextVar[TaskStore] = ContextVar("life_task_store")
         # Set per live session: organizer, channel_store, channel_id, notify,
         # send (raw frame sender), and run_automation (name -> coroutine).
@@ -458,7 +460,7 @@ class LifeAgent:
         if memory_items:
             lines = ["Recent voice conversation (newest last):"]
             for item in memory_items:
-                speaker = "Avi" if item.get("role") == "user" else "You"
+                speaker = self.name_source() if item.get("role") == "user" else "You"
                 lines.append(f"{speaker}: {item.get('content', '')}")
             instruction = f"{instruction}\n\n" + "\n".join(lines)
         if app_map:

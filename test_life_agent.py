@@ -255,11 +255,24 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
         "/api/settings", json={"live_prompt": "Only navigate. Be terse."}
     ).json()
     assert edited["live_prompt"] == "Only navigate. Be terse."
-    assert chat._live_voice_agent.prompt_source() == "Only navigate. Be terse."
+    # The served prompt always ends by pointing at the Settings name field.
+    assert chat._live_voice_agent.prompt_source() == (
+        "Only navigate. Be terse.\n\nThe user's preferred name: address them as Avi."
+    )
     # Saving the untouched default clears the override.
     reset = client.put("/api/settings", json={"live_prompt": LIFE_PROMPT}).json()
     assert reset["live_prompt"] == LIFE_PROMPT
-    assert chat._live_voice_agent.prompt_source() == ""
+    assert chat._live_voice_agent.prompt_source() == (
+        f"{LIFE_PROMPT}\n\nThe user's preferred name: address them as Avi."
+    )
+
+    # The name is a setting, not a hardcode: changing it re-points every prompt.
+    renamed = client.put("/api/settings", json={"call_name": "Boss"}).json()
+    assert renamed["call_name"] == "Boss"
+    assert chat._live_voice_agent.prompt_source().endswith("address them as Boss.")
+    assert chat._agent.prompt_source().endswith("address them as Boss.")
+    assert "Avi" not in LIFE_PROMPT
+    client.put("/api/settings", json={"call_name": ""})
 
     updated = client.put(
         "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}

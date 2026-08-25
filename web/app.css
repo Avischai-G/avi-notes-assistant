@@ -182,6 +182,7 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
 .drawer::backdrop { background: rgb(0 0 0 / 0.45); }
 
 .channels {
+  position: relative; /* the floating ⋯ menus anchor to this scroll box */
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -236,12 +237,21 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
 
 /* The row menu opens in place rather than floating, so it needs no anchor
    positioning and behaves the same on a phone. */
+/* The ⋯ menu is a small floating window beside its button, not an inline
+   dropdown; toggleMenu() sets its top from the button it belongs to. */
 .row-menu {
+  position: absolute;
+  right: 8px;
+  z-index: 3;
+  min-width: 170px;
   display: flex;
   flex-direction: column;
-  margin: 2px 0 6px 27px;
-  padding-left: 10px;
-  border-left: 1px solid var(--line);
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface-card);
+  box-shadow: var(--drawer-shadow);
 }
 .row-menu[hidden] { display: none; }
 .row-menu button {

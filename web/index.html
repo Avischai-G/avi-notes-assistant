@@ -63,6 +63,11 @@
     </form>
     <div class="editor-body custom-scrollbar">
       <div class="field-group">
+        <label for="settings-call-name" id="settings-call-name-label">Your name</label>
+        <input class="field" id="settings-call-name" type="text" spellcheck="false" autocomplete="off" maxlength="60">
+        <p class="hint">How the assistants address you. The prompts point here instead of hardcoding a name.</p>
+      </div>
+      <div class="field-group">
         <label for="settings-api-key" id="settings-api-key-label">Gemini API key</label>
         <div class="key-row">
           <input class="field" id="settings-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste a key — it stays on this device">
