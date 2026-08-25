@@ -57,9 +57,11 @@ def test_life_agent_tools_are_read_only_plus_web_research():
         "search_tasks",
         "read_task_details",
         "read_task_comments",
+        "send_task_to_chat",
         "web_research",
     ]
-    # No board-mutating tool may ever reach this agent.
+    # No board-mutating tool may ever reach this agent; board changes travel
+    # only through send_task_to_chat, which runs the task organizer.
     forbidden = {
         "create_task",
         "rename_task",
@@ -99,6 +101,100 @@ def test_life_turn_reads_the_board_and_writes_nothing():
     messages = channels.get_channel("life-chat")
     assert [message.role for message in messages] == ["user", "assistant"]
     assert messages[-1].content == "Your board has one task."
+
+
+def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
+    from test_assistant_behavior import ScriptedToolLlm
+    from app.organizer import TaskOrganizerAgent
+
+    tasks = FakeTaskStore()
+    channels = LocalChannelStore()
+    channels.ensure_channel("home")
+    organizer = TaskOrganizerAgent(
+        api_key="offline", llm=ScriptedToolLlm(model="gemini-3.5-flash")
+    )
+    live = LifeAgent(llm=ScriptedLifeLlm(model="gemini-live-2.5-flash"))
+    notified = []
+
+    async def notify():
+        notified.append(True)
+
+    tool = next(
+        t for t in live.agent.tools if getattr(t, "__name__", "") == "send_task_to_chat"
+    )
+
+    async def run():
+        store_token = live._store.set(tasks)
+        bridge_token = live._bridge.set(
+            {
+                "organizer": organizer,
+                "channel_store": channels,
+                "channel_id": "home",
+                "notify": notify,
+            }
+        )
+        try:
+            return await tool(instruction="Add a task to call the accountant")
+        finally:
+            live._bridge.reset(bridge_token)
+            live._store.reset(store_token)
+
+    result = asyncio.run(run())
+
+    assert result["delivered"] is True
+    # The organizer really executed the instruction against the board...
+    [task] = tasks.list_tasks()
+    assert task.title == "Call the accountant"
+    # ...and the exchange landed in the chat like a typed turn.
+    messages = channels.get_channel("home")
+    assert [m.role for m in messages] == ["user", "assistant"]
+    assert messages[0].content == "Add a task to call the accountant"
+    assert notified == [True]
+
+
+def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
+    import os
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app import chat
+
+    monkeypatch.setenv("TASK_STORE_MODE", "fake")
+    monkeypatch.setenv("CORONER_KNOWLEDGE_ROOT", str(tmp_path / "k"))
+    chat.init_chat_stores(use_firestore=False)
+    api = FastAPI()
+    chat.register_chat_routes(api)
+    client = TestClient(api)
+
+    base = client.get("/api/settings").json()
+    assert base["api_key_set"] is False
+    assert "Puck" in base["voices"]
+
+    updated = client.put(
+        "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}
+    ).json()
+    assert (updated["voice_name"], updated["language_code"]) == ("Kore", "en-GB")
+    assert chat._live_voice_agent.speech_settings() == {
+        "voice_name": "Kore",
+        "language_code": "en-GB",
+    }
+
+    with_key = client.put(
+        "/api/settings", json={"gemini_api_key": "AIza" + "x" * 30}
+    ).json()
+    assert with_key["api_key_set"] is True
+    assert "gemini_api_key" not in with_key  # the key is never echoed back
+    assert os.environ.get("GOOGLE_API_KEY", "").startswith("AIza")
+    assert chat._live_voice_agent.model == "gemini-live-2.5-flash-preview"
+
+    cleared = client.put("/api/settings", json={"gemini_api_key": ""}).json()
+    assert cleared["api_key_set"] is False
+    assert "GOOGLE_API_KEY" not in os.environ
+    assert chat._live_voice_agent.model.startswith("gemini-live-2.5-flash")
+
+    assert client.put("/api/settings", json={"voice_name": "NotAVoice"}).status_code == 400
+    assert client.put("/api/settings", json={"language_code": "bad!"}).status_code == 400
 
 
 def test_live_voice_route_is_registered_and_live_models_construct():

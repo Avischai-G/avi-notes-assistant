@@ -30,11 +30,13 @@ from app.organizer import DEFAULT_MODEL, USER_ID, _eligible_model, _task_dict
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are Avi's life assistant: a warm, sharp companion he can talk with about anything — his day, ideas, questions, the world.
+LIFE_PROMPT = """You are Avi's live voice companion: warm, sharp, and spoken. Talk with him about anything — his day, ideas, questions, the world.
 
-You can read his Notion task board with the board tools to answer questions about what is on it. You can never create, change, or delete anything there; if he wants a change, point him to the Task chat.
+You can look at his Notion task board with the board tools to answer questions about what is on it, but you can never change it yourself. When he wants anything created, changed, or removed on the board, call send_task_to_chat with one clear written instruction describing exactly what he wants; the task assistant in the chat does the work. Then tell him briefly what you handed over. Never claim you edited the board.
 
-For current events, facts you are not sure of, or anything worth looking up, call web_research. For a bigger question, let it run a deeper search and then summarize what it found, naming the sources. Keep answers conversational and concise unless he asks for depth."""
+For current events or anything worth looking up, call web_research and summarize what it found.
+
+You are a voice, not a writer: keep replies short, natural, and speakable — no markdown, no bullet lists, no URLs read aloud."""
 
 APP_NAME = "life"
 
@@ -111,6 +113,7 @@ class LifeAgent:
         *,
         llm: BaseLlm | None = None,
         research_model: str = DEFAULT_MODEL,
+        speech_settings: Callable[[], dict] | None = None,
     ) -> None:
         if location != "global":
             raise ValueError(f"Location must be 'global', got {location}")
@@ -128,15 +131,23 @@ class LifeAgent:
             os.environ.get("TASK_STORE_MODE", "").strip().lower() == "fake"
             or "pytest" in sys.modules
         )
-        if llm is None and not is_offline and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true":
+        # Either Vertex or a user-supplied Gemini API key satisfies auth.
+        if (
+            llm is None
+            and not is_offline
+            and os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") != "true"
+            and not os.environ.get("GOOGLE_API_KEY")
+        ):
             raise ValueError(
-                "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true', "
-                f"got {os.environ.get('GOOGLE_GENAI_USE_VERTEXAI')!r}"
+                "Set GOOGLE_GENAI_USE_VERTEXAI=true or provide GOOGLE_API_KEY"
             )
 
         self.model = model
         self.location = location
+        self.speech_settings = speech_settings
         self._store: ContextVar[TaskStore] = ContextVar("life_task_store")
+        # Set per live session: {"organizer", "channel_store", "channel_id", "notify"}.
+        self._bridge: ContextVar[dict | None] = ContextVar("life_bridge", default=None)
 
         web_agent = LlmAgent(
             name="web_research",
@@ -194,7 +205,40 @@ class LifeAgent:
                 "comments": self._store.get().list_comments(task_id),
             }
 
-        return [list_tasks, search_tasks, read_task_details, read_task_comments]
+        async def send_task_to_chat(instruction: str) -> dict:
+            """Hand a board change Avi asked for to the task assistant in the chat.
+
+            Args:
+                instruction: One clear written instruction describing exactly
+                    what to create, change, or remove on the board.
+            """
+            bridge = self._bridge.get()
+            if not bridge:
+                return {
+                    "delivered": False,
+                    "reason": "The chat bridge is not available in this session.",
+                }
+            answer = ""
+            async for chunk in bridge["organizer"].chat(
+                instruction,
+                bridge["channel_store"],
+                self._store.get(),
+                bridge["channel_id"],
+            ):
+                if "text" in chunk:
+                    answer = chunk["text"]
+                if "error" in chunk:
+                    return {"delivered": False, "reason": chunk["error"]}
+            await bridge["notify"]()
+            return {"delivered": True, "task_agent_reply": answer}
+
+        return [
+            list_tasks,
+            search_tasks,
+            read_task_details,
+            read_task_comments,
+            send_task_to_chat,
+        ]
 
     async def _new_session(self, messages: list[Message]):
         session = await self.session_service.create_session(
@@ -269,19 +313,37 @@ class LifeAgent:
         finally:
             self._store.reset(store_token)
 
+    def _speech_config(self):
+        """Build the session voice/accent from settings, or None for defaults."""
+        speech = (self.speech_settings() if self.speech_settings else None) or {}
+        voice = speech.get("voice_name")
+        language = speech.get("language_code")
+        if not voice and not language:
+            return None
+        return types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+            )
+            if voice
+            else None,
+            language_code=language or None,
+        )
+
     async def live_bridge(
         self,
         websocket,
         channel_store: ChannelStore,
         task_store: TaskStore,
         channel_id: str,
+        organizer=None,
     ) -> None:
         """Bridge one browser WebSocket to a bidirectional live-audio session.
 
         Client frames: {type:"audio", data:<b64 pcm16@16k>} and {type:"end"}.
-        Server frames: audio (b64 pcm16@24k), user_text / agent_text
-        transcription deltas, interrupted, turn_complete, error.
-        Finished turns are persisted to the channel like typed ones.
+        Server frames: audio (b64 pcm16@24k), interrupted, turn_complete,
+        chat_updated, error. The conversation is voice-only — nothing is
+        persisted or shown as chat bubbles; board changes reach the chat
+        through the send_task_to_chat tool, which runs the task organizer.
         """
         from google.adk.agents.live_request_queue import LiveRequestQueue
         from google.adk.agents.run_config import RunConfig, StreamingMode
@@ -290,27 +352,27 @@ class LifeAgent:
         run_config = RunConfig(
             response_modalities=["AUDIO"],
             streaming_mode=StreamingMode.BIDI,
-            input_audio_transcription=types.AudioTranscriptionConfig(),
-            output_audio_transcription=types.AudioTranscriptionConfig(),
+            speech_config=self._speech_config(),
         )
         session = await self._new_session(channel_store.get_channel(channel_id))
         store_token = self._store.set(task_store)
-        user_text: list[str] = []
-        agent_text: list[str] = []
 
-        def flush_turn() -> None:
-            spoken = "".join(user_text).strip()
-            answered = "".join(agent_text).strip()
-            user_text.clear()
-            agent_text.clear()
-            if spoken:
-                channel_store.append_message(
-                    channel_id, Message("user", spoken, time.time())
-                )
-            if answered:
-                channel_store.append_message(
-                    channel_id, Message("assistant", answered, time.time())
-                )
+        async def notify_chat_updated() -> None:
+            try:
+                await websocket.send_json({"type": "chat_updated"})
+            except Exception:
+                pass
+
+        bridge_token = self._bridge.set(
+            {
+                "organizer": organizer,
+                "channel_store": channel_store,
+                "channel_id": channel_id,
+                "notify": notify_chat_updated,
+            }
+            if organizer is not None
+            else None
+        )
 
         async def pump_client() -> None:
             while True:
@@ -367,33 +429,9 @@ class LifeAgent:
                                     ).decode(),
                                 }
                             )
-                # ADK yields transcription deltas (finished=False) AND a final
-                # aggregated copy (finished=True); treating the final copy as a
-                # replacement keeps the text from doubling.
-                if event.input_transcription and event.input_transcription.text:
-                    text = event.input_transcription.text
-                    if event.input_transcription.finished:
-                        user_text[:] = [text]
-                        await websocket.send_json(
-                            {"type": "user_text", "text": text, "replace": True}
-                        )
-                    else:
-                        user_text.append(text)
-                        await websocket.send_json({"type": "user_text", "text": text})
-                if event.output_transcription and event.output_transcription.text:
-                    text = event.output_transcription.text
-                    if event.output_transcription.finished:
-                        agent_text[:] = [text]
-                        await websocket.send_json(
-                            {"type": "agent_text", "text": text, "replace": True}
-                        )
-                    else:
-                        agent_text.append(text)
-                        await websocket.send_json({"type": "agent_text", "text": text})
                 if event.interrupted:
                     await websocket.send_json({"type": "interrupted"})
                 if event.turn_complete:
-                    flush_turn()
                     await websocket.send_json({"type": "turn_complete"})
 
         client_task = asyncio.ensure_future(pump_client())
@@ -417,5 +455,5 @@ class LifeAgent:
             for task in (client_task, agent_task):
                 task.cancel()
             queue.close()
-            flush_turn()
+            self._bridge.reset(bridge_token)
             self._store.reset(store_token)

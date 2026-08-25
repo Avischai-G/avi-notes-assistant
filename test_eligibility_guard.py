@@ -112,7 +112,7 @@ def test_vertex_eligibility_combinations(name, env, constructs):
         assert result.stdout.strip() == "CONSTRUCTED"
     else:
         assert result.returncode == 3, f"{name}: {result.stdout}"
-        assert "GOOGLE_GENAI_USE_VERTEXAI must be set to 'true'" in result.stdout
+        assert "Set GOOGLE_GENAI_USE_VERTEXAI=true or provide GOOGLE_API_KEY" in result.stdout
 
 
 def test_production_chat_never_injects_an_llm_override():
