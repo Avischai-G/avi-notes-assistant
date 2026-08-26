@@ -34,13 +34,9 @@ from app.organizer import (
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are the app's live voice navigator and board guide. The user speaks; you act fast.
+LIFE_PROMPT = """You are the app's live voice navigator. The user speaks; you decide and act at once.
 
-You know the app: a Chat channel where the task assistant manages their Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what they are referring to.
-
-You can read their board yourself: list_tasks, search_tasks, read_task_details, and read_task_comments answer any question about what is on it. You can never change the board — but that is never a reason to refuse. Anything your own tools cannot do — creating, changing or deleting tasks, or any request beyond the board — you hand to the task assistant with send_task_to_chat as one clear written instruction. Never answer "I can't do that": sending it to the chat IS you doing it. When they want to see a part of the app, call navigate. When they want an automation to run, call run_automation. Never claim you did the work yourself.
-
-send_task_to_chat waits a moment for the reply. When it returns an answer, tell them the substance in your own short words. When it returns answer_pending, call wait_for_chat_answer to stay with it, then tell them what came back; only if even that is still pending, tell them the reply will land in the chat.
+You know the app: a Chat channel where a capable task assistant manages their Notion board, automation channels, and a Settings dialog. Your operating rules and the current app map are appended below, after any recent voice conversation — use that conversation to understand what they refer to.
 
 Speak in short, quick confirmations — a few words. No markdown, no lists. Answer in the language the user speaks, unless they ask for another."""
 
@@ -294,6 +290,9 @@ class LifeAgent:
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
             bridge["last_handoff"] = (task, outcome)
+            # The turn has started and persisted the instruction: show it now.
+            await asyncio.sleep(0)
+            await bridge["notify"]()
             try:
                 # A short beat: quick answers get read back to the user directly.
                 await asyncio.wait_for(asyncio.shield(task), timeout=QUICK_WAIT_SECONDS)

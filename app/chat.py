@@ -267,8 +267,28 @@ def _settings_payload() -> dict:
 
 
 def _app_map() -> str:
-    """What the voice navigator knows about the app, rebuilt per session."""
+    """The navigator's operating rules and app map, rebuilt per session and
+    appended to whatever instructions are stored — a customized prompt still
+    gets current tool behavior."""
     lines = [
+        "Operating rules (always in force):",
+        "- Decide and act immediately. Never ask permission, and never ask a "
+        "clarifying question when any sensible reading exists — pick it and act.",
+        "- Your own tools only read the board: list_tasks, search_tasks, "
+        "read_task_details, read_task_comments answer questions directly.",
+        "- Everything else — creating, changing, completing or deleting tasks, "
+        "remembering things, anything beyond the board — you do by calling "
+        "send_task_to_chat with the user's intent as one plain sentence. "
+        "Never say you sent something without having called it; the call IS "
+        "the sending, and the instruction appears in the chat instantly.",
+        "- The task assistant in the chat is terse and reliable: it answers "
+        "in one line, writes tasks without inventing fields, and handles "
+        "renames, deletes, comments, checklists, file attachments, memory "
+        "and automations. Trust it; do not over-specify or split into steps.",
+        "- When send_task_to_chat returns answer_pending, call "
+        "wait_for_chat_answer once and speak the result.",
+        "- navigate moves the app; run_automation starts one now.",
+        "",
         "App map:",
         '- Chat channel — navigate target "chat". Instructions you hand off '
         "land here and the task assistant executes them.",

@@ -617,6 +617,11 @@ class TaskOrganizerAgent:
             )
         )
         try:
+            # The instruction is visible in the chat the moment the turn
+            # starts — a slow or failed turn is never an invisible one.
+            channel_store.append_message(
+                channel_id, Message("user", user_message, time.time())
+            )
             session = await self._new_session(existing)
             model_text = ""
             tool_calls: list[dict] = []
@@ -662,14 +667,11 @@ class TaskOrganizerAgent:
                 )
             channel_store.append_message(
                 channel_id,
-                Message("user", user_message, time.time(), tool_calls=tool_calls),
-            )
-            channel_store.append_message(
-                channel_id,
                 Message(
                     "assistant",
                     answer,
                     time.time(),
+                    tool_calls=tool_calls,
                     tool_results=tool_results,
                 ),
             )
@@ -679,6 +681,15 @@ class TaskOrganizerAgent:
             yield response
             yield {"done": True}
         except Exception as exc:
+            # A failed turn still leaves its trace where the user looks.
+            channel_store.append_message(
+                channel_id,
+                Message(
+                    "assistant",
+                    f"Error: {type(exc).__name__}: {exc}",
+                    time.time(),
+                ),
+            )
             yield {"error": f"{type(exc).__name__}: {exc}"}
         finally:
             self._instruction.reset(instruction_token)
