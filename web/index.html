@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark" data-theme-mode="system">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <title>Agentonomy Tasks</title>
   <meta name="theme-color" content="#111111">
   <link rel="manifest" href="manifest.json">
@@ -65,9 +65,9 @@
     </form>
     <div class="editor-body custom-scrollbar">
       <div class="field-group">
-        <label for="settings-call-name" id="settings-call-name-label">Your name</label>
-        <input class="field" id="settings-call-name" type="text" spellcheck="false" autocomplete="off" maxlength="60">
-        <p class="hint">How the assistants address you. The prompts point here instead of hardcoding a name.</p>
+        <label for="settings-memory" id="settings-memory-label">Agent memory</label>
+        <textarea class="field custom-scrollbar" id="settings-memory" rows="4" aria-labelledby="settings-memory-label" placeholder="Nothing remembered yet — tell the chat &quot;remember that ...&quot; or write here."></textarea>
+        <p class="hint">Everything the agent knows about you, editable in place. Capped at 150 words; empty means it knows nothing.</p>
       </div>
       <details class="settings-group" open>
       <summary>Model setup</summary>
@@ -96,11 +96,6 @@
         <p class="hint">The voice the live conversation speaks with.</p>
       </div>
       <div class="field-group">
-        <label for="settings-live-prompt" id="settings-live-prompt-label">Live voice instructions</label>
-        <textarea class="field custom-scrollbar" id="settings-live-prompt" rows="8" aria-labelledby="settings-live-prompt-label"></textarea>
-        <p class="hint">How the voice navigator behaves. The app map is appended automatically each session.</p>
-      </div>
-      <div class="field-group">
         <label for="settings-language" id="settings-language-label">Live accent</label>
         <select class="field" id="settings-language">
           <option value="">Default</option>
@@ -117,7 +112,22 @@
           <option value="ja-JP">Japanese</option>
           <option value="hi-IN">Hindi</option>
         </select>
-        <p class="hint">Language and accent for the live voice.</p>
+        <p class="hint">The live voice's language, applied on the next voice session. English voices keep their own accent — region codes only switch the language.</p>
+      </div>
+      <div class="field-group">
+        <label for="settings-live-prompt" id="settings-live-prompt-label">Live voice instructions</label>
+        <textarea class="field custom-scrollbar" id="settings-live-prompt" rows="8" aria-labelledby="settings-live-prompt-label"></textarea>
+        <p class="hint">How the voice navigator behaves. The app map is appended automatically each session.</p>
+      </div>
+      </div>
+      </details>
+      <details class="settings-group">
+      <summary>Notion board</summary>
+      <div class="settings-group-body">
+      <div class="field-group">
+        <label for="settings-notion-id" id="settings-notion-id-label">Database ID</label>
+        <input class="field" id="settings-notion-id" type="text" spellcheck="false" autocomplete="off" placeholder="32-character code from the board's URL">
+        <p class="hint">The board the app writes to. Share the new board with the app's Notion integration first; Save checks it can be read before switching.</p>
       </div>
       </div>
       </details>

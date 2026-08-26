@@ -66,10 +66,11 @@ Settings lives only in that browser's `localStorage`, rides each request as a
 header, and funds a per-key organizer instance on the server. It is never
 persisted server-side, and a Check button verifies the key and your chosen
 chat model together with one live call. With no key, the app runs on the
-server's own Vertex AI credentials. Settings also choose the chat model, what
-the assistant calls you, the live voice, its language and accent, and the
-voice navigator's instructions — and every prompt, including each
-automation's, is editable in place.
+server's own Vertex AI credentials. Settings also choose the chat model, the
+live voice and its language, and the voice navigator's instructions; show the
+agent's memory as an editable field; and can point the app at a different
+Notion board by database ID, validated with one read before switching. Every
+prompt, including each automation's, is editable in place.
 
 **Installable, themed app.** The frontend is a no-build PWA — manifest,
 service worker, installable to a phone home screen — with dark, light, and

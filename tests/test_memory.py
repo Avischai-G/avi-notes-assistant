@@ -69,3 +69,42 @@ def test_clear_memory_leaves_the_project_clean(client):
     assert chat._memory() == ""
     assert "Stored memory" not in chat._agent.prompt_source()
     assert chat._settings_store.get_value("memory") is None
+
+
+def test_settings_edit_the_memory_with_the_same_cap(client):
+    saved = client.put(
+        "/api/settings", json={"memory": "  Vegetarian. Short answers.  "}
+    )
+    assert saved.status_code == 200
+    assert saved.json()["memory"] == "Vegetarian. Short answers."
+    assert chat._agent.prompt_source().endswith("Vegetarian. Short answers.")
+
+    oversized = "word " * (MEMORY_WORD_CAP + 1)
+    refused = client.put("/api/settings", json={"memory": oversized})
+    assert refused.status_code == 400
+    assert str(MEMORY_WORD_CAP) in refused.json()["detail"]
+    assert chat._memory() == "Vegetarian. Short answers."
+
+    cleared = client.put("/api/settings", json={"memory": ""})
+    assert cleared.json()["memory"] == ""
+    assert chat._settings_store.get_value("memory") is None
+
+
+def test_switching_the_board_is_refused_offline_and_validates_the_id(client):
+    # The offline fake store cannot point at Notion.
+    refused = client.put(
+        "/api/settings", json={"notion_database_id": "a" * 32}
+    )
+    assert refused.status_code == 400
+    assert "offline" in refused.json()["detail"]
+
+    malformed = client.put(
+        "/api/settings", json={"notion_database_id": "not-a-database"}
+    )
+    assert malformed.status_code == 400
+    assert "32-character" in malformed.json()["detail"]
+
+    # Leaving the field as it is (empty here) changes nothing.
+    assert client.put(
+        "/api/settings", json={"notion_database_id": ""}
+    ).status_code == 200

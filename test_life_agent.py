@@ -266,13 +266,9 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
         LIFE_PROMPT
     )
 
-    # The name is a setting, not a hardcode: changing it re-points every prompt.
-    renamed = client.put("/api/settings", json={"call_name": "Boss"}).json()
-    assert renamed["call_name"] == "Boss"
-    assert chat._live_voice_agent.prompt_source().endswith("address them as Boss.")
-    assert chat._agent.prompt_source().endswith("address them as Boss.")
+    # No name field remains: the memory is the one place the agent knows things.
+    assert "call_name" not in base
     assert "Avi" not in LIFE_PROMPT
-    client.put("/api/settings", json={"call_name": ""})
 
     updated = client.put(
         "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}

@@ -755,7 +755,8 @@ const settingsLanguage = $("#settings-language");
 const settingsLivePrompt = $("#settings-live-prompt");
 const settingsApiKey = $("#settings-api-key");
 const settingsModel = $("#settings-model");
-const settingsCallName = $("#settings-call-name");
+const settingsMemory = $("#settings-memory");
+const settingsNotionId = $("#settings-notion-id");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
 const NO_KEY_HINT = "No key on this device — the app runs on the server's own credentials.";
@@ -786,7 +787,8 @@ $("#open-settings").addEventListener("click", async () => {
       : (settings.require_key ? KEY_REQUIRED_HINT : NO_KEY_HINT);
     settingsModel.value = deviceModel();
     settingsModel.placeholder = settings.default_model || "";
-    settingsCallName.value = settings.call_name || "";
+    settingsMemory.value = settings.memory || "";
+    settingsNotionId.value = settings.notion_database_id || "";
     settingsRemoveKey.hidden = !deviceKey();
     settingsEditor.classList.remove("loading");
   } catch (error) {
@@ -808,7 +810,8 @@ $("#settings-save").addEventListener("click", async () => {
       method: "PUT",
       headers: JSON_HEADERS,
       body: JSON.stringify({
-        call_name: settingsCallName.value,
+        memory: settingsMemory.value,
+        notion_database_id: settingsNotionId.value,
         voice_name: settingsVoice.value,
         language_code: settingsLanguage.value,
         live_prompt: settingsLivePrompt.value,

@@ -15,6 +15,7 @@ import time
 import uuid
 from contextvars import ContextVar
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from typing import Optional
 
@@ -37,12 +38,12 @@ from app.automations import (
     reconcile_triggers,
 )
 from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
-from app.notion_mcp import NotionConfigurationError
+from app.notion_mcp import NotionConfig, NotionConfigurationError
 from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge, knowledge_root
 from app.task_planning import BoardReview, FREQUENCIES
 from app.task_store import FakeTaskStore
-from app.organizer import TaskOrganizerAgent, _eligible_model
+from app.organizer import MEMORY_WORD_CAP, TaskOrganizerAgent, _eligible_model
 from app.life import LIFE_PROMPT, LifeAgent
 
 
@@ -123,7 +124,13 @@ def init_chat_stores(
             "TASK_STORE_MODE", "notion" if use_firestore else "fake"
         ).strip().lower()
         if task_store_mode == "notion":
-            _task_store = NotionTaskStore.from_env()
+            config = NotionConfig.from_env()
+            stored_id = str(
+                _settings_store.get_value("notion_database_id") or ""
+            ).strip()
+            if stored_id:
+                config = replace(config, tasks_database_id=stored_id)
+            _task_store = NotionTaskStore(config)
         elif task_store_mode == "fake":
             if use_firestore or os.environ.get("K_SERVICE"):
                 raise NotionConfigurationError(
@@ -186,17 +193,10 @@ _API_KEY_PATTERN = re.compile(r"[A-Za-z0-9_\-]{20,200}")
 _MODEL_PATTERN = re.compile(r"[A-Za-z0-9._\-/]{1,120}")
 
 
-def _call_name() -> str:
-    """How the assistant addresses the user, from Settings."""
-    return str(_settings_store.get_value("call_name") or "").strip()
-
-
-def _named(prompt: str) -> str:
-    """The prompt plus the one line it points to for the user's name."""
-    name = _call_name()
-    if not name:
-        return prompt
-    return f"{prompt}\n\nThe user's preferred name: address them as {name}."
+def _current_database_id() -> str:
+    """The Notion database the app is pointed at right now, or empty."""
+    config = getattr(_task_store, "config", None)
+    return getattr(config, "tasks_database_id", "") or ""
 
 
 _ATTACHMENT_TYPES = {
@@ -248,7 +248,8 @@ def _settings_payload() -> dict:
         "voices": list(LIVE_VOICES),
         "require_key": _REQUIRE_DEVICE_KEY,
         "default_model": _default_model(),
-        "call_name": _call_name(),
+        "memory": _memory(),
+        "notion_database_id": _current_database_id(),
     }
 
 
@@ -367,17 +368,16 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
         speech_settings=_speech_settings,
     )
     organizer.prompt_source = lambda: _with_memory(
-        _named(_settings_store.get_system_prompt())
+        _settings_store.get_system_prompt()
     )
     organizer.memory_source = _memory
     organizer.memory_sink = lambda text: _settings_store.set_value(
         "memory", text.strip() or None
     )
     organizer.file_publisher = _publish_attachment
-    live.prompt_source = lambda: _named(
+    live.prompt_source = lambda: (
         str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
     )
-    live.name_source = lambda: _call_name() or "User"
     return organizer, live
 
 
@@ -770,11 +770,47 @@ def register_chat_routes(app: FastAPI) -> None:
                 "live_prompt", "" if live_prompt == LIFE_PROMPT.strip() else live_prompt
             )
 
-        if "call_name" in body:
-            name = str(body.get("call_name") or "").strip()
-            if len(name) > 60:
-                raise HTTPException(400, "call_name must be 60 characters or fewer")
-            _settings_store.set_value("call_name", name)
+        if "memory" in body:
+            memory = str(body.get("memory") or "").strip()
+            words = len(memory.split())
+            if words > MEMORY_WORD_CAP:
+                raise HTTPException(
+                    400,
+                    f"The memory is {words} words; the cap is {MEMORY_WORD_CAP}.",
+                )
+            _settings_store.set_value("memory", memory or None)
+
+        if "notion_database_id" in body:
+            global _task_store
+            wanted = str(body.get("notion_database_id") or "").strip().replace("-", "")
+            if wanted and wanted != _current_database_id():
+                if not re.fullmatch(r"[0-9a-fA-F]{32}", wanted):
+                    raise HTTPException(
+                        400,
+                        "The database ID is the 32-character code in the "
+                        "board's URL, before any '?'",
+                    )
+                if not isinstance(_task_store, NotionTaskStore):
+                    raise HTTPException(
+                        400,
+                        "This offline run uses a local fake board; switching "
+                        "boards works on the deployed app",
+                    )
+                candidate = NotionTaskStore(
+                    replace(_task_store.config, tasks_database_id=wanted)
+                )
+                try:
+                    candidate.list_tasks()
+                except Exception as exc:
+                    raise HTTPException(
+                        400,
+                        "Could not read that board "
+                        f"({type(exc).__name__}). Share it with the app's "
+                        "Notion integration first, then try again.",
+                    )
+                _task_store = candidate
+                _settings_store.set_value("notion_database_id", wanted)
+                _build_agents()
 
         if "voice_name" in body:
             voice = str(body.get("voice_name") or "").strip()

@@ -34,7 +34,7 @@ from app.organizer import (
 from app.task_store import TaskStore
 
 
-LIFE_PROMPT = """You are the app's live voice navigator and board guide. The user speaks; you act fast. Their preferred name is given at the end of these instructions — address them by it.
+LIFE_PROMPT = """You are the app's live voice navigator and board guide. The user speaks; you act fast.
 
 You know the app: a Chat channel where the task assistant manages their Notion board, automation channels with their own conversations, and a Settings dialog (voice, accent, API key, these instructions). The current app map with exact names and ids is appended below, after any recent voice conversation — use that recent conversation to understand what they are referring to.
 
