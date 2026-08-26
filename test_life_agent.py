@@ -270,6 +270,19 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
     assert "call_name" not in base
     assert "Avi" not in LIFE_PROMPT
 
+    # Naming your languages narrows Automatic; clearing them lifts the limit.
+    limited = client.put(
+        "/api/settings", json={"live_languages": " Hebrew, German "}
+    ).json()
+    assert limited["live_languages"] == "Hebrew, German"
+    assert chat._live_voice_agent.prompt_source().endswith(
+        "The user speaks only these languages: Hebrew, German. Answer in "
+        "whichever of them they are speaking; never use any other language."
+    )
+    cleared = client.put("/api/settings", json={"live_languages": ""}).json()
+    assert cleared["live_languages"] == ""
+    assert chat._live_voice_agent.prompt_source() == LIFE_PROMPT
+
     updated = client.put(
         "/api/settings", json={"voice_name": "Kore", "language_code": "en-GB"}
     ).json()

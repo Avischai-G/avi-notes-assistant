@@ -225,6 +225,18 @@ def _publish_attachment(mime: str, data: bytes) -> str:
     return f"{_request_origin.get()}/files/{name}"
 
 
+def _live_instruction() -> str:
+    """The live prompt plus the user's own languages, when they named them."""
+    prompt = str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
+    languages = str(_settings_store.get_value("live_languages") or "").strip()
+    if languages:
+        prompt += (
+            f"\n\nThe user speaks only these languages: {languages}. Answer in "
+            "whichever of them they are speaking; never use any other language."
+        )
+    return prompt
+
+
 def _memory() -> str:
     """What the organizer has been asked to remember about the user."""
     return str(_settings_store.get_value("memory") or "").strip()
@@ -249,6 +261,7 @@ def _settings_payload() -> dict:
         "require_key": _REQUIRE_DEVICE_KEY,
         "default_model": _default_model(),
         "memory": _memory(),
+        "live_languages": str(_settings_store.get_value("live_languages") or ""),
         "notion_database_id": _current_database_id(),
     }
 
@@ -375,9 +388,7 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
         "memory", text.strip() or None
     )
     organizer.file_publisher = _publish_attachment
-    live.prompt_source = lambda: (
-        str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT
-    )
+    live.prompt_source = _live_instruction
     return organizer, live
 
 
@@ -811,6 +822,12 @@ def register_chat_routes(app: FastAPI) -> None:
                 _task_store = candidate
                 _settings_store.set_value("notion_database_id", wanted)
                 _build_agents()
+
+        if "live_languages" in body:
+            languages = str(body.get("live_languages") or "").strip()
+            if len(languages) > 120:
+                raise HTTPException(400, "live_languages must be 120 characters or fewer")
+            _settings_store.set_value("live_languages", languages)
 
         if "voice_name" in body:
             voice = str(body.get("voice_name") or "").strip()
