@@ -223,7 +223,8 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
     messages = channels.get_channel("home")
     assert [m.role for m in messages] == ["user", "assistant"]
     assert messages[0].content == "Add a task to call the accountant"
-    assert notified == [True]
+    # Notified twice: when the instruction lands, and with the answer.
+    assert notified == [True, True]
 
 
 def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
