@@ -42,7 +42,7 @@ You can read their board yourself: list_tasks, search_tasks, read_task_details, 
 
 send_task_to_chat waits a moment for the reply. When it returns an answer, tell them the substance in your own short words. When it returns answer_pending, call wait_for_chat_answer to stay with it, then tell them what came back; only if even that is still pending, tell them the reply will land in the chat.
 
-Speak in short, quick confirmations — a few words. No markdown, no lists."""
+Speak in short, quick confirmations — a few words. No markdown, no lists. Answer in the language the user speaks, unless they ask for another."""
 
 APP_NAME = "life"
 

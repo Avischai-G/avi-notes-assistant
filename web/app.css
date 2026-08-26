@@ -183,6 +183,7 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   transition: transform var(--motion-smooth);
 }
 .drawer[open] { display: flex; transform: none; }
+.drawer-close { flex: none; align-self: flex-start; margin: 0 0 2px 2px; }
 @starting-style { .drawer[open] { transform: translateX(-100%); } }
 .drawer::backdrop { background: rgb(0 0 0 / 0.45); }
 

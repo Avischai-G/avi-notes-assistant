@@ -305,6 +305,7 @@ function toggleMenu(id, dots) {
   }
 }
 
+$("#drawer-close").addEventListener("click", () => drawer.close());
 $("#menu").addEventListener("click", () => {
   toggleMenu(null);
   drawer.showModal();
