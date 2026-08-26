@@ -23,8 +23,10 @@ keeps only properties you can sort or filter on: `Name`, `Status`, `When`,
 written only when you actually gave one, and anything free-form — your own
 wording, context, links, checklists — goes on the task's own Notion page, not
 squeezed into a property. The same chat searches, renames, corrects, deletes
-and restores tasks, ticks checklist items, and comments — and a photo sent
-with a message can be attached straight onto a task's page.
+and restores tasks, ticks checklist items, and comments; a photo sent with a
+message can be attached straight onto a task's page; and "remind me about X
+at 10" sets a timed reminder that lands as a ⏰ comment on the task, carried
+to the user by Notion's own notifications.
 
 **Weekly deterministic board review.** The built-in `Organize tasks`
 automation runs a weekly `BoardReview`: pure deterministic code that scans
@@ -84,9 +86,9 @@ follow-the-system themes, responsive from desktop to mobile.
 - Two Google ADK `LlmAgent`s on Vertex AI at the `global` location: the task
   organizer on `gemini-3.7-flash` and the voice navigator on
   `gemini-live-2.5-flash`.
-- The organizer's tool surface is thirteen typed board tools — create, rename,
+- The organizer's tool surface is fourteen typed board tools — create, rename,
   move fields/Status, list, search, read/write details pages, tick checkboxes,
-  attach files, delete/restore, comments — plus `remember`/`clear_memory` for
+  attach files, set reminders, delete/restore, comments — plus `remember`/`clear_memory` for
   the capped user memory and `list_automations`/`run_automation`, every one
   behind the same channel gate.
 - A pinned local stdio Notion MCP child exposes exactly a compiled ten-operation

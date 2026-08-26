@@ -39,6 +39,8 @@ Use the board freely: search before creating something that may already exist, r
 
 They can also ask you to run one of their automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now.
 
+"Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. No time named means just the task, no reminder.
+
 When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask."""
 
 DEFAULT_MODEL = "gemini-3.7-flash"
@@ -153,6 +155,8 @@ class TaskOrganizerAgent:
         # The stored user memory; chat.py points both at the settings store.
         self.memory_source: Callable[[], str] = lambda: ""
         self.memory_sink: Callable[[str], None] = lambda text: None
+        # Reminders land here; chat.py points this at the scheduler store.
+        self.reminder_sink: Callable[[dict], None] | None = None
         # Files attached to the current message, and where to publish them.
         self._attachments: ContextVar[list[tuple[str, bytes]]] = ContextVar(
             "turn_attachments"
@@ -389,6 +393,35 @@ class TaskOrganizerAgent:
             result = await self.automations.run(match.id)
             return {"ran": True, "name": match.name, "text": result.get("text", "")}
 
+        def set_task_reminder(task_id: str, at: str) -> dict:
+            """Set a reminder: at that time a ⏰ comment lands on the task and
+            Notion notifies the user. Use when they name a time ("remind me
+            ... at 10"); with no time named, a plain task is enough.
+
+            Args:
+                task_id: The task to remind about.
+                at: Local date and time, ISO format: 2026-08-27T10:00.
+                    Resolve words like tomorrow from today's date yourself.
+            """
+            if self.reminder_sink is None:
+                return {
+                    "set": False,
+                    "reason": "Reminders are not available in this session.",
+                }
+            moment = datetime.fromisoformat(at.strip())
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=JERUSALEM)
+            store = self._store.get()
+            title = next(
+                (t.title for t in store.list_tasks() if t.id == task_id), ""
+            )
+            display = f"{moment:%Y-%m-%d %H:%M}"
+            store.write_task_body(task_id, f"⏰ Reminder: {display}", append=True)
+            self.reminder_sink(
+                {"task_id": task_id, "at": moment.isoformat(), "title": title}
+            )
+            return {"reminder_set": display, "task_id": task_id}
+
         def attach_files_to_task(task_id: str) -> dict:
             """Put the files attached to the user's current message onto a
             task's own page, as embedded images or file links.
@@ -456,6 +489,7 @@ class TaskOrganizerAgent:
                 write_task_details,
                 set_task_checkbox,
                 attach_files_to_task,
+                set_task_reminder,
                 delete_task,
                 restore_task,
                 add_task_comment,

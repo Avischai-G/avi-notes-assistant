@@ -19,6 +19,9 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
   date, titles too vague to act on, and titles hiding more than one action. It
   reports and changes nothing: only the user knows which copy of a duplicate
   to keep.
+- "Remind me about X at 10" names the task X and sets a reminder: when the
+  time arrives, a ⏰ comment lands on the task and Notion carries the
+  notification. With no time named, it is just a task.
 - The chat can list and run automations by name. A photo or PDF sent with a
   message can be attached onto a task's own page, embedded by URL.
 - Saying "remember ..." stores a short note about the user: one word-capped
@@ -33,7 +36,7 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and thirteen gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, attach files, delete/restore, and comments — plus `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
+See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and fourteen gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, attach files, set reminders, delete/restore, and comments — plus `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
 
 ## Local offline setup
 
@@ -126,7 +129,7 @@ The approved deployment is live at the URL above. Its runtime provides:
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
 - `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.7-flash`;
-- a Cloud Scheduler job targeting `POST /api/automations/tick`, which fires any automation whose `next_run_at` has arrived.
+- a Cloud Scheduler job targeting `POST /api/automations/tick`, which fires any automation whose `next_run_at` has arrived and any task reminder whose time has come; reminder precision equals the scheduler interval.
 
 Building an image locally is non-deploying:
 
@@ -138,7 +141,7 @@ docker build -t agentonomy-tasks:rc .
 
 The database already exists. Its frozen properties are `Name`, `Status`, `When`, `Place`, `Minutes`, and `Notes`; `Status` accepts only `Not started`, `In progress`, or `Done`. No database, schema, data-source, or view creation operation exists in the app.
 
-The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives thirteen typed board tools built on that surface — never raw MCP access — and `delete_task` archives rather than destroys, so `restore_task` can undo it. Attached files are stored on the app's own volume and embedded in a page as external URLs; Notion never receives the bytes.
+The pinned local MCP child exposes exactly the compiled allowlist: `create_page`, `set_page_title`, `set_page_property`, `query_database`, `archive_page`, `restore_page`, `get_page_markdown`, `update_page_markdown`, `add_page_comment`, and `list_comments`. The organiser receives fourteen typed board tools built on that surface — never raw MCP access — and `delete_task` archives rather than destroys, so `restore_task` can undo it. Attached files are stored on the app's own volume and embedded in a page as external URLs; Notion never receives the bytes.
 
 This is strong grant scoping, not perfect isolation. The token can currently see the configured database's schema and every current or future row, and its allowed MCP surface can create, rename, change properties, query, and archive rows. Someone with permission to edit the Notion connection could later widen Content access. The permanent unfiltered-search regression therefore hard-fails unless it returns exactly one configured data source, every other result is a page parented to that same data source, and `has_more` is false. Full details are in [docs/NOTION-SETUP.md](docs/NOTION-SETUP.md).
 

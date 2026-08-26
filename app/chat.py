@@ -41,7 +41,9 @@ from app.settings_store import FirestoreSettingsStore, LocalSettingsStore
 from app.notion_mcp import NotionConfig, NotionConfigurationError
 from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge, knowledge_root
-from app.task_planning import BoardReview, FREQUENCIES
+from datetime import datetime
+
+from app.task_planning import BoardReview, FREQUENCIES, JERUSALEM
 from app.task_store import FakeTaskStore
 from app.organizer import MEMORY_WORD_CAP, TaskOrganizerAgent, _eligible_model
 from app.life import LIFE_PROMPT, LifeAgent
@@ -248,6 +250,43 @@ def _live_instruction() -> str:
     return prompt
 
 
+def _reminders() -> list[dict]:
+    return list(_settings_store.get_value("reminders") or [])
+
+
+def _add_reminder(entry: dict) -> None:
+    _settings_store.set_value("reminders", _reminders() + [entry])
+
+
+def _fire_due_reminders() -> list[dict]:
+    """Comment ⏰ on every task whose reminder time has arrived; Notion
+    carries the notification from there. Runs on the scheduler tick."""
+    now = datetime.now(JERUSALEM)
+    keep: list[dict] = []
+    fired: list[dict] = []
+    for entry in _reminders():
+        try:
+            at = datetime.fromisoformat(str(entry.get("at", "")))
+        except ValueError:
+            continue  # malformed entries drop rather than wedge the tick
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=JERUSALEM)
+        if at > now:
+            keep.append(entry)
+            continue
+        try:
+            title = str(entry.get("title") or "").strip() or "this task"
+            _task_store.add_comment(
+                str(entry.get("task_id", "")), f"⏰ Reminder: {title}"
+            )
+        except Exception:
+            pass  # an archived or vanished task loses its reminder quietly
+        fired.append(entry)
+    if fired:
+        _settings_store.set_value("reminders", keep)
+    return fired
+
+
 def _memory() -> str:
     """What the organizer has been asked to remember about the user."""
     return str(_settings_store.get_value("memory") or "").strip()
@@ -428,6 +467,7 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
         "memory", text.strip() or None
     )
     organizer.file_publisher = _publish_attachment
+    organizer.reminder_sink = _add_reminder
     live.prompt_source = _live_instruction
     return organizer, live
 
@@ -953,4 +993,5 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.post("/api/automations/tick")
     async def automation_tick():
-        return {"results": await _automation_runner.tick()}
+        fired = _fire_due_reminders()
+        return {"results": await _automation_runner.tick(), "reminders_fired": len(fired)}
