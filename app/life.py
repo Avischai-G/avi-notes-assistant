@@ -285,6 +285,14 @@ class LifeAgent:
                             outcome["error"] = chunk["error"]
                 finally:
                     await bridge["notify"]()
+                    # A reply nobody is waiting for gets pushed into the live
+                    # session, so the navigator speaks it without being asked.
+                    push = bridge.get("push_text")
+                    answer = outcome["text"] or (
+                        f"It failed: {outcome['error']}" if outcome["error"] else ""
+                    )
+                    if push and answer and outcome.get("push") and not outcome.get("awaited"):
+                        push(f"[the task assistant replied] {answer}")
 
             task = asyncio.ensure_future(hand_off())
             self._pending.add(task)
@@ -297,10 +305,12 @@ class LifeAgent:
                 # A short beat: quick answers get read back to the user directly.
                 await asyncio.wait_for(asyncio.shield(task), timeout=QUICK_WAIT_SECONDS)
             except asyncio.TimeoutError:
+                outcome["push"] = True
                 return {
                     "delivered": True,
                     "answer_pending": True,
-                    "note": "Still working; call wait_for_chat_answer to get the reply.",
+                    "note": "Still working; the reply will be pushed to you — "
+                    "speak it to the user when it arrives.",
                 }
             if outcome["error"]:
                 return {"delivered": False, "reason": outcome["error"]}
@@ -317,6 +327,7 @@ class LifeAgent:
             if not handoff:
                 return {"answer": "", "note": "Nothing was handed to the chat yet."}
             task, outcome = handoff
+            outcome["awaited"] = True
             try:
                 await asyncio.wait_for(asyncio.shield(task), timeout=LONG_WAIT_SECONDS)
             except asyncio.TimeoutError:
@@ -536,6 +547,11 @@ class LifeAgent:
                 return {"started": False, "reason": "Automations are unavailable."}
             return await automation_starter(name)
 
+        def push_text(text: str) -> None:
+            queue.send_content(
+                types.Content(role="user", parts=[types.Part(text=text)])
+            )
+
         bridge_token = self._bridge.set(
             {
                 "organizer": organizer,
@@ -544,6 +560,7 @@ class LifeAgent:
                 "notify": notify_chat_updated,
                 "send": send_frame,
                 "run_automation": start_automation,
+                "push_text": push_text,
             }
             if organizer is not None
             else None

@@ -69,7 +69,7 @@ def test_a_slow_answer_is_pending_then_awaited(monkeypatch):
 
     sent, awaited = asyncio.run(scenario())
     assert sent["answer_pending"] is True
-    assert "wait_for_chat_answer" in sent["note"]
+    assert "pushed" in sent["note"]
     assert awaited == {"answer": "Finally done."}
 
 
@@ -83,3 +83,53 @@ def test_waiting_with_nothing_pending_says_so():
 
     result = asyncio.run(scenario())
     assert result["note"] == "Nothing was handed to the chat yet."
+
+
+def test_a_pending_reply_is_pushed_into_the_voice_session(monkeypatch):
+    monkeypatch.setattr(life, "QUICK_WAIT_SECONDS", 0.05)
+    agent = LifeAgent()
+    tools = _tools(agent)
+    pushed = []
+
+    def chat(instruction, channel_store, task_store, channel_id):
+        async def stream():
+            await asyncio.sleep(0.2)
+            yield {"text": "Done late."}
+
+        return stream()
+
+    async def scenario():
+        _wire(agent, chat)
+        bridge = agent._bridge.get()
+        bridge["push_text"] = pushed.append
+        sent = await tools["send_task_to_chat"]("Slow thing")
+        await asyncio.gather(*agent._pending)
+        return sent
+
+    sent = asyncio.run(scenario())
+    assert sent["answer_pending"] is True
+    assert pushed == ["[the task assistant replied] Done late."]
+
+
+def test_a_quick_reply_is_not_pushed_twice(monkeypatch):
+    agent = LifeAgent()
+    tools = _tools(agent)
+    pushed = []
+
+    def chat(instruction, channel_store, task_store, channel_id):
+        async def stream():
+            yield {"text": "Done at once."}
+
+        return stream()
+
+    async def scenario():
+        _wire(agent, chat)
+        bridge = agent._bridge.get()
+        bridge["push_text"] = pushed.append
+        sent = await tools["send_task_to_chat"]("Fast thing")
+        await asyncio.gather(*agent._pending)
+        return sent
+
+    sent = asyncio.run(scenario())
+    assert sent["answer"] == "Done at once."
+    assert pushed == []

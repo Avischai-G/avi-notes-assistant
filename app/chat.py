@@ -172,6 +172,17 @@ def init_chat_stores(
 
 # The Gemini Live prebuilt voices the Settings picker offers.
 LIVE_VOICES = ("Puck", "Charon", "Kore", "Fenrir", "Aoede", "Leda", "Orus", "Zephyr")
+# How each prebuilt voice reads to a listener, so gendered languages agree.
+_VOICE_GENDER = {
+    "Puck": "masculine",
+    "Charon": "masculine",
+    "Fenrir": "masculine",
+    "Orus": "masculine",
+    "Kore": "feminine",
+    "Aoede": "feminine",
+    "Leda": "feminine",
+    "Zephyr": "feminine",
+}
 
 # The server's own key (Secret Manager → env). Never sent to any client.
 _SERVER_API_KEY = os.environ.get("GEMINI_DEFAULT_API_KEY", "").strip()
@@ -285,9 +296,18 @@ def _app_map() -> str:
         "in one line, writes tasks without inventing fields, and handles "
         "renames, deletes, comments, checklists, file attachments, memory "
         "and automations. Trust it; do not over-specify or split into steps.",
-        "- When send_task_to_chat returns answer_pending, call "
-        "wait_for_chat_answer once and speak the result.",
+        "- When send_task_to_chat returns answer_pending, carry on; the reply "
+        "arrives as a line starting with [the task assistant replied] — "
+        "speak its substance to the user the moment it does. "
+        "wait_for_chat_answer also fetches it if you prefer to wait.",
         "- navigate moves the app; run_automation starts one now.",
+        "- Your voice sounds {gender}. In gendered languages such as Hebrew, "
+        "use {gender} forms for yourself, and address the user with the "
+        "grammatical gender they use for themselves.".format(
+            gender=_VOICE_GENDER.get(
+                str(_settings_store.get_value("voice_name") or ""), "masculine"
+            )
+        ),
         "",
         "App map:",
         '- Chat channel — navigate target "chat". Instructions you hand off '
