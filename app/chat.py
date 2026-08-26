@@ -46,7 +46,7 @@ from datetime import datetime
 from app.task_planning import BoardReview, FREQUENCIES, JERUSALEM
 from app.task_store import FakeTaskStore
 from app.organizer import MEMORY_WORD_CAP, TaskOrganizerAgent, _eligible_model
-from app.life import LIFE_PROMPT, LifeAgent
+from app.life import LIFE_PROMPT, LIFE_RULES, LifeAgent
 
 
 # Global instances
@@ -305,6 +305,7 @@ def _settings_payload() -> dict:
     return {
         "system_prompt": _settings_store.get_system_prompt(),
         "live_prompt": str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT,
+        "live_rules": _live_rules(),
         "voice_name": str(_settings_store.get_value("voice_name") or ""),
         "language_code": str(_settings_store.get_value("language_code") or ""),
         "voices": list(LIVE_VOICES),
@@ -316,30 +317,16 @@ def _settings_payload() -> dict:
     }
 
 
+def _live_rules() -> str:
+    """The navigator's operating rules: the stored setting, or the default."""
+    return str(_settings_store.get_value("live_rules") or "") or LIFE_RULES
+
+
 def _app_map() -> str:
-    """The navigator's operating rules and app map, rebuilt per session and
-    appended to whatever instructions are stored — a customized prompt still
-    gets current tool behavior."""
+    """The rules (editable in Settings) plus per-session data — the voice's
+    gender and the app map — appended to whatever instructions are stored."""
     lines = [
-        "Operating rules (always in force):",
-        "- Decide and act immediately. Never ask permission, and never ask a "
-        "clarifying question when any sensible reading exists — pick it and act.",
-        "- Your own tools only read the board: list_tasks, search_tasks, "
-        "read_task_details, read_task_comments answer questions directly.",
-        "- Everything else — creating, changing, completing or deleting tasks, "
-        "remembering things, anything beyond the board — you do by calling "
-        "send_task_to_chat with the user's intent as one plain sentence. "
-        "Never say you sent something without having called it; the call IS "
-        "the sending, and the instruction appears in the chat instantly.",
-        "- The task assistant in the chat is terse and reliable: it answers "
-        "in one line, writes tasks without inventing fields, and handles "
-        "renames, deletes, comments, checklists, file attachments, memory "
-        "and automations. Trust it; do not over-specify or split into steps.",
-        "- When send_task_to_chat returns answer_pending, carry on; the reply "
-        "arrives as a line starting with [the task assistant replied] — "
-        "speak its substance to the user the moment it does. "
-        "wait_for_chat_answer also fetches it if you prefer to wait.",
-        "- navigate moves the app; run_automation starts one now.",
+        _live_rules(),
         "- Your voice sounds {gender}. In gendered languages such as Hebrew, "
         "use {gender} forms for yourself, and address the user with the "
         "grammatical gender they use for themselves.".format(
@@ -859,6 +846,12 @@ def register_chat_routes(app: FastAPI) -> None:
             # Storing the untouched default (or nothing) keeps the override empty.
             _settings_store.set_value(
                 "live_prompt", "" if live_prompt == LIFE_PROMPT.strip() else live_prompt
+            )
+
+        if "live_rules" in body:
+            live_rules = str(body.get("live_rules") or "").strip()
+            _settings_store.set_value(
+                "live_rules", "" if live_rules == LIFE_RULES.strip() else live_rules
             )
 
         if "memory" in body:

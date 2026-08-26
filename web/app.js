@@ -758,6 +758,7 @@ const settingsApiKey = $("#settings-api-key");
 const settingsModel = $("#settings-model");
 const settingsMemory = $("#settings-memory");
 const settingsLiveLanguages = $("#settings-live-languages");
+const settingsLiveRules = $("#settings-live-rules");
 const settingsNotionId = $("#settings-notion-id");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
@@ -783,6 +784,7 @@ $("#open-settings").addEventListener("click", async () => {
     settingsVoice.value = settings.voice_name || "";
     settingsLanguage.value = settings.language_code || "";
     settingsLivePrompt.value = settings.live_prompt || "";
+    settingsLiveRules.value = settings.live_rules || "";
     settingsLiveLanguages.value = settings.live_languages || "";
     settingsApiKey.value = deviceKey();
     settingsApiKeyState.textContent = deviceKey()
@@ -819,6 +821,7 @@ $("#settings-save").addEventListener("click", async () => {
         language_code: settingsLanguage.value,
         live_languages: settingsLiveLanguages.value,
         live_prompt: settingsLivePrompt.value,
+        live_rules: settingsLiveRules.value,
       }),
     });
     settingsEditor.close();
