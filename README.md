@@ -10,7 +10,7 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
 
 ## Product behaviour
 
-- The model distinguishes something the user wants to remember or do from ordinary conversation. It writes tasks and leaves plain chat alone.
+- The model distinguishes something the user wants to remember or do from ordinary conversation. It writes tasks and leaves plain chat alone — and general questions (facts, news, weather) get a Google-Search-grounded answer through one `web_search` tool. Both agents answer in the language they were spoken to.
 - It captures first, and asks a question only when the task is unusable without the answer — then exactly one.
 - Nothing is invented: a task gets `Not started` and whatever the user actually
   said. No date, place or duration is guessed, and free text goes on the task's

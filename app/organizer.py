@@ -41,7 +41,9 @@ They can also ask you to run one of their automations by name: `list_automations
 
 "Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. No time named means just the task, no reminder.
 
-When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask."""
+When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask.
+
+Questions about the world — facts, news, weather, anything beyond the board — answer with `web_search`, briefly, naming a source. Always reply in the language the user wrote in."""
 
 DEFAULT_MODEL = "gemini-3.7-flash"
 # The stored user memory rides the system prompt; the cap keeps it a note, not a log.
@@ -451,6 +453,15 @@ class TaskOrganizerAgent:
             store.write_task_body(task_id, "\n\n".join(links), append=True)
             return {"attached": True, "files": len(links)}
 
+        def web_search(query: str) -> dict:
+            """Answer a question about the world — facts, news, weather,
+            anything beyond the board — grounded in Google Search.
+
+            Args:
+                query: The user's question, in their own words and language.
+            """
+            return self._web_answer(query)
+
         def remember(memory: str) -> dict:
             """Replace the stored memory about the user. Call only when they
             ask you to remember or forget something: rewrite the stored
@@ -494,6 +505,7 @@ class TaskOrganizerAgent:
                 restore_task,
                 add_task_comment,
                 read_task_comments,
+                web_search,
                 remember,
                 clear_memory,
                 list_automations,
@@ -550,6 +562,36 @@ class TaskOrganizerAgent:
                 return failure(exc)
 
         return guarded
+
+    def _web_answer(self, query: str) -> dict:
+        """One Google-Search-grounded model call beneath the web_search tool.
+
+        A nested one-shot request sidesteps the restriction on mixing the
+        built-in search tool with function tools in a single agent."""
+        from google import genai
+
+        client = (
+            genai.Client(api_key=self.api_key, vertexai=False)
+            if self.api_key
+            else genai.Client()
+        )
+        response = client.models.generate_content(
+            model=self.model,
+            contents=query,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())]
+            ),
+        )
+        sources = []
+        for candidate in response.candidates or []:
+            metadata = getattr(candidate, "grounding_metadata", None)
+            for chunk in getattr(metadata, "grounding_chunks", None) or []:
+                web = getattr(chunk, "web", None)
+                if web and getattr(web, "uri", None):
+                    sources.append(
+                        {"title": getattr(web, "title", "") or "", "url": web.uri}
+                    )
+        return {"answer": response.text or "", "sources": sources[:3]}
 
     def _instruction_for_turn(self, _context) -> str:
         """Resolve the one cached instruction string for the current ADK turn."""

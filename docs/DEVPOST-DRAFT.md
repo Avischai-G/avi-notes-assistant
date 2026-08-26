@@ -26,7 +26,9 @@ squeezed into a property. The same chat searches, renames, corrects, deletes
 and restores tasks, ticks checklist items, and comments; a photo sent with a
 message can be attached straight onto a task's page; and "remind me about X
 at 10" sets a timed reminder that lands as a ⏰ comment on the task, carried
-to the user by Notion's own notifications.
+to the user by Notion's own notifications. General questions — facts, news,
+weather — get Google-Search-grounded answers with sources, and both agents
+answer in whatever language they are addressed in.
 
 **Weekly deterministic board review.** The built-in `Organize tasks`
 automation runs a weekly `BoardReview`: pure deterministic code that scans
@@ -88,8 +90,9 @@ follow-the-system themes, responsive from desktop to mobile.
   `gemini-live-2.5-flash`.
 - The organizer's tool surface is fourteen typed board tools — create, rename,
   move fields/Status, list, search, read/write details pages, tick checkboxes,
-  attach files, set reminders, delete/restore, comments — plus `remember`/`clear_memory` for
-  the capped user memory and `list_automations`/`run_automation`, every one
+  attach files, set reminders, delete/restore, comments — plus `web_search`
+  (a nested Google-Search-grounded model call), `remember`/`clear_memory` for
+  the capped user memory, and `list_automations`/`run_automation`, every one
   behind the same channel gate.
 - A pinned local stdio Notion MCP child exposes exactly a compiled ten-operation
   allowlist (`create_page`, `set_page_title`, `set_page_property`,
@@ -105,13 +108,15 @@ follow-the-system themes, responsive from desktop to mobile.
 
 ## Data sources
 
-The only external data source is the user's own Notion tasks database,
+The user's own Notion tasks database is the app's data store,
 connected through an internal Notion integration — the app reads and writes
 that single board and nothing else, enforced by a permanent unfiltered-search
 regression that hard-fails unless every reachable result belongs to the one
 configured data source. Application state (channels, automations, settings)
 lives in Firestore; a device-local API key lives only in
-that browser's `localStorage`. No third-party datasets are used.
+that browser's `localStorage`. General questions are answered with Google
+Search grounding through Gemini, with sources cited. No other third-party
+datasets are used.
 
 ## Challenges
 
