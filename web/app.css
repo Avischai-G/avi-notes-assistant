@@ -910,3 +910,6 @@ body.automation-view {
   color: var(--text);
   font-weight: 600;
 }
+
+/* Where a converted schedule was originally set. */
+.schedule-origin { margin-top: 6px; font-size: var(--type-small); color: var(--quiet); }

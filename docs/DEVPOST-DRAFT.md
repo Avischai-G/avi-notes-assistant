@@ -25,7 +25,8 @@ wording, context, links, checklists — goes on the task's own Notion page, not
 squeezed into a property. The same chat searches, renames, corrects, deletes
 and restores tasks, ticks checklist items, and comments; a photo sent with a
 message can be attached straight onto a task's page; and "remind me about X
-at 10" sets a timed reminder that lands as a ⏰ comment on the task, carried
+at 10" sets a timed reminder — stored in the board's optional `Reminder`
+date column when it has one — that fires as a ⏰ comment on the task, carried
 to the user by Notion's own notifications. General questions — facts, news,
 weather — get Google-Search-grounded answers with sources, and both agents
 answer in whatever language they are addressed in.
@@ -42,7 +43,10 @@ name.
 the app, each with its own prompt and a structured trigger — frequency, hour,
 minute, weekday — plus one derived display sentence (`Weekly on Sunday at
 09:00`). Nothing is special-cased: an automation is due exactly when its own
-`next_run_at` arrives, fired on schedule by Cloud Scheduler. Automation
+`next_run_at` arrives, fired on schedule by Cloud Scheduler. Time belongs
+to the device, not the server: chat dates resolve in the phone's timezone,
+and each automation fires on the clock of the device that scheduled it,
+displayed in the viewer's local clock with a quiet hint naming its origin. Automation
 turns use the same gated tools as the chat, so a scheduled prompt can really
 work the board; unknown channel identity still fails closed, and an
 automation can never start another automation.

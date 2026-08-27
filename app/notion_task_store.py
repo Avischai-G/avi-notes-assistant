@@ -16,6 +16,7 @@ WHEN = "When"
 PLACE = "Place"
 MINUTES = "Minutes"
 NOTES = "Notes"
+REMINDER = "Reminder"
 
 NOT_STARTED = "Not started"
 IN_PROGRESS = "In progress"
@@ -212,6 +213,17 @@ class NotionTaskStore(TaskStore):
         if self._columns is None:
             self._query_tasks()
         return self._columns is None or name in self._columns
+
+    def set_reminder(self, task_id: str, when_iso: str) -> None:
+        """Write the reminder moment into the optional Reminder date column."""
+        self.client.execute(
+            "set_page_property",
+            {
+                "page_id": task_id,
+                "name": REMINDER,
+                "value": {"date": {"start": when_iso}},
+            },
+        )
 
     def search_tasks(self, query: str) -> list[Task]:
         needle = _text(query, "query", max_length=200)

@@ -419,7 +419,17 @@ class TaskOrganizerAgent:
             task = next((t for t in store.list_tasks() if t.id == task_id), None)
             title = task.title if task else ""
             display = f"{moment:%Y-%m-%d %H:%M}"
-            store.write_task_body(task_id, f"⏰ Reminder: {display}", append=True)
+            # A board with a Reminder date column gets a real property —
+            # sortable, filterable, and Notion's own Remind can arm on it.
+            # Only a board without one falls back to a line on the page.
+            has_column = getattr(store, "has_column", None)
+            set_reminder = getattr(store, "set_reminder", None)
+            if set_reminder and has_column and has_column("Reminder"):
+                set_reminder(task_id, moment.isoformat())
+            else:
+                store.write_task_body(
+                    task_id, f"⏰ Reminder: {display}", append=True
+                )
             # A task with no date yet takes the reminder moment as its When,
             # so the time is visible and sortable on the board row itself.
             if task is not None and not task.when:

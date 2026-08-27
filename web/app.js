@@ -25,6 +25,13 @@ function localTrigger(automation) {
   };
 }
 
+// Under a converted time, one quiet line says where the schedule was set.
+function scheduleOrigin(automation) {
+  return localTrigger(automation)
+    ? `Set as ${automation.schedule} in ${automation.timezone}`
+    : "";
+}
+
 function scheduleLabel(automation) {
   const local = localTrigger(automation);
   if (!local) return automation.schedule || "";
@@ -193,7 +200,8 @@ function readAsBase64(file) {
 
 function emptyState() {
   if (activeAutomation) {
-    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(scheduleLabel(activeAutomation))} — run or edit it from its ⋯ menu, or just talk to it here.</div></div>`;
+    const origin = scheduleOrigin(activeAutomation);
+  return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(scheduleLabel(activeAutomation))} — run or edit it from its ⋯ menu, or just talk to it here.</div>${origin ? `<div class="schedule-origin">${esc(origin)}</div>` : ""}</div>`;
   }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
@@ -522,7 +530,8 @@ function openAutomationEditor(automation) {
     : `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
   editorMinute.value = String(local ? local.minute : (automation.minute ?? 0));
   editorDelete.hidden = Boolean(automation.built_in);
-  editorNext.textContent = scheduleLabel(automation);
+  const origin = scheduleOrigin(automation);
+  editorNext.textContent = scheduleLabel(automation) + (origin ? ` — ${origin}` : "");
   syncEditor();
   editor.showModal();
 }

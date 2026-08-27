@@ -19,9 +19,13 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
   date, titles too vague to act on, and titles hiding more than one action. It
   reports and changes nothing: only the user knows which copy of a duplicate
   to keep.
-- "Remind me about X at 10" names the task X and sets a reminder: when the
-  time arrives, a ⏰ comment lands on the task and Notion carries the
-  notification. With no time named, it is just a task.
+- "Remind me about X at 10" names the task X and sets a reminder: the moment
+  lands in the board's optional `Reminder` date column (page text on boards
+  without one), and when the time arrives a ⏰ comment lands on the task and
+  Notion carries the notification. With no time named, it is just a task.
+- Time follows the device: chat dates resolve in the phone's timezone, and an
+  automation fires on the clock of the device that scheduled it, displayed in
+  the viewer's local clock with a hint naming where it was set.
 - The chat can list and run automations by name. A photo or PDF sent with a
   message can be attached onto a task's own page, embedded by URL.
 - Saying "remember ..." stores a short note about the user: one word-capped

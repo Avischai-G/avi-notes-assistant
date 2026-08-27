@@ -95,6 +95,7 @@ class FakeTaskStore(TaskStore):
         self.operations: list[dict] = []  # For testing
         self.trash: dict[str, Task] = {}
         self.bodies: dict[str, str] = {}
+        self.reminders: dict[str, str] = {}
         self.comments: dict[str, list[dict]] = {}
 
     def list_tasks(self, lane: str | None = None) -> list[Task]:
@@ -203,6 +204,17 @@ class FakeTaskStore(TaskStore):
             for task in self.list_tasks()
             if needle in task.title.casefold() or needle in (task.notes or "").casefold()
         ]
+
+    def has_column(self, name: str) -> bool:
+        return True
+
+    def set_reminder(self, task_id: str, when_iso: str) -> None:
+        if task_id not in self.tasks:
+            raise ValueError(f"Task {task_id} not found")
+        self.reminders[task_id] = when_iso
+        self.operations.append(
+            {"action": "set_reminder", "task_id": task_id, "at": when_iso}
+        )
 
     def get_task_body(self, task_id: str) -> str:
         if task_id not in self.tasks:

@@ -41,7 +41,10 @@ def test_a_timed_reminder_is_written_and_stored(client):
     result = _set_reminder(task.id, "2030-01-05T10:00")
 
     assert result == {"reminder_set": "2030-01-05 10:00", "task_id": task.id}
-    assert task_store.get_task_body(task.id) == "⏰ Reminder: 2030-01-05 10:00"
+    # The fake board has a Reminder column, so the property is the home
+    # and the page body stays clean.
+    assert task_store.reminders[task.id].startswith("2030-01-05T10:00")
+    assert task_store.get_task_body(task.id) == ""
     # A dateless task takes the reminder moment as its When.
     assert task_store.list_tasks()[0].when == "2030-01-05T10:00:00"
     [entry] = chat._reminders()
@@ -114,3 +117,15 @@ def test_the_device_timezone_is_the_truth_for_naive_times(client):
     [entry] = chat._reminders()
     # Stored with the device's own offset: 10:00 in Tokyo, not in Jerusalem.
     assert entry["at"] == "2030-01-05T10:00:00+09:00"
+
+
+def test_a_board_without_a_reminder_column_falls_back_to_the_body(client, monkeypatch):
+    _, task_store, _ = chat.get_stores()
+    task = task_store.create_task("Old board", "Not started")
+    monkeypatch.setattr(task_store, "has_column", lambda name: name != "Reminder")
+
+    result = _set_reminder(task.id, "2030-01-05T10:00")
+
+    assert result["reminder_set"] == "2030-01-05 10:00"
+    assert task.id not in task_store.reminders
+    assert task_store.get_task_body(task.id) == "⏰ Reminder: 2030-01-05 10:00"

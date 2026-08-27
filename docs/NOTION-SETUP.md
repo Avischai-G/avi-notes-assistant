@@ -22,6 +22,9 @@ The database schema is authoritative and must not be mutated:
 | `Minutes` | number | optional finite, non-negative estimate |
 | `Notes` | rich_text | optional free detail, up to 2,000 characters per adapter write |
 
+A `Reminder` (date) column is optional too: when the board has one, timed
+reminders land there as real dates instead of page text.
+
 `create_task` defaults Status to `Not started` and may set all optional fields.
 `list_tasks` returns every field and may filter by one exact Status.
 
