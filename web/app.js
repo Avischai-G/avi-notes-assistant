@@ -811,8 +811,57 @@ const SETTINGS_SECTIONS = {
   memory: "Agent memory",
   model: "Model setup",
   live: "Live agent",
+  notifications: "Notifications",
   notion: "Notion integration",
 };
+
+const pushState = $("#push-state");
+
+function urlB64ToUint8(value) {
+  const padded = value + "=".repeat((4 - (value.length % 4)) % 4);
+  const raw = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (ch) => ch.charCodeAt(0));
+}
+
+async function subscribeToPush() {
+  const registration = await navigator.serviceWorker.ready;
+  const { key } = await apiJSON("/api/push/key");
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlB64ToUint8(key),
+  });
+  await apiJSON("/api/push/subscribe", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(subscription.toJSON()),
+  });
+}
+
+$("#enable-push").addEventListener("click", async () => {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    pushState.textContent = "This browser does not support notifications.";
+    return;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      pushState.textContent = "Notifications are blocked for this app — allow them in the browser's site settings.";
+      return;
+    }
+    await subscribeToPush();
+    pushState.textContent = "On: due reminders notify this device.";
+    flash("Reminder notifications enabled");
+  } catch (error) {
+    pushState.textContent = `Could not enable: ${error.message}`;
+  }
+});
+
+// A device that already granted permission quietly renews its subscription,
+// so a new deployment or an expired subscription never loses the channel.
+if ("Notification" in window && Notification.permission === "granted") {
+  pushState.textContent = "On: due reminders notify this device.";
+  subscribeToPush().catch(() => {});
+}
 
 function showSettingsSection(name) {
   settingsHub.hidden = Boolean(name);

@@ -37,3 +37,25 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request, { ignoreSearch: url.pathname === "/" })),
   );
 });
+
+self.addEventListener("push", (event) => {
+  let payload = { title: "⏰ Reminder", body: "" };
+  try { payload = { ...payload, ...event.data.json() }; } catch {}
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => "focus" in w);
+      return open ? open.focus() : self.clients.openWindow("/");
+    }),
+  );
+});

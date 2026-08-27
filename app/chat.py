@@ -255,6 +255,63 @@ def _live_instruction() -> str:
     return prompt
 
 
+def _vapid_keys() -> tuple[str, str]:
+    """The app's Web Push identity: generated once, kept in settings."""
+    pem = str(_settings_store.get_value("vapid_private_pem") or "")
+    public = str(_settings_store.get_value("vapid_public_key") or "")
+    if pem and public:
+        return pem, public
+    from cryptography.hazmat.primitives import serialization
+    from py_vapid import Vapid, b64urlencode
+
+    vapid = Vapid()
+    vapid.generate_keys()
+    pem = vapid.private_pem().decode("utf-8")
+    public = b64urlencode(
+        vapid.public_key.public_bytes(
+            serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
+        )
+    )
+    _settings_store.set_value("vapid_private_pem", pem)
+    _settings_store.set_value("vapid_public_key", public)
+    return pem, public
+
+
+def _push_subscriptions() -> list[dict]:
+    return list(_settings_store.get_value("push_subscriptions") or [])
+
+
+def _push_to_devices(title: str, body: str) -> int:
+    """Send one notification to every subscribed device; prune dead ones."""
+    subscriptions = _push_subscriptions()
+    if not subscriptions:
+        return 0
+    from pywebpush import WebPushException, webpush
+
+    pem, _ = _vapid_keys()
+    alive: list[dict] = []
+    sent = 0
+    for subscription in subscriptions:
+        try:
+            webpush(
+                subscription_info=subscription,
+                data=json.dumps({"title": title, "body": body}),
+                vapid_private_key=pem,
+                vapid_claims={"sub": "mailto:reminders@agentonomy.app"},
+            )
+            alive.append(subscription)
+            sent += 1
+        except WebPushException as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status not in (404, 410):
+                alive.append(subscription)  # transient: keep and retry next fire
+        except Exception:
+            alive.append(subscription)
+    if alive != subscriptions:
+        _settings_store.set_value("push_subscriptions", alive)
+    return sent
+
+
 def _reminders() -> list[dict]:
     return list(_settings_store.get_value("reminders") or [])
 
@@ -279,13 +336,24 @@ def _fire_due_reminders() -> list[dict]:
         if at > now:
             keep.append(entry)
             continue
+        title = str(entry.get("title") or "").strip() or "this task"
+        task_id = str(entry.get("task_id", ""))
         try:
-            title = str(entry.get("title") or "").strip() or "this task"
-            _task_store.add_comment(
-                str(entry.get("task_id", "")), f"⏰ Reminder: {title}"
-            )
+            _task_store.add_comment(task_id, f"⏰ Reminder: {title}")
         except Exception:
             pass  # an archived or vanished task loses its reminder quietly
+        try:
+            # A fired reminder leaves the board: the column shows only
+            # what is still pending.
+            set_reminder = getattr(_task_store, "set_reminder", None)
+            if set_reminder:
+                set_reminder(task_id, None)
+        except Exception:
+            pass
+        try:
+            _push_to_devices("⏰ " + title, "The reminder you set is due now.")
+        except Exception:
+            pass  # a push failure must never wedge the tick
         fired.append(entry)
     if fired:
         _settings_store.set_value("reminders", keep)
@@ -806,6 +874,34 @@ def register_chat_routes(app: FastAPI) -> None:
             "application/octet-stream",
         )
         return FileResponse(path, media_type=mime)
+
+    @app.get("/api/push/key")
+    def push_key():
+        """The public half of the app's Web Push identity."""
+        _, public = _vapid_keys()
+        return {"key": public}
+
+    @app.post("/api/push/subscribe")
+    async def push_subscribe(request: Request):
+        """Register this browser for reminder notifications."""
+        body = await _body(request)
+        endpoint = str(body.get("endpoint") or "")
+        if not endpoint.startswith("https://"):
+            raise HTTPException(400, "A Web Push subscription is required")
+        keys = body.get("keys")
+        if not isinstance(keys, dict) or not keys.get("p256dh") or not keys.get("auth"):
+            raise HTTPException(400, "The subscription is missing its keys")
+        subscription = {"endpoint": endpoint, "keys": {
+            "p256dh": str(keys["p256dh"]), "auth": str(keys["auth"]),
+        }}
+        others = [
+            item for item in _push_subscriptions()
+            if item.get("endpoint") != endpoint
+        ]
+        _settings_store.set_value(
+            "push_subscriptions", (others + [subscription])[-5:]
+        )
+        return {"subscribed": True, "devices": len(others) + 1}
 
     @app.post("/api/key-check")
     async def key_check(request: Request):

@@ -129,3 +129,39 @@ def test_a_board_without_a_reminder_column_falls_back_to_the_body(client, monkey
     assert result["reminder_set"] == "2030-01-05 10:00"
     assert task.id not in task_store.reminders
     assert task_store.get_task_body(task.id) == "⏰ Reminder: 2030-01-05 10:00"
+
+
+def test_a_fired_reminder_clears_its_column_and_pushes(client, monkeypatch):
+    _, task_store, _ = chat.get_stores()
+    task = task_store.create_task("Water the flowers", "Not started")
+    pushed = []
+    monkeypatch.setattr(chat, "_push_to_devices", lambda title, body: pushed.append(title))
+
+    past = (datetime.now(JERUSALEM) - timedelta(minutes=1)).isoformat()
+    chat._add_reminder({"task_id": task.id, "at": past, "title": "Water the flowers"})
+    task_store.set_reminder(task.id, past)
+
+    ticked = client.post("/api/automations/tick").json()
+
+    assert ticked["reminders_fired"] == 1
+    assert task.id not in task_store.reminders  # the column shows only pending
+    assert pushed == ["⏰ Water the flowers"]
+    [comment] = task_store.list_comments(task.id)
+    assert comment["text"] == "⏰ Reminder: Water the flowers"
+
+
+def test_push_subscriptions_register_and_validate(client):
+    assert "key" in client.get("/api/push/key").json()
+
+    good = client.post("/api/push/subscribe", json={
+        "endpoint": "https://push.example/abc",
+        "keys": {"p256dh": "pk", "auth": "au"},
+    })
+    assert good.json()["subscribed"] is True
+    [stored] = chat._push_subscriptions()
+    assert stored["endpoint"] == "https://push.example/abc"
+
+    assert client.post("/api/push/subscribe", json={"endpoint": "nope"}).status_code == 400
+    assert client.post(
+        "/api/push/subscribe", json={"endpoint": "https://x", "keys": {}}
+    ).status_code == 400

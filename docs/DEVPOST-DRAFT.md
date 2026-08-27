@@ -25,9 +25,11 @@ wording, context, links, checklists — goes on the task's own Notion page, not
 squeezed into a property. The same chat searches, renames, corrects, deletes
 and restores tasks, ticks checklist items, and comments; a photo sent with a
 message can be attached straight onto a task's page; and "remind me about X
-at 10" sets a timed reminder — stored in the board's optional `Reminder`
-date column when it has one — that fires as a ⏰ comment on the task, carried
-to the user by Notion's own notifications. General questions — facts, news,
+at 10" sets a timed reminder, stored in the board's optional `Reminder`
+date column. When it fires, the app itself pushes a notification to every
+enrolled device — Web Push through the PWA's service worker, phone closed or
+not — leaves a ⏰ comment on the task as the durable record, and clears the
+column, so the board shows only what is still pending. General questions — facts, news,
 weather — get Google-Search-grounded answers with sources, and both agents
 answer in whatever language they are addressed in.
 

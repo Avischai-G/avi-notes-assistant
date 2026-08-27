@@ -208,10 +208,13 @@ class FakeTaskStore(TaskStore):
     def has_column(self, name: str) -> bool:
         return True
 
-    def set_reminder(self, task_id: str, when_iso: str) -> None:
+    def set_reminder(self, task_id: str, when_iso: str | None) -> None:
         if task_id not in self.tasks:
             raise ValueError(f"Task {task_id} not found")
-        self.reminders[task_id] = when_iso
+        if when_iso:
+            self.reminders[task_id] = when_iso
+        else:
+            self.reminders.pop(task_id, None)
         self.operations.append(
             {"action": "set_reminder", "task_id": task_id, "at": when_iso}
         )
