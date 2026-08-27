@@ -125,7 +125,7 @@ This is strong grant scoping, not perfect isolation. Today, search proves that
 the token can see only the configured database. Within that database, the
 connection can see its fixed schema and every current or future row and can
 create, rename, change properties, and archive rows through the allowed server
-operations. The organiser receives twelve typed board tools built on that
+operations. The organiser receives fourteen typed board tools built on that
 surface, and never raw MCP access.
 Someone who can edit the Notion connection could later widen Content access;
 the permanent isolation regression is intended to detect that change.
