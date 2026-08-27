@@ -414,11 +414,16 @@ class TaskOrganizerAgent:
             if moment.tzinfo is None:
                 moment = moment.replace(tzinfo=JERUSALEM)
             store = self._store.get()
-            title = next(
-                (t.title for t in store.list_tasks() if t.id == task_id), ""
-            )
+            task = next((t for t in store.list_tasks() if t.id == task_id), None)
+            title = task.title if task else ""
             display = f"{moment:%Y-%m-%d %H:%M}"
             store.write_task_body(task_id, f"⏰ Reminder: {display}", append=True)
+            # A task with no date yet takes the reminder moment as its When,
+            # so the time is visible and sortable on the board row itself.
+            if task is not None and not task.when:
+                TaskFieldWriter(store).update(
+                    task_id, when=moment.strftime("%Y-%m-%dT%H:%M:%S")
+                )
             self.reminder_sink(
                 {"task_id": task_id, "at": moment.isoformat(), "title": title}
             )

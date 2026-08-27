@@ -42,6 +42,8 @@ def test_a_timed_reminder_is_written_and_stored(client):
 
     assert result == {"reminder_set": "2030-01-05 10:00", "task_id": task.id}
     assert task_store.get_task_body(task.id) == "⏰ Reminder: 2030-01-05 10:00"
+    # A dateless task takes the reminder moment as its When.
+    assert task_store.list_tasks()[0].when == "2030-01-05T10:00:00"
     [entry] = chat._reminders()
     assert entry["task_id"] == task.id
     assert entry["title"] == "Call the dentist"
