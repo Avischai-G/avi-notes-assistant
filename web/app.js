@@ -626,6 +626,7 @@ async function sendMessage() {
       body: JSON.stringify({
         message: submitted,
         attachments: filePayloads,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     });
     if (!response.ok || !response.body) {

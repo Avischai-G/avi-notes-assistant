@@ -711,6 +711,7 @@ def register_chat_routes(app: FastAPI) -> None:
                     task_store=task_store,
                     channel_id=channel_id,
                     attachments=attachments,
+                    timezone=str(body.get("timezone") or "") or None,
                 ):
                     yield f"data: {json.dumps(chunk)}\n\n"
 
@@ -755,6 +756,11 @@ def register_chat_routes(app: FastAPI) -> None:
                 channel_store,
                 task_store,
                 channel_id,
+                timezone=(
+                    str(first.get("timezone") or "") or None
+                    if isinstance(first, dict)
+                    else None
+                ),
                 organizer=agent,
                 app_map=_app_map(),
                 automation_starter=_start_automation_by_name,

@@ -89,3 +89,28 @@ def test_a_bad_time_comes_back_as_a_readable_tool_failure(client):
     assert "error" in result
     assert task_store.get_task_body(task.id) == ""
     assert chat._reminders() == []
+
+
+def test_the_device_timezone_is_the_truth_for_naive_times(client):
+    agent = chat._agent
+    _, task_store, _ = chat.get_stores()
+    task = task_store.create_task("Call Tokyo", "Not started")
+
+    tool = next(t for t in agent.agent.tools if t.__name__ == "set_task_reminder")
+    from zoneinfo import ZoneInfo
+
+    tokens = [
+        (agent._channel_id, agent._channel_id.set("task-chat")),
+        (agent._store, agent._store.set(task_store)),
+        (agent._tz, agent._tz.set(ZoneInfo("Asia/Tokyo"))),
+    ]
+    try:
+        result = tool(task_id=task.id, at="2030-01-05T10:00")
+    finally:
+        for var, token in reversed(tokens):
+            var.reset(token)
+
+    assert result["reminder_set"] == "2030-01-05 10:00"
+    [entry] = chat._reminders()
+    # Stored with the device's own offset: 10:00 in Tokyo, not in Jerusalem.
+    assert entry["at"] == "2030-01-05T10:00:00+09:00"

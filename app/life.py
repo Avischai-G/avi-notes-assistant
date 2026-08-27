@@ -286,6 +286,7 @@ class LifeAgent:
                         bridge["channel_store"],
                         task_store,
                         bridge["channel_id"],
+                        timezone=bridge.get("timezone"),
                     ):
                         if "text" in chunk:
                             outcome["text"] = chunk["text"]
@@ -479,6 +480,7 @@ class LifeAgent:
         channel_store: ChannelStore,
         task_store: TaskStore,
         channel_id: str,
+        timezone: str | None = None,
         organizer=None,
         app_map: str = "",
         automation_starter: Callable | None = None,
@@ -565,6 +567,7 @@ class LifeAgent:
                 "organizer": organizer,
                 "channel_store": channel_store,
                 "channel_id": channel_id,
+                "timezone": timezone,
                 "notify": notify_chat_updated,
                 "send": send_frame,
                 "run_automation": start_automation,

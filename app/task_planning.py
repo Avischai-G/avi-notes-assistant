@@ -18,24 +18,26 @@ DAY_START = time(9, 0)
 _UNSET = object()
 
 
-def local_now(clock: Callable[[], datetime] | None = None) -> datetime:
-    value = clock() if clock else datetime.now(JERUSALEM)
+def local_now(clock: Callable[[], datetime] | None = None, tz=None) -> datetime:
+    zone = tz or JERUSALEM
+    value = clock() if clock else datetime.now(zone)
     if value.tzinfo is None:
-        value = value.replace(tzinfo=JERUSALEM)
-    return value.astimezone(JERUSALEM)
+        value = value.replace(tzinfo=zone)
+    return value.astimezone(zone)
 
 
-def tomorrow_iso(clock: Callable[[], datetime] | None = None) -> str:
-    return (local_now(clock).date() + timedelta(days=1)).isoformat()
+def tomorrow_iso(clock: Callable[[], datetime] | None = None, tz=None) -> str:
+    return (local_now(clock, tz).date() + timedelta(days=1)).isoformat()
 
 
 def infer_when(
     message: str,
     supplied: str | None,
     clock: Callable[[], datetime] | None = None,
+    tz=None,
 ) -> str | None:
-    """Resolve the assistant's date defaults in Jerusalem, never UTC."""
-    today = local_now(clock).date()
+    """Resolve the assistant's date defaults in the user's local time."""
+    today = local_now(clock, tz).date()
     lowered = message.casefold()
     if supplied is not None:
         clean = supplied.strip()

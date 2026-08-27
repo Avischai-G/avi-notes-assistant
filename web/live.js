@@ -160,7 +160,12 @@
     });
     // The server expects an init frame first; the device-local key rides here
     // because browser WebSockets cannot carry custom headers.
-    socket.send(JSON.stringify({ type: "init", api_key: apiKey, model: options?.model || handlers.model || undefined }));
+    socket.send(JSON.stringify({
+      type: "init",
+      api_key: apiKey,
+      model: options?.model || handlers.model || undefined,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }));
     await startMic();
     window.LiveFx.start();
     watchLevel();

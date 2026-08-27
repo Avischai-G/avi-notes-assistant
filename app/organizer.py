@@ -146,6 +146,8 @@ class TaskOrganizerAgent:
         self._channel_id: ContextVar[str | None] = ContextVar(
             "organizer_channel_id", default=None
         )
+        # The device's timezone rides each request; the server holds no truth.
+        self._tz: ContextVar = ContextVar("organizer_tz", default=JERUSALEM)
         self._created: ContextVar[list[Task]] = ContextVar("created_tasks")
         self._updated: ContextVar[list[Task]] = ContextVar("updated_tasks")
         self._planned: ContextVar[list[dict]] = ContextVar("planned_days")
@@ -210,7 +212,7 @@ class TaskOrganizerAgent:
             task = store.create_task(
                 title=title.strip(),
                 lane=status,
-                when=infer_when(self._message.get(), when, self.clock),
+                when=infer_when(self._message.get(), when, self.clock, self._tz.get()),
                 place=(place or "").strip() or None,
                 minutes=minutes,
             )
@@ -242,7 +244,7 @@ class TaskOrganizerAgent:
                 changed = True
             optional = {}
             if when is not None:
-                optional["when"] = infer_when(self._message.get(), when, self.clock)
+                optional["when"] = infer_when(self._message.get(), when, self.clock, self._tz.get())
             if place is not None:
                 optional["place"] = place
             if minutes is not None:
@@ -412,7 +414,7 @@ class TaskOrganizerAgent:
                 }
             moment = datetime.fromisoformat(at.strip())
             if moment.tzinfo is None:
-                moment = moment.replace(tzinfo=JERUSALEM)
+                moment = moment.replace(tzinfo=self._tz.get())
             store = self._store.get()
             task = next((t for t in store.list_tasks() if t.id == task_id), None)
             title = task.title if task else ""
@@ -609,8 +611,9 @@ class TaskOrganizerAgent:
         include_board_state: bool = True,
     ) -> str:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
-        now = datetime.now(JERUSALEM)
-        date_line = f" Today is {now:%A}, {now:%Y-%m-%d} (Asia/Jerusalem)."
+        zone = self._tz.get()
+        now = datetime.now(zone)
+        date_line = f" Today is {now:%A}, {now:%Y-%m-%d} ({zone.key})."
         place_hint = ""
         if task_store is not None and include_board_state:
             places = recent_places(task_store)
@@ -678,9 +681,19 @@ class TaskOrganizerAgent:
         task_store: TaskStore,
         channel_id: str,
         attachments: list[tuple[str, bytes]] | None = None,
+        timezone: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Run one ADK turn and persist the visible transcript."""
         existing = channel_store.get_channel(channel_id)
+        zone = JERUSALEM
+        if timezone:
+            try:
+                from zoneinfo import ZoneInfo
+
+                zone = ZoneInfo(timezone)
+            except Exception:
+                zone = JERUSALEM
+        tz_token = self._tz.set(zone)
         store_token = self._store.set(task_store)
         attachments_token = self._attachments.set(list(attachments or []))
         message_token = self._message.set(user_message)
@@ -781,6 +794,7 @@ class TaskOrganizerAgent:
             self._message.reset(message_token)
             self._attachments.reset(attachments_token)
             self._store.reset(store_token)
+            self._tz.reset(tz_token)
 
     def _knowledge(self) -> OrganizerKnowledge:
         if self.knowledge is None:

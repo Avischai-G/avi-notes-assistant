@@ -35,7 +35,7 @@ def test_a_quick_answer_comes_straight_back():
     agent = LifeAgent()
     tools = _tools(agent)
 
-    def chat(instruction, channel_store, task_store, channel_id):
+    def chat(instruction, channel_store, task_store, channel_id, timezone=None):
         async def stream():
             yield {"text": f"Done: {instruction}"}
 
@@ -54,7 +54,7 @@ def test_a_slow_answer_is_pending_then_awaited(monkeypatch):
     agent = LifeAgent()
     tools = _tools(agent)
 
-    def chat(instruction, channel_store, task_store, channel_id):
+    def chat(instruction, channel_store, task_store, channel_id, timezone=None):
         async def stream():
             await asyncio.sleep(0.2)
             yield {"text": "Finally done."}
@@ -91,7 +91,7 @@ def test_a_pending_reply_is_pushed_into_the_voice_session(monkeypatch):
     tools = _tools(agent)
     pushed = []
 
-    def chat(instruction, channel_store, task_store, channel_id):
+    def chat(instruction, channel_store, task_store, channel_id, timezone=None):
         async def stream():
             await asyncio.sleep(0.2)
             yield {"text": "Done late."}
@@ -116,7 +116,7 @@ def test_a_quick_reply_is_not_pushed_twice(monkeypatch):
     tools = _tools(agent)
     pushed = []
 
-    def chat(instruction, channel_store, task_store, channel_id):
+    def chat(instruction, channel_store, task_store, channel_id, timezone=None):
         async def stream():
             yield {"text": "Done at once."}
 
