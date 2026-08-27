@@ -8,6 +8,11 @@ const editor = $("#editor");
 const automationChannels = $("#automation-channels");
 const toast = $("#toast");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
+const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// A schedule set from another timezone says so, instead of lying quietly.
+const scheduleLabel = (automation) => (automation.schedule || "")
+  + (automation.timezone && automation.timezone !== DEVICE_TIMEZONE
+    ? ` (${automation.timezone})` : "");
 // The Gemini API key lives ONLY in this device's local storage: it rides each
 // request as a header, is never written server-side, and is never displayed.
 const GEMINI_KEY_STORAGE = "agentonomy-gemini-key";
@@ -166,7 +171,7 @@ function readAsBase64(file) {
 
 function emptyState() {
   if (activeAutomation) {
-    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(activeAutomation.schedule)} — run or edit it from its ⋯ menu, or just talk to it here.</div></div>`;
+    return `<div class="empty-state"><h1>${esc(activeAutomation.name)}</h1><div>${esc(scheduleLabel(activeAutomation))} — run or edit it from its ⋯ menu, or just talk to it here.</div></div>`;
   }
   return "<div class=\"empty-state\"><h1>What should I remember?</h1><div>Talk naturally — I’ll write it down and keep the defaults clear.</div></div>";
 }
@@ -492,7 +497,7 @@ function openAutomationEditor(automation) {
   editorTime.value = `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
   editorMinute.value = String(automation.minute ?? 0);
   editorDelete.hidden = Boolean(automation.built_in);
-  editorNext.textContent = automation.schedule || "";
+  editorNext.textContent = scheduleLabel(automation);
   syncEditor();
   editor.showModal();
 }
@@ -520,6 +525,7 @@ async function saveEditor() {
       const body = JSON.stringify({
         name: editorName.value.trim(),
         prompt: editorPrompt.value.trim(),
+        timezone: DEVICE_TIMEZONE,
         ...triggerFromForm(),
       });
       const saved = editorMode === "new"

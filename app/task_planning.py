@@ -290,19 +290,22 @@ def next_trigger(
     hour: int = 9,
     minute: int = 0,
     weekday: int = 0,
+    tz=None,
 ) -> float:
-    """The next moment a trigger fires, Jerusalem local, strictly after `epoch`.
+    """The next moment a trigger fires, in the trigger's own local zone,
+    strictly after `epoch`.
 
     ponytail: wall-clock arithmetic, so the one run that straddles a DST change
     keeps its stated hour and lands an hour off in absolute terms. That is the
     right trade for a once-a-year shift on a personal board.
     """
-    now = datetime.fromtimestamp(epoch, JERUSALEM)
+    zone = tz or JERUSALEM
+    now = datetime.fromtimestamp(epoch, zone)
     if frequency == "hourly":
         candidate = now.replace(minute=minute, second=0, microsecond=0)
         step = timedelta(hours=1)
     else:
-        candidate = datetime.combine(now.date(), time(hour, minute), tzinfo=JERUSALEM)
+        candidate = datetime.combine(now.date(), time(hour, minute), tzinfo=zone)
         if frequency == "weekly":
             candidate += timedelta(days=(weekday - candidate.weekday()) % 7)
             step = timedelta(days=7)

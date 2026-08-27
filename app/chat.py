@@ -545,6 +545,8 @@ def _automation_payload(automation) -> dict:
         "hour": automation.hour,
         "minute": automation.minute,
         "weekday": automation.weekday,
+        "timezone": automation.timezone,
+        "next_run_at": automation.next_run_at,
         "channel_id": automation.channel_id,
         "built_in": automation.id in {d.id for d in DEFAULT_AUTOMATIONS},
     }
@@ -566,6 +568,16 @@ def _apply_trigger(automation, body: dict) -> None:
         if not 0 <= value < ceiling:
             raise HTTPException(400, f"{name} must be between 0 and {ceiling - 1}")
         setattr(automation, name, value)
+    if "timezone" in body:
+        zone_name = str(body.get("timezone") or "").strip()
+        if zone_name:
+            try:
+                from zoneinfo import ZoneInfo
+
+                ZoneInfo(zone_name)
+            except Exception:
+                raise HTTPException(400, "timezone must be an IANA zone name")
+            automation.timezone = zone_name
     automation.schedule = automation.described()
     automation.next_run_at = automation.next_run(time.time())
 

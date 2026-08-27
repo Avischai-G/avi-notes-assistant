@@ -11,7 +11,9 @@ from dataclasses import asdict, dataclass
 import time
 
 from app.channel_store import Message
-from app.task_planning import BoardReview, describe_trigger, next_trigger
+from zoneinfo import ZoneInfo
+
+from app.task_planning import JERUSALEM, BoardReview, describe_trigger, next_trigger
 
 
 RETIRED_AUTOMATION_IDS = ("knowledge-cleanup", "nightly-plan")
@@ -31,6 +33,7 @@ class Automation:
     hour: int = 9
     minute: int = 0
     weekday: int = 0
+    timezone: str = "Asia/Jerusalem"
     last_run_at: float | None = None
     next_run_at: float | None = None
     state: dict | None = None
@@ -41,9 +44,20 @@ class Automation:
     def described(self) -> str:
         return describe_trigger(self.frequency, self.hour, self.minute, self.weekday)
 
+    def zone(self):
+        try:
+            return ZoneInfo(self.timezone)
+        except Exception:
+            return JERUSALEM
+
     def next_run(self, now: float) -> float:
         return next_trigger(
-            self.frequency, now, hour=self.hour, minute=self.minute, weekday=self.weekday
+            self.frequency,
+            now,
+            hour=self.hour,
+            minute=self.minute,
+            weekday=self.weekday,
+            tz=self.zone(),
         )
 
 

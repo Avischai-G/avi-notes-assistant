@@ -145,3 +145,43 @@ def test_describe_trigger_is_the_one_sentence_the_ui_shows():
     assert describe_trigger("hourly", 9, 5, 0) == "Hourly at :05"
     assert describe_trigger("daily", 21, 0, 0) == "Daily at 21:00"
     assert describe_trigger("weekly", 8, 45, 6) == "Weekly on Sunday at 08:45"
+
+
+def test_an_automation_keeps_its_creators_timezone(client):
+    from zoneinfo import ZoneInfo
+
+    created = client.post(
+        "/api/automations",
+        json={"name": "Tokyo brief", "prompt": "Summarise.",
+              "frequency": "daily", "hour": 7, "minute": 30,
+              "timezone": "Asia/Tokyo"},
+    ).json()
+    assert created["timezone"] == "Asia/Tokyo"
+    assert created["schedule"] == "Daily at 07:30"
+    fires = datetime.fromtimestamp(created["next_run_at"], ZoneInfo("Asia/Tokyo"))
+    assert (fires.hour, fires.minute) == (7, 30)
+
+    # Editing from another device re-stamps the zone; the wall clock follows it.
+    moved = client.patch(
+        "/api/automations/tokyo-brief",
+        json={"frequency": "daily", "hour": 7, "minute": 30,
+              "timezone": "Europe/Berlin"},
+    ).json()
+    assert moved["timezone"] == "Europe/Berlin"
+    fires = datetime.fromtimestamp(moved["next_run_at"], ZoneInfo("Europe/Berlin"))
+    assert (fires.hour, fires.minute) == (7, 30)
+
+    bad = client.post(
+        "/api/automations",
+        json={"name": "Nowhere", "prompt": "x", "frequency": "daily",
+              "timezone": "Mars/Olympus"},
+    )
+    assert bad.status_code == 400
+    assert "IANA" in bad.json()["detail"]
+
+    # An automation created without a zone keeps the server default.
+    plain = client.post(
+        "/api/automations",
+        json={"name": "Plain", "prompt": "x", "frequency": "daily", "hour": 6},
+    ).json()
+    assert plain["timezone"] == "Asia/Jerusalem"
