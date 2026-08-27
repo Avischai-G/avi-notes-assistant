@@ -46,7 +46,7 @@ from datetime import datetime
 from app.task_planning import BoardReview, FREQUENCIES, JERUSALEM
 from app.task_store import FakeTaskStore
 from app.organizer import MEMORY_WORD_CAP, TaskOrganizerAgent, _eligible_model
-from app.life import LIFE_PROMPT, LIFE_RULES, LifeAgent
+from app.life import LIFE_PROMPT, LifeAgent
 
 
 # Global instances
@@ -310,7 +310,6 @@ def _settings_payload() -> dict:
     return {
         "system_prompt": _settings_store.get_system_prompt(),
         "live_prompt": str(_settings_store.get_value("live_prompt") or "") or LIFE_PROMPT,
-        "live_rules": _live_rules(),
         "voice_name": str(_settings_store.get_value("voice_name") or ""),
         "language_code": str(_settings_store.get_value("language_code") or ""),
         "voices": list(LIVE_VOICES),
@@ -327,16 +326,10 @@ def _settings_payload() -> dict:
     }
 
 
-def _live_rules() -> str:
-    """The navigator's operating rules: the stored setting, or the default."""
-    return str(_settings_store.get_value("live_rules") or "") or LIFE_RULES
-
-
 def _app_map() -> str:
-    """The rules (editable in Settings) plus per-session data — the voice's
-    gender and the app map — appended to whatever instructions are stored."""
+    """Per-session data — the voice's gender note and the app map — appended
+    to whatever instructions are stored."""
     lines = [
-        _live_rules(),
         "- Your voice sounds {gender}. In gendered languages such as Hebrew, "
         "use {gender} forms for yourself, and address the user with the "
         "grammatical gender they use for themselves.".format(
@@ -858,11 +851,6 @@ def register_chat_routes(app: FastAPI) -> None:
                 "live_prompt", "" if live_prompt == LIFE_PROMPT.strip() else live_prompt
             )
 
-        if "live_rules" in body:
-            live_rules = str(body.get("live_rules") or "").strip()
-            _settings_store.set_value(
-                "live_rules", "" if live_rules == LIFE_RULES.strip() else live_rules
-            )
 
         if "memory" in body:
             memory = str(body.get("memory") or "").strip()

@@ -271,19 +271,9 @@ def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):
     assert "call_name" not in base
     assert "Avi" not in LIFE_PROMPT
 
-    # The operating rules are a setting: editable, and default when untouched.
-    from app.life import LIFE_RULES
-
-    assert base["live_rules"] == LIFE_RULES
-    ruled = client.put(
-        "/api/settings", json={"live_rules": "Only ever whisper."}
-    ).json()
-    assert ruled["live_rules"] == "Only ever whisper."
-    assert chat._app_map().startswith("Only ever whisper.")
-    restored = client.put("/api/settings", json={"live_rules": LIFE_RULES}).json()
-    assert restored["live_rules"] == LIFE_RULES
-    assert chat._settings_store.get_value("live_rules") == ""
-    assert chat._app_map().startswith("Operating rules")
+    # One editable text carries role, style and rules; no separate rules field.
+    assert "live_rules" not in base
+    assert "Operating rules" in LIFE_PROMPT
 
     # Naming your languages narrows Automatic; clearing them lifts the limit.
     limited = client.put(

@@ -73,9 +73,9 @@ funding a per-key agent instance, never persisted server-side — plus the
 chat model and a Check button that verifies key and model with one live
 call; with no key the app runs on the server's own Vertex AI credentials.
 *Live agent* chooses the voice, its language (Automatic follows whatever
-language is spoken, constrained to the languages the user names) and both of
-the navigator's editable texts — its personality and its operating rules, so
-no behavioral rule is hardcoded. *Notion integration* connects the app to
+language is spoken, constrained to the languages the user names) and the
+navigator's instructions — role, style and operating rules in one editable
+text, so no behavioral rule is hardcoded. *Notion integration* connects the app to
 any board from the UI: paste the integration secret and the database ID — a
 visual guide shows exactly where in the board's URL the ID lives — and Save
 validates the board with one read before switching. Every prompt, including
