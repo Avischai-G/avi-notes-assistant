@@ -135,7 +135,7 @@ The approved deployment is live at the URL above. Its runtime provides:
 - one dedicated writable Cloud Storage volume mounted at `/knowledge` for Markdown bodies;
 - `NOTION_TOKEN` and `NOTION_TASKS_DATABASE_ID` through approved secret references, never environment literals in a command or manifest;
 - `TASK_STORE_MODE=notion`, `GOOGLE_GENAI_USE_VERTEXAI=true`, and `CORONER_MODEL=gemini-3.7-flash`;
-- a Cloud Scheduler job targeting `POST /api/automations/tick`, which fires any automation whose `next_run_at` has arrived and any task reminder whose time has come; reminder precision equals the scheduler interval.
+- a Cloud Scheduler job (`*/5 * * * *`) targeting `POST /api/automations/tick`, which fires any automation whose `next_run_at` has arrived and any task reminder whose time has come — so a due reminder rings within five minutes.
 
 Building an image locally is non-deploying:
 

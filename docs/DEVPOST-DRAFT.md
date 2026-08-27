@@ -71,7 +71,7 @@ it to condense, not accumulate), and "forget everything" wipes it — a clean
 handover for the next owner. Only what the user explicitly asks to keep is
 stored.
 
-**A settings hub that owns the whole configuration.** Settings opens as four
+**A settings hub that owns the whole configuration.** Settings opens as five
 full-screen sections. *Agent memory* shows everything the agent knows as one
 editable field. *Model setup* holds the device-local Gemini API key — kept
 only in that browser's `localStorage`, riding each request as a header,
@@ -81,7 +81,8 @@ call; with no key the app runs on the server's own Vertex AI credentials.
 *Live agent* chooses the voice, its language (Automatic follows whatever
 language is spoken, constrained to the languages the user names) and the
 navigator's instructions — role, style and operating rules in one editable
-text, so no behavioral rule is hardcoded. *Notion integration* connects the app to
+text, so no behavioral rule is hardcoded. *Notifications* enrolls the device
+for Web Push, so due reminders ring it directly. *Notion integration* connects the app to
 any board from the UI: paste the integration secret and the database ID — a
 visual guide shows exactly where in the board's URL the ID lives — and Save
 validates the board with one read before switching. Every prompt, including
@@ -112,6 +113,9 @@ follow-the-system themes, responsive from desktop to mobile.
   database; startup discovery validates the exact tool set and fails closed
   on drift. Workspace-wide search is on the forbidden-operation list, so the
   app can never see past the one board shared with its integration.
+- Web Push rides the PWA's service worker: the app generates its own VAPID
+  identity once, keeps it in settings, and the scheduler tick notifies every
+  enrolled device when a reminder is due — pruning subscriptions that died.
 - Firestore persists channels, automation records and triggers, and settings.
 - The Notion token arrives through a Secret Manager reference, never an
   environment literal in a command or manifest, and is never placed in a

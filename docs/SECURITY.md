@@ -19,6 +19,17 @@ party — and no server endpoint echoes a key or even whether one exists. A key
 stored by an older build in Firestore is scrubbed at boot, and the settings
 API silently ignores any `gemini_api_key` an old client sends.
 
+## Update — 2026-08-28
+
+Three stored items were added since the review above; none widens what a
+browser can read:
+
+| Item | Where it lives | Notes |
+|---|---|---|
+| Notion secret pasted in Settings | Firestore settings document | Write-only: validated with one board read, never echoed to any browser (the field shows stand-in dots). Clearing it falls back to the Secret Manager secret. |
+| Web Push VAPID private key | Firestore settings document | Generated once by the app; signs outgoing push messages only. The public half is served at `/api/push/key`. |
+| Push subscriptions | Firestore settings document | Browser push endpoints plus their public encryption keys — capped at five, pruned when a push endpoint reports the subscription gone. |
+
 ## Verified clean
 
 - **Secret scan** over the working tree and the *entire git history*

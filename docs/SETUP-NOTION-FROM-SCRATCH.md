@@ -29,7 +29,9 @@ five minutes.
    | `Place` | Select |
    | `Minutes` | Number |
 
-   A `Notes` (Rich text) column is optional; the app detects whether it exists.
+   Two more columns are optional; the app detects whether they exist:
+   `Notes` (Rich text) for free detail, and `Reminder` (Date) — timed
+   reminders land there and are cleared when they fire.
 
 ## 3. Share the database with the integration
 

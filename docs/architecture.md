@@ -22,6 +22,7 @@ flowchart LR
 
     B -->|HTTPS / SSE| API
     B -->|WebSocket PCM audio| API
+    API -.->|Web Push reminders| B
     C --> API
     S -->|secret references| API
     API --> A
@@ -72,5 +73,9 @@ secret references, never as literal environment values. Access is limited to the
 compute runtime identity with `roles/secretmanager.secretAccessor`.
 
 Firestore runs in Native mode and stores durable browser channels, automation
-records with their structured triggers, and settings. This document reflects
-the live release topology.
+records with their structured triggers, and settings — including pending
+reminders, the app's Web Push identity, and the enrolled push subscriptions.
+The scheduler tick (every five minutes) fires due automations and reminders;
+a due reminder notifies every enrolled device over Web Push, leaves a ⏰
+comment on its task, and clears the board's Reminder column. This document
+reflects the live release topology.
