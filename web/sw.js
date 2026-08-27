@@ -3,7 +3,7 @@
    caching already bit this app once); the cache only answers when the network
    is unreachable, giving the installed app a working shell offline. API and
    WebSocket traffic is never cached. */
-const CACHE = "agentonomy-shell-v1";
+const CACHE = "agentonomy-shell-v2";
 const SHELL = ["/", "/app.css", "/app.js", "/live.js", "/live-fx.js", "/icon-192.png", "/icon-512.png", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -24,7 +24,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
   event.respondWith(
-    fetch(event.request)
+    // cache: "no-cache" forces revalidation past the browser's heuristic
+    // HTTP cache, so a deploy really wins on the next load.
+    fetch(event.request.url, { cache: "no-cache", credentials: "same-origin" })
       .then((response) => {
         if (response.ok && url.origin === location.origin) {
           const copy = response.clone();

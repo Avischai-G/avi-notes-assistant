@@ -28,6 +28,17 @@ chat.init_chat_stores(use_firestore=use_firestore)
 chat.register_chat_routes(api)
 
 
+@api.middleware("http")
+async def revalidate_static(request, call_next):
+    """Static responses must revalidate: without Cache-Control the browser's
+    heuristic cache serves stale app files for days after a deploy. ETags make
+    the revalidation a cheap 304."""
+    response = await call_next(request)
+    if request.method == "GET" and not request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
+
+
 @api.get("/", include_in_schema=False)
 def index():
     return FileResponse(WEB / "index.html")
