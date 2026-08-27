@@ -759,6 +759,33 @@ const settingsModel = $("#settings-model");
 const settingsMemory = $("#settings-memory");
 const settingsLiveLanguages = $("#settings-live-languages");
 const settingsLiveRules = $("#settings-live-rules");
+const settingsNotionToken = $("#settings-notion-token");
+const settingsHub = $("#settings-hub");
+const settingsBack = $("#settings-back");
+const settingsFoot = $("#settings-foot");
+const settingsTitle = $("#settings-title");
+const SETTINGS_SECTIONS = {
+  memory: "Agent memory",
+  model: "Model setup",
+  live: "Live agent",
+  notion: "Notion integration",
+};
+
+function showSettingsSection(name) {
+  settingsHub.hidden = Boolean(name);
+  for (const section of document.querySelectorAll(".settings-section")) {
+    section.hidden = section.dataset.section !== name;
+  }
+  settingsTitle.textContent = name ? SETTINGS_SECTIONS[name] : "Settings";
+  settingsBack.hidden = !name;
+  settingsFoot.hidden = !name;
+}
+
+settingsHub.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-section]");
+  if (button) showSettingsSection(button.dataset.section);
+});
+settingsBack.addEventListener("click", () => showSettingsSection(null));
 const settingsNotionId = $("#settings-notion-id");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
@@ -794,7 +821,12 @@ $("#open-settings").addEventListener("click", async () => {
     settingsModel.placeholder = settings.default_model || "";
     settingsMemory.value = settings.memory || "";
     settingsNotionId.value = settings.notion_database_id || "";
+    settingsNotionToken.value = "";
+    $("#settings-notion-token-state").textContent = settings.notion_token_set
+      ? "A secret saved from this screen is in use. Paste a new one to replace it."
+      : "Using the deployment's own secret. Paste one here to override it.";
     settingsRemoveKey.hidden = !deviceKey();
+    showSettingsSection(null);
     settingsEditor.classList.remove("loading");
   } catch (error) {
     settingsEditor.close();
@@ -811,19 +843,23 @@ $("#settings-save").addEventListener("click", async () => {
   if (typedModel) localStorage.setItem(GEMINI_MODEL_STORAGE, typedModel);
   else localStorage.removeItem(GEMINI_MODEL_STORAGE);
   try {
+    const payload = {
+      memory: settingsMemory.value,
+      notion_database_id: settingsNotionId.value,
+      voice_name: settingsVoice.value,
+      language_code: settingsLanguage.value,
+      live_languages: settingsLiveLanguages.value,
+      live_prompt: settingsLivePrompt.value,
+      live_rules: settingsLiveRules.value,
+    };
+    const typedNotionToken = settingsNotionToken.value.trim();
+    if (typedNotionToken) payload.notion_token = typedNotionToken;
     await apiJSON("/api/settings", {
       method: "PUT",
       headers: JSON_HEADERS,
-      body: JSON.stringify({
-        memory: settingsMemory.value,
-        notion_database_id: settingsNotionId.value,
-        voice_name: settingsVoice.value,
-        language_code: settingsLanguage.value,
-        live_languages: settingsLiveLanguages.value,
-        live_prompt: settingsLivePrompt.value,
-        live_rules: settingsLiveRules.value,
-      }),
+      body: JSON.stringify(payload),
     });
+    settingsNotionToken.value = "";
     settingsEditor.close();
     flash(typedKey ? "Saved — key stays on this device" : "Settings saved");
   } catch (error) {

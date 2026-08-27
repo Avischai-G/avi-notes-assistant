@@ -108,3 +108,16 @@ def test_switching_the_board_is_refused_offline_and_validates_the_id(client):
     assert client.put(
         "/api/settings", json={"notion_database_id": ""}
     ).status_code == 200
+
+    # A token override follows the same offline refusal, and its format is
+    # sanity-checked; the payload only ever says whether one is stored.
+    assert client.get("/api/settings").json()["notion_token_set"] is False
+    short = client.put("/api/settings", json={"notion_token": "nope"})
+    assert short.status_code == 400
+    assert "integration secret" in short.json()["detail"]
+    offline_token = client.put(
+        "/api/settings", json={"notion_token": "ntn_" + "a" * 40}
+    )
+    assert offline_token.status_code == 400
+    assert "offline" in offline_token.json()["detail"]
+    assert client.put("/api/settings", json={"notion_token": ""}).status_code == 200

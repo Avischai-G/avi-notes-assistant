@@ -61,20 +61,43 @@
 
   <dialog class="editor" id="settings-editor" aria-labelledby="settings-title">
     <form method="dialog" class="editor-head">
+      <button class="icon-button" id="settings-back" type="button" aria-label="Back to settings" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
       <h2 id="settings-title">Settings</h2>
       <button class="icon-button" type="submit" aria-label="Close settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </form>
     <div class="editor-body custom-scrollbar">
+      <nav class="settings-hub" id="settings-hub" aria-label="Settings sections">
+        <button class="channel" type="button" data-section="memory">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a5 5 0 0 1 5 5c0 1.5-.5 2.4-1.2 3.3-.6.8-.8 1.4-.8 2.7h-6c0-1.3-.2-1.9-.8-2.7C7.5 11.4 7 10.5 7 9a5 5 0 0 1 5-5Z"/><path d="M10 18h4M11 21h2"/></svg>
+          <span>Agent memory</span>
+        </button>
+        <button class="channel" type="button" data-section="model">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8M9 13h.01M15 13h.01M9 17h6"/></svg>
+          <span>Model setup</span>
+        </button>
+        <button class="channel" type="button" data-section="live">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v4"/></svg>
+          <span>Live agent</span>
+        </button>
+        <button class="channel" type="button" data-section="notion">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+          <span>Notion integration</span>
+        </button>
+      </nav>
+
+      <div class="settings-section" data-section="memory" hidden>
       <div class="field-group">
         <label for="settings-memory" id="settings-memory-label">Agent memory</label>
-        <textarea class="field custom-scrollbar" id="settings-memory" rows="4" aria-labelledby="settings-memory-label" placeholder="Nothing remembered yet — tell the chat &quot;remember that ...&quot; or write here."></textarea>
+        <textarea class="field custom-scrollbar" id="settings-memory" rows="6" aria-labelledby="settings-memory-label" placeholder="Nothing remembered yet — tell the chat &quot;remember that ...&quot; or write here."></textarea>
         <p class="hint">Everything the agent knows about you, editable in place. Capped at 150 words; empty means it knows nothing.</p>
       </div>
-      <details class="settings-group" open>
-      <summary>Model setup</summary>
-      <div class="settings-group-body">
+      </div>
+
+      <div class="settings-section" data-section="model" hidden>
       <div class="field-group">
         <label for="settings-api-key" id="settings-api-key-label">Gemini API key</label>
         <div class="key-row">
@@ -89,10 +112,8 @@
         <p class="hint" id="settings-model-hint">The model the chat talks to. Check tests the key and this model together.</p>
       </div>
       </div>
-      </details>
-      <details class="settings-group" open>
-      <summary>Live agent</summary>
-      <div class="settings-group-body">
+
+      <div class="settings-section" data-section="live" hidden>
       <div class="field-group">
         <label for="settings-voice" id="settings-voice-label">Live voice</label>
         <select class="field" id="settings-voice"></select>
@@ -133,19 +154,28 @@
         <p class="hint">The operating rules appended to every voice session — how it uses its tools and hands work to the chat. Edit freely; restoring the default text clears the override.</p>
       </div>
       </div>
-      </details>
-      <details class="settings-group">
-      <summary>Notion board</summary>
-      <div class="settings-group-body">
+
+      <div class="settings-section" data-section="notion" hidden>
+      <div class="field-group">
+        <label for="settings-notion-token" id="settings-notion-token-label">Integration secret</label>
+        <input class="field" id="settings-notion-token" type="password" autocomplete="new-password" spellcheck="false" placeholder="ntn_… — leave empty to keep the current one">
+        <p class="hint" id="settings-notion-token-state">From notion.so/my-integrations. Saved on the server, never shown back.</p>
+      </div>
       <div class="field-group">
         <label for="settings-notion-id" id="settings-notion-id-label">Database ID</label>
         <input class="field" id="settings-notion-id" type="text" spellcheck="false" autocomplete="off" placeholder="32-character code from the board's URL">
-        <p class="hint">The board the app writes to. Share the new board with the app's Notion integration first; Save checks it can be read before switching.</p>
+        <p class="hint">The board the app writes to. Share the board with the integration first; Save reads it once before switching.</p>
+      </div>
+      <div class="field-group">
+        <span class="field-label">Where to find the database ID</span>
+        <div class="url-guide">
+          <span class="url-dim">notion.so/yourname/</span><span class="url-id">25c4f0b7a3de4c12b911d80ae7295057</span><span class="url-dim">?v=8d2f…</span>
+        </div>
+        <p class="hint">Open the board in your browser and look at the address: the highlighted block — the 32 characters between the last “/” and the “?” — is the database ID. Copy exactly that part.</p>
       </div>
       </div>
-      </details>
     </div>
-    <div class="editor-foot">
+    <div class="editor-foot" id="settings-foot" hidden>
       <button class="danger" id="settings-remove-key" type="button" hidden>Remove key</button>
       <p class="hint" id="settings-note"></p>
       <button class="primary" id="settings-save" type="button">Save</button>

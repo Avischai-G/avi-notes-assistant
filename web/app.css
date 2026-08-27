@@ -81,6 +81,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body {
   height: 100dvh;
@@ -603,12 +604,11 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 14px 12px 14px 18px;
   border-bottom: 1px solid var(--line);
 }
-.editor-head h2 { margin: 0; font-size: var(--type-emphasis); font-weight: 600; }
+.editor-head h2 { margin: 0 auto 0 0; font-size: var(--type-emphasis); font-weight: 600; }
 .editor-body {
   min-height: 0;
   overflow-y: auto;
@@ -878,3 +878,35 @@ body.automation-view {
   animation: spinner-turn 800ms linear infinite;
 }
 .live-toggle.connecting:disabled { opacity: 1; cursor: progress; }
+
+/* ── Settings hub: section buttons like the drawer's channels. ────────── */
+.settings-hub { display: flex; flex-direction: column; gap: 4px; }
+.settings-hub .channel { width: 100%; }
+.settings-section { display: flex; flex-direction: column; gap: 18px; }
+.settings-section[hidden] { display: none; }
+.field-label {
+  font-size: var(--type-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* The board's address, with the database ID lit up. */
+.url-guide {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--type-small);
+  line-height: 1.9;
+  padding: 12px 14px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--line);
+  background: rgb(var(--ink) / 0.04);
+  overflow-wrap: anywhere;
+}
+.url-guide .url-dim { color: var(--quiet); }
+.url-guide .url-id {
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: var(--accent-active-bg);
+  color: var(--text);
+  font-weight: 600;
+}

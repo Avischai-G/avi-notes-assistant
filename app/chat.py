@@ -132,6 +132,11 @@ def init_chat_stores(
             ).strip()
             if stored_id:
                 config = replace(config, tasks_database_id=stored_id)
+            stored_token = str(
+                _settings_store.get_value("notion_token") or ""
+            ).strip()
+            if stored_token:
+                config = replace(config, token=stored_token)
             _task_store = NotionTaskStore(config)
         elif task_store_mode == "fake":
             if use_firestore or os.environ.get("K_SERVICE"):
@@ -314,6 +319,9 @@ def _settings_payload() -> dict:
         "memory": _memory(),
         "live_languages": str(_settings_store.get_value("live_languages") or ""),
         "notion_database_id": _current_database_id(),
+        "notion_token_set": bool(
+            str(_settings_store.get_value("notion_token") or "").strip()
+        ),
     }
 
 
@@ -864,24 +872,37 @@ def register_chat_routes(app: FastAPI) -> None:
                 )
             _settings_store.set_value("memory", memory or None)
 
-        if "notion_database_id" in body:
+        if "notion_database_id" in body or "notion_token" in body:
             global _task_store
-            wanted = str(body.get("notion_database_id") or "").strip().replace("-", "")
-            if wanted and wanted != _current_database_id():
-                if not re.fullmatch(r"[0-9a-fA-F]{32}", wanted):
-                    raise HTTPException(
-                        400,
-                        "The database ID is the 32-character code in the "
-                        "board's URL, before any '?'",
-                    )
+            wanted_id = str(
+                body.get("notion_database_id") or ""
+            ).strip().replace("-", "")
+            wanted_token = str(body.get("notion_token") or "").strip()
+            changing_id = bool(wanted_id) and wanted_id != _current_database_id()
+            if changing_id and not re.fullmatch(r"[0-9a-fA-F]{32}", wanted_id):
+                raise HTTPException(
+                    400,
+                    "The database ID is the 32-character code in the "
+                    "board's URL, before any '?'",
+                )
+            if wanted_token and (" " in wanted_token or len(wanted_token) < 20):
+                raise HTTPException(
+                    400, "That does not look like a Notion integration secret"
+                )
+            if changing_id or wanted_token:
                 if not isinstance(_task_store, NotionTaskStore):
                     raise HTTPException(
                         400,
                         "This offline run uses a local fake board; switching "
                         "boards works on the deployed app",
                     )
+                config = _task_store.config
                 candidate = NotionTaskStore(
-                    replace(_task_store.config, tasks_database_id=wanted)
+                    replace(
+                        config,
+                        tasks_database_id=wanted_id or config.tasks_database_id,
+                        token=wanted_token or config.token,
+                    )
                 )
                 try:
                     candidate.list_tasks()
@@ -893,7 +914,10 @@ def register_chat_routes(app: FastAPI) -> None:
                         "Notion integration first, then try again.",
                     )
                 _task_store = candidate
-                _settings_store.set_value("notion_database_id", wanted)
+                if changing_id:
+                    _settings_store.set_value("notion_database_id", wanted_id)
+                if wanted_token:
+                    _settings_store.set_value("notion_token", wanted_token)
                 _build_agents()
 
         if "live_languages" in body:

@@ -65,16 +65,21 @@ it to condense, not accumulate), and "forget everything" wipes it — a clean
 handover for the next owner. Only what the user explicitly asks to keep is
 stored.
 
-**Settings with device-local key layering.** A Gemini API key pasted into
-Settings lives only in that browser's `localStorage`, rides each request as a
-header, and funds a per-key organizer instance on the server. It is never
-persisted server-side, and a Check button verifies the key and your chosen
-chat model together with one live call. With no key, the app runs on the
-server's own Vertex AI credentials. Settings also choose the chat model, the
-live voice and its language, and the voice navigator's instructions; show the
-agent's memory as an editable field; and can point the app at a different
-Notion board by database ID, validated with one read before switching. Every
-prompt, including each automation's, is editable in place.
+**A settings hub that owns the whole configuration.** Settings opens as four
+full-screen sections. *Agent memory* shows everything the agent knows as one
+editable field. *Model setup* holds the device-local Gemini API key — kept
+only in that browser's `localStorage`, riding each request as a header,
+funding a per-key agent instance, never persisted server-side — plus the
+chat model and a Check button that verifies key and model with one live
+call; with no key the app runs on the server's own Vertex AI credentials.
+*Live agent* chooses the voice, its language (Automatic follows whatever
+language is spoken, constrained to the languages the user names) and both of
+the navigator's editable texts — its personality and its operating rules, so
+no behavioral rule is hardcoded. *Notion integration* connects the app to
+any board from the UI: paste the integration secret and the database ID — a
+visual guide shows exactly where in the board's URL the ID lives — and Save
+validates the board with one read before switching. Every prompt, including
+each automation's, is editable in place.
 
 **Installable, themed app.** The frontend is a no-build PWA — manifest,
 service worker, installable to a phone home screen — with dark, light, and
@@ -142,6 +147,9 @@ clean tree, and run the test suites before every deploy.
   reads quick answers back, and never claims to have done the work itself.
 - A device-local key model that lets any phone fund its own model calls
   without the server ever storing a secret for it.
+- Everything is a setting: prompts, operating rules, memory, languages, and
+  the Notion board itself can all be changed from the UI — no redeploy to
+  change how the app behaves.
 - Regression checks for the frozen Notion schema, the exact MCP allowlist, and
   one-database isolation, plus a browser suite covering both themes and both
   viewports.
