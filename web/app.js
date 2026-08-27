@@ -839,8 +839,8 @@ $("#open-settings").addEventListener("click", async () => {
     settingsNotionToken.value = settings.notion_token_set ? NOTION_TOKEN_MASK : "";
     settingsNotionToken.dataset.stored = settings.notion_token_set ? "1" : "";
     $("#settings-notion-token-state").textContent = settings.notion_token_set
-      ? "A secret is saved. Type over the dots to replace it."
-      : "Using the deployment's own secret. Paste one here to override it.";
+      ? "Notion is connected. Type over the dots to switch to another secret."
+      : "Not connected — paste the integration secret from notion.so/my-integrations.";
     settingsRemoveKey.hidden = !deviceKey();
     showSettingsSection(null);
     settingsEditor.classList.remove("loading");

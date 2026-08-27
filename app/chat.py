@@ -319,8 +319,10 @@ def _settings_payload() -> dict:
         "memory": _memory(),
         "live_languages": str(_settings_store.get_value("live_languages") or ""),
         "notion_database_id": _current_database_id(),
+        # True whenever the app holds a working Notion token, from either
+        # Secret Manager or a secret pasted in Settings.
         "notion_token_set": bool(
-            str(_settings_store.get_value("notion_token") or "").strip()
+            getattr(getattr(_task_store, "config", None), "token", "")
         ),
     }
 
