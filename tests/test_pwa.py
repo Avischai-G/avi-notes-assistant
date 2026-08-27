@@ -31,6 +31,7 @@ def test_page_wires_manifest_and_shell_worker():
     assert "beforeinstallprompt" in script
 
     worker = (WEB / "sw.js").read_text(encoding="utf-8")
-    # Deploys must win when online; only the offline path may serve the cache.
-    assert "fetch(event.request)" in worker
+    # Deploys must win when online; only the offline path may serve the cache,
+    # and the fetch revalidates past the browser's heuristic HTTP cache.
+    assert 'fetch(event.request.url, { cache: "no-cache"' in worker
     assert '.startsWith("/api/")' in worker
