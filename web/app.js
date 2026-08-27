@@ -9,10 +9,32 @@ const automationChannels = $("#automation-channels");
 const toast = $("#toast");
 const TASK_CHANNEL_KEY = "avi-notes-task-channel";
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
-// A schedule set from another timezone says so, instead of lying quietly.
-const scheduleLabel = (automation) => (automation.schedule || "")
-  + (automation.timezone && automation.timezone !== DEVICE_TIMEZONE
-    ? ` (${automation.timezone})` : "");
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const pad2 = (value) => String(value ?? 0).padStart(2, "0");
+
+// A schedule set in another timezone displays in this device's clock,
+// derived from its next real firing so DST can never make it lie.
+function localTrigger(automation) {
+  if (!automation.next_run_at || !automation.timezone
+      || automation.timezone === DEVICE_TIMEZONE) return null;
+  const next = new Date(automation.next_run_at * 1000);
+  return {
+    hour: next.getHours(),
+    minute: next.getMinutes(),
+    weekday: (next.getDay() + 6) % 7,
+  };
+}
+
+function scheduleLabel(automation) {
+  const local = localTrigger(automation);
+  if (!local) return automation.schedule || "";
+  if (automation.frequency === "hourly") return `Hourly at :${pad2(local.minute)}`;
+  const time = `${pad2(local.hour)}:${pad2(local.minute)}`;
+  if (automation.frequency === "weekly") {
+    return `Weekly on ${WEEKDAY_NAMES[local.weekday]} at ${time}`;
+  }
+  return `Daily at ${time}`;
+}
 // The Gemini API key lives ONLY in this device's local storage: it rides each
 // request as a header, is never written server-side, and is never displayed.
 const GEMINI_KEY_STORAGE = "agentonomy-gemini-key";
@@ -493,9 +515,12 @@ function openAutomationEditor(automation) {
   editorName.value = automation.name;
   editorPrompt.value = automation.prompt || "";
   editorFrequency.value = automation.frequency || "daily";
-  editorWeekday.value = String(automation.weekday ?? 0);
-  editorTime.value = `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
-  editorMinute.value = String(automation.minute ?? 0);
+  const local = localTrigger(automation);
+  editorWeekday.value = String(local ? local.weekday : (automation.weekday ?? 0));
+  editorTime.value = local
+    ? `${twoDigits(local.hour)}:${twoDigits(local.minute)}`
+    : `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
+  editorMinute.value = String(local ? local.minute : (automation.minute ?? 0));
   editorDelete.hidden = Boolean(automation.built_in);
   editorNext.textContent = scheduleLabel(automation);
   syncEditor();
