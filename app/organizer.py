@@ -39,7 +39,7 @@ Use the board freely: search before creating something that may already exist, r
 
 They can also ask you to run one of their automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now.
 
-"Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. No time named means just the task, no reminder.
+"Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. A relative time ("in 5 minutes") is counted from the current time given below — never guessed. No time named means just the task, no reminder.
 
 When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask.
 
@@ -623,7 +623,10 @@ class TaskOrganizerAgent:
         """Assemble one instruction from the short prompt and retrieved knowledge."""
         zone = self._tz.get()
         now = datetime.now(zone)
-        date_line = f" Today is {now:%A}, {now:%Y-%m-%d} ({zone.key})."
+        date_line = (
+            f" Today is {now:%A}, {now:%Y-%m-%d} and the time is {now:%H:%M}"
+            f" ({zone.key})."
+        )
         place_hint = ""
         if task_store is not None and include_board_state:
             places = recent_places(task_store)
