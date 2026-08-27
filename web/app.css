@@ -755,9 +755,10 @@ textarea.field {
   .transcript { padding: 16px; }
   .composer-dock { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
   .composer-shell { padding: 8px; border-radius: 22px; }
-  .composer-row { align-items: center; }
+  /* Anchored to the bottom edge: growing text pushes upward while the
+     buttons keep the exact spot they have on the one-line composer. */
   .composer-input { min-height: 40px; padding: 8px 4px; }
-  .attach-button, .live-toggle { width: 36px; height: 36px; }
+  .attach-button, .live-toggle { width: 36px; height: 36px; margin-bottom: 2px; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
   .message-bubble, .assistant-stack { max-width: 92%; }
