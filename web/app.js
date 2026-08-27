@@ -760,6 +760,9 @@ const settingsMemory = $("#settings-memory");
 const settingsLiveLanguages = $("#settings-live-languages");
 const settingsLiveRules = $("#settings-live-rules");
 const settingsNotionToken = $("#settings-notion-token");
+// A stored Notion secret is shown as dots — a stand-in, never the secret
+// itself: the server never sends it back. Typing replaces it.
+const NOTION_TOKEN_MASK = "\u2022".repeat(24);
 const settingsHub = $("#settings-hub");
 const settingsBack = $("#settings-back");
 const settingsFoot = $("#settings-foot");
@@ -796,6 +799,18 @@ const KEY_SET_HINT = "Saved on this device only, shown masked. Clearing the fiel
 // The saved key stays visible (masked) in the field, but can't be copied out.
 settingsApiKey.addEventListener("copy", (event) => event.preventDefault());
 settingsApiKey.addEventListener("cut", (event) => event.preventDefault());
+settingsNotionToken.addEventListener("copy", (event) => event.preventDefault());
+settingsNotionToken.addEventListener("cut", (event) => event.preventDefault());
+settingsNotionToken.addEventListener("focus", () => {
+  // Tapping into the dots clears them so typing starts clean.
+  if (settingsNotionToken.value.includes("\u2022")) settingsNotionToken.value = "";
+});
+settingsNotionToken.addEventListener("blur", () => {
+  // Left empty with a secret stored: the dots come back, nothing changed.
+  if (!settingsNotionToken.value && settingsNotionToken.dataset.stored === "1") {
+    settingsNotionToken.value = NOTION_TOKEN_MASK;
+  }
+});
 
 $("#open-settings").addEventListener("click", async () => {
   // The dialog appears at once; its fields arrive when the server answers.
@@ -821,9 +836,10 @@ $("#open-settings").addEventListener("click", async () => {
     settingsModel.placeholder = settings.default_model || "";
     settingsMemory.value = settings.memory || "";
     settingsNotionId.value = settings.notion_database_id || "";
-    settingsNotionToken.value = "";
+    settingsNotionToken.value = settings.notion_token_set ? NOTION_TOKEN_MASK : "";
+    settingsNotionToken.dataset.stored = settings.notion_token_set ? "1" : "";
     $("#settings-notion-token-state").textContent = settings.notion_token_set
-      ? "A secret saved from this screen is in use. Paste a new one to replace it."
+      ? "A secret is saved. Type over the dots to replace it."
       : "Using the deployment's own secret. Paste one here to override it.";
     settingsRemoveKey.hidden = !deviceKey();
     showSettingsSection(null);
@@ -853,13 +869,18 @@ $("#settings-save").addEventListener("click", async () => {
       live_rules: settingsLiveRules.value,
     };
     const typedNotionToken = settingsNotionToken.value.trim();
-    if (typedNotionToken) payload.notion_token = typedNotionToken;
+    if (typedNotionToken && !typedNotionToken.includes("\u2022")) {
+      payload.notion_token = typedNotionToken;
+    }
     await apiJSON("/api/settings", {
       method: "PUT",
       headers: JSON_HEADERS,
       body: JSON.stringify(payload),
     });
-    settingsNotionToken.value = "";
+    if (typedNotionToken && !typedNotionToken.includes("\u2022")) {
+      settingsNotionToken.value = NOTION_TOKEN_MASK;
+      settingsNotionToken.dataset.stored = "1";
+    }
     settingsEditor.close();
     flash(typedKey ? "Saved — key stays on this device" : "Settings saved");
   } catch (error) {
