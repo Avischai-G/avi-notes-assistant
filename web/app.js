@@ -871,6 +871,8 @@ function showSettingsSection(name) {
   settingsTitle.textContent = name ? SETTINGS_SECTIONS[name] : "Settings";
   settingsBack.hidden = !name;
   settingsFoot.hidden = !name;
+  // Remove key lives with the key: Model setup only, and only when one is stored.
+  settingsRemoveKey.hidden = name !== "model" || !deviceKey();
 }
 
 settingsHub.addEventListener("click", (event) => {
@@ -929,7 +931,6 @@ $("#open-settings").addEventListener("click", async () => {
     $("#settings-notion-token-state").textContent = settings.notion_token_set
       ? "Notion is connected. Type over the dots to switch to another secret."
       : "Not connected — paste the integration secret from notion.so/my-integrations.";
-    settingsRemoveKey.hidden = !deviceKey();
     showSettingsSection(null);
     settingsEditor.classList.remove("loading");
   } catch (error) {
