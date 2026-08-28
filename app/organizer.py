@@ -495,9 +495,12 @@ class TaskOrganizerAgent:
                     "notified": False,
                     "reason": "Notifications are not available in this session.",
                 }
-            devices = self.notification_sink(
-                "🔔 " + message.strip(), "Sent by the task assistant."
-            )
+            # The title truncates on the lock screen and never expands; a
+            # long message rides in the body, which Android unfolds in full.
+            text = message.strip()
+            short = text if len(text) <= 40 else text[:40].rsplit(" ", 1)[0] + "…"
+            body = text if short != text else "Sent by the task assistant."
+            devices = self.notification_sink("🔔 " + short, body)
             if devices == 0:
                 return {
                     "notified": False,

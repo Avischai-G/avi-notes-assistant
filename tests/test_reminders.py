@@ -173,6 +173,31 @@ def test_the_notify_tool_pushes_now_and_admits_having_no_devices(client, monkeyp
     assert pushed == ["🔔 Drink water"]
 
 
+def test_a_long_notify_message_travels_in_the_expandable_body(client, monkeypatch):
+    # Android truncates the title and never expands it; the full text must
+    # ride in the body, which does unfold.
+    agent = chat._agent
+    tool = next(t for t in agent.agent.tools if t.__name__ == "notify")
+    sent = {}
+
+    def capture(title, body):
+        sent["title"], sent["body"] = title, body
+        return 1
+
+    monkeypatch.setattr(agent, "notification_sink", capture)
+    message = "Overdue tasks: Buy international driving permit and renew the passport"
+    token = agent._channel_id.set("task-chat")
+    try:
+        assert tool(message=message)["notified"] is True
+    finally:
+        agent._channel_id.reset(token)
+
+    assert sent["title"].startswith("🔔 ")
+    assert sent["title"].endswith("…")
+    assert len(sent["title"]) <= 45
+    assert sent["body"] == message
+
+
 def test_the_stored_pem_reaches_pywebpush_as_a_loaded_vapid_key(client, monkeypatch):
     # pywebpush reads a str key as a file path or raw base64 — handing it the
     # stored PEM text fails before any network call, silently killing every

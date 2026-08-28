@@ -357,7 +357,11 @@ def _fire_due_reminders() -> list[dict]:
         except Exception:
             pass
         try:
-            _push_to_devices("⏰ " + title, "The reminder you set is due now.")
+            # Short title, full text in the expandable body.
+            short = title if len(title) <= 40 else title[:40].rsplit(" ", 1)[0] + "…"
+            _push_to_devices(
+                "⏰ " + short, f"{title} — the reminder you set is due now."
+            )
         except Exception as exc:
             # A push failure must never wedge the tick, but it must be seen.
             print(f"reminder push failed: {exc}", flush=True)
