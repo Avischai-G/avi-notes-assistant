@@ -533,6 +533,7 @@ def _make_agents(api_key: str | None, model: str | None = None) -> tuple:
     )
     organizer.file_publisher = _publish_attachment
     organizer.reminder_sink = _add_reminder
+    organizer.notification_sink = _push_to_devices
     live.prompt_source = _live_instruction
     return organizer, live
 

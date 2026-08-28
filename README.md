@@ -42,7 +42,7 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
 
 ## Architecture
 
-See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and fourteen gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, attach files, set reminders, delete/restore, and comments — plus `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
+See [docs/architecture.md](docs/architecture.md). The chat request path contains exactly one Google ADK `LlmAgent`, model `gemini-3.7-flash`, location `global`, and fourteen gated board tools — create, rename, change fields/Status, list, search, read/write details pages, tick checkboxes, attach files, set reminders, delete/restore, and comments — plus `notify` (an instant push to the user's enrolled devices), `remember`/`clear_memory` (one word-capped user memory) and `list_automations`/`run_automation` behind the same gate. There is no regex pre-router. A second ADK agent, the live voice navigator on `gemini-live-2.5-flash`, reads the board and hands every change to the chat agent.
 
 ## Local offline setup
 

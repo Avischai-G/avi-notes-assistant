@@ -39,7 +39,7 @@ Use the board freely: search before creating something that may already exist, r
 
 They can also ask you to run one of their automations by name: `list_automations` shows what exists and what each one does, `run_automation` runs one now.
 
-"Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. A relative time ("in 5 minutes") is counted from the current time given below — never guessed. No time named means just the task, no reminder.
+"Remind me about X at 10" — create the task named X itself, then `set_task_reminder` for that time. A relative time ("in 5 minutes") is counted from the current time given below — never guessed. No time named means just the task, no reminder. "Notify me ..." with no time means `notify`: it rings their devices right now.
 
 When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask.
 
@@ -161,6 +161,8 @@ class TaskOrganizerAgent:
         self.memory_sink: Callable[[str], None] = lambda text: None
         # Reminders land here; chat.py points this at the scheduler store.
         self.reminder_sink: Callable[[dict], None] | None = None
+        # Immediate pushes; chat.py points this at the Web Push sender.
+        self.notification_sink: Callable[[str, str], int] | None = None
         # Files attached to the current message, and where to publish them.
         self._attachments: ContextVar[list[tuple[str, bytes]]] = ContextVar(
             "turn_attachments"
@@ -479,6 +481,33 @@ class TaskOrganizerAgent:
             """
             return self._web_answer(query)
 
+        def notify(message: str) -> dict:
+            """Push a notification to the user's enrolled devices right now.
+
+            Call when the user asks to be pinged or notified immediately —
+            not for timed reminders, which use set_task_reminder.
+
+            Args:
+                message: The short notification text, in the user's language.
+            """
+            if self.notification_sink is None:
+                return {
+                    "notified": False,
+                    "reason": "Notifications are not available in this session.",
+                }
+            devices = self.notification_sink(
+                "🔔 " + message.strip(), "Sent by the task assistant."
+            )
+            if devices == 0:
+                return {
+                    "notified": False,
+                    "reason": (
+                        "No device is enrolled — turn notifications on in "
+                        "Settings → Notifications first."
+                    ),
+                }
+            return {"notified": True, "devices": devices}
+
         def remember(memory: str) -> dict:
             """Replace the stored memory about the user. Call only when they
             ask you to remember or forget something: rewrite the stored
@@ -523,6 +552,7 @@ class TaskOrganizerAgent:
                 add_task_comment,
                 read_task_comments,
                 web_search,
+                notify,
                 remember,
                 clear_memory,
                 list_automations,

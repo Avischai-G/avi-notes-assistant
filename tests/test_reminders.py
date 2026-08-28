@@ -150,6 +150,29 @@ def test_a_fired_reminder_clears_its_column_and_pushes(client, monkeypatch):
     assert comment["text"] == "⏰ Reminder: Water the flowers"
 
 
+def test_the_notify_tool_pushes_now_and_admits_having_no_devices(client, monkeypatch):
+    agent = chat._agent
+    assert agent.notification_sink is chat._push_to_devices
+    tool = next(t for t in agent.agent.tools if t.__name__ == "notify")
+    token = agent._channel_id.set("task-chat")
+    try:
+        # No device enrolled: the tool says so instead of pretending.
+        empty = tool(message="Drink water")
+        assert empty["notified"] is False
+        assert "Settings" in empty["reason"]
+
+        pushed = []
+        monkeypatch.setattr(
+            agent, "notification_sink", lambda title, body: (pushed.append(title), 2)[1]
+        )
+        result = tool(message="Drink water")
+    finally:
+        agent._channel_id.reset(token)
+
+    assert result == {"notified": True, "devices": 2}
+    assert pushed == ["🔔 Drink water"]
+
+
 def test_the_stored_pem_reaches_pywebpush_as_a_loaded_vapid_key(client, monkeypatch):
     # pywebpush reads a str key as a file path or raw base64 — handing it the
     # stored PEM text fails before any network call, silently killing every

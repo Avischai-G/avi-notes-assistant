@@ -103,9 +103,10 @@ follow-the-system themes, responsive from desktop to mobile.
 - The organizer's tool surface is fourteen typed board tools — create, rename,
   move fields/Status, list, search, read/write details pages, tick checkboxes,
   attach files, set reminders, delete/restore, comments — plus `web_search`
-  (a nested Google-Search-grounded model call), `remember`/`clear_memory` for
-  the capped user memory, and `list_automations`/`run_automation`, every one
-  behind the same channel gate.
+  (a nested Google-Search-grounded model call), `notify` (an immediate push
+  to every enrolled device), `remember`/`clear_memory` for the capped user
+  memory, and `list_automations`/`run_automation`, every one behind the same
+  channel gate.
 - A pinned local stdio Notion MCP child exposes exactly a compiled ten-operation
   allowlist (`create_page`, `set_page_title`, `set_page_property`,
   `query_database`, `archive_page`, `restore_page`, `get_page_markdown`,
