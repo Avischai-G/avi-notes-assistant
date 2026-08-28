@@ -351,11 +351,43 @@ function toggleMenu(id, dots) {
   }
 }
 
+/* ── The phone's back button closes the top layer, never jumps screens. ──
+   Opening a drawer, dialog, or settings section arms one history entry;
+   pressing back closes just that layer. Closing by button only updates the
+   stack — no history juggling, so there is nothing to race. */
+const uiLayers = [];
+let backArmed = false;
+function armBack() {
+  if (backArmed) return;
+  history.pushState({ uiSentinel: true }, "");
+  backArmed = true;
+}
+function openLayer(kind, close) {
+  uiLayers.push({ kind, close });
+  armBack();
+}
+function dropLayer(kind) {
+  const index = uiLayers.findLastIndex((layer) => layer.kind === kind);
+  if (index !== -1) uiLayers.splice(index, 1);
+}
+window.addEventListener("popstate", () => {
+  backArmed = false;
+  const layer = uiLayers.pop();
+  if (layer) {
+    layer.close();
+    if (uiLayers.length) armBack();
+  }
+});
+
 $("#drawer-close").addEventListener("click", () => drawer.close());
+$("#drawer-close-x").addEventListener("click", () => drawer.close());
 $("#menu").addEventListener("click", () => {
   toggleMenu(null);
   drawer.showModal();
+  openLayer("drawer", () => drawer.close());
 });
+drawer.addEventListener("close", () => dropLayer("drawer"));
+editor.addEventListener("close", () => dropLayer("editor"));
 
 drawer.addEventListener("click", (event) => {
   const dots = event.target.closest(".dots");
@@ -396,18 +428,20 @@ function chooseAction(action, id) {
 }
 
 async function runAutomation(automation) {
+  // The run happens in the background: the answer lands in the automation's
+  // own channel without pulling the user away from where they are.
+  flash(`Running ${automation.name}…`);
   try {
     const result = await apiJSON(
       `/api/automations/${encodeURIComponent(automation.id)}/run`,
       { method: "POST", headers: deviceKey() ? { "X-Gemini-Key": deviceKey() } : {} },
     );
-    // replaceState rather than assigning the hash: hashchange would start a
-    // second channel load that can land last and wipe what the run just wrote.
-    history.replaceState(null, "", `#automation/${encodeURIComponent(automation.id)}`);
-    await showChat(automation);
-    if (result.text) flash(result.text.split("\n", 1)[0].slice(0, 60));
+    const answer = (result.chunks || []).join("").split("\n", 1)[0];
+    flash(`${automation.name} ran${answer ? ` — ${answer.slice(0, 60)}` : ""}`);
+    // Already looking at that channel: refresh it so the answer appears.
+    if (activeAutomation?.id === automation.id) await showChat(automation);
   } catch (error) {
-    addMessage("assistant", `Error: ${error.message}`);
+    flash(`${automation.name} failed: ${error.message}`);
   }
 }
 
@@ -458,6 +492,7 @@ function openNewAutomationEditor() {
   editorNext.textContent = "";
   syncEditor();
   editor.showModal();
+  openLayer("editor", () => editor.close());
   editorName.focus();
 }
 
@@ -518,6 +553,7 @@ async function openChatEditor() {
   editorNext.textContent = "";
   syncEditor();
   editor.showModal();
+  openLayer("editor", () => editor.close());
   try {
     editorPrompt.value = (await apiJSON("/api/settings")).system_prompt || "";
   } catch (error) {
@@ -547,6 +583,7 @@ function openAutomationEditor(automation) {
   editorNext.textContent = scheduleLabel(automation) + (origin ? ` — ${origin}` : "");
   syncEditor();
   editor.showModal();
+  openLayer("editor", () => editor.close());
 }
 
 function triggerFromForm() {
@@ -806,7 +843,6 @@ for (const modal of [editor, settingsEditor]) {
   });
 }
 const settingsVoice = $("#settings-voice");
-const settingsLanguage = $("#settings-language");
 const settingsLivePrompt = $("#settings-live-prompt");
 const settingsApiKey = $("#settings-api-key");
 const settingsModel = $("#settings-model");
@@ -931,9 +967,18 @@ function showSettingsSection(name) {
 
 settingsHub.addEventListener("click", (event) => {
   const button = event.target.closest("[data-section]");
-  if (button) showSettingsSection(button.dataset.section);
+  if (!button) return;
+  showSettingsSection(button.dataset.section);
+  openLayer("settings-section", () => showSettingsSection(null));
 });
-settingsBack.addEventListener("click", () => showSettingsSection(null));
+settingsBack.addEventListener("click", () => {
+  showSettingsSection(null);
+  dropLayer("settings-section");
+});
+settingsEditor.addEventListener("close", () => {
+  dropLayer("settings-section");
+  dropLayer("settings");
+});
 const settingsNotionId = $("#settings-notion-id");
 const settingsApiKeyState = $("#settings-api-key-state");
 const settingsRemoveKey = $("#settings-remove-key");
@@ -962,6 +1007,7 @@ $("#open-settings").addEventListener("click", async () => {
   drawer.close();
   settingsEditor.classList.add("loading");
   settingsEditor.showModal();
+  openLayer("settings", () => settingsEditor.close());
   try {
     const settings = await apiJSON("/api/settings");
     settingsVoice.replaceChildren(
@@ -969,7 +1015,6 @@ $("#open-settings").addEventListener("click", async () => {
       ...settings.voices.map((voice) => new Option(voice, voice)),
     );
     settingsVoice.value = settings.voice_name || "";
-    settingsLanguage.value = settings.language_code || "";
     settingsLivePrompt.value = settings.live_prompt || "";
     settingsLiveLanguages.value = settings.live_languages || "";
     settingsApiKey.value = deviceKey();
@@ -1006,7 +1051,7 @@ $("#settings-save").addEventListener("click", async () => {
       memory: settingsMemory.value,
       notion_database_id: settingsNotionId.value,
       voice_name: settingsVoice.value,
-      language_code: settingsLanguage.value,
+      language_code: "",
       live_languages: settingsLiveLanguages.value,
       live_prompt: settingsLivePrompt.value,
     };

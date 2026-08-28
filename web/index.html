@@ -26,9 +26,16 @@
   </header>
 
   <dialog class="drawer" id="drawer" aria-label="Channels">
-    <button class="icon-button drawer-close" id="drawer-close" type="button" aria-label="Close menu">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-    </button>
+    <div class="drawer-head">
+      <button class="back-button" id="drawer-close" type="button" aria-label="Go back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        <span>Go back</span>
+      </button>
+      <h2 class="head-title">Options</h2>
+      <button class="icon-button" id="drawer-close-x" type="button" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
     <nav class="channels custom-scrollbar" aria-label="Channels">
       <div class="channel-row">
         <a class="channel" id="channel-chat" href="#chat">
@@ -60,9 +67,10 @@
   </dialog>
 
   <dialog class="editor" id="settings-editor" aria-labelledby="settings-title">
-    <form method="dialog" class="editor-head">
-      <button class="icon-button" id="settings-back" type="button" aria-label="Back to settings" hidden>
+    <form method="dialog" class="editor-head centered-head">
+      <button class="back-button" id="settings-back" type="button" aria-label="Go back" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        <span>Go back</span>
       </button>
       <h2 id="settings-title">Settings</h2>
       <button class="icon-button" type="submit" aria-label="Close settings">
@@ -122,25 +130,6 @@
         <label for="settings-voice" id="settings-voice-label">Live voice</label>
         <select class="field" id="settings-voice"></select>
         <p class="hint">The voice the live conversation speaks with.</p>
-      </div>
-      <div class="field-group">
-        <label for="settings-language" id="settings-language-label">Live language</label>
-        <select class="field" id="settings-language">
-          <option value="">Automatic — match the language I speak</option>
-          <option value="en-US">English (US)</option>
-          <option value="en-GB">English (UK)</option>
-          <option value="en-AU">English (Australia)</option>
-          <option value="en-IN">English (India)</option>
-          <option value="de-DE">German</option>
-          <option value="fr-FR">French</option>
-          <option value="es-ES">Spanish</option>
-          <option value="it-IT">Italian</option>
-          <option value="pt-BR">Portuguese (Brazil)</option>
-          <option value="he-IL">Hebrew</option>
-          <option value="ja-JP">Japanese</option>
-          <option value="hi-IN">Hindi</option>
-        </select>
-        <p class="hint">Automatic answers in whatever language you speak; pick one to pin it. Applies on the next voice session. English voices keep their own accent.</p>
       </div>
       <div class="field-group">
         <label for="settings-live-languages" id="settings-live-languages-label">My languages</label>

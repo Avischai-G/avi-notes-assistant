@@ -79,10 +79,10 @@ only in that browser's `localStorage`, riding each request as a header,
 funding a per-key agent instance, never persisted server-side — plus the
 chat model and a Check button that verifies key and model with one live
 call; with no key the app runs on the server's own Vertex AI credentials.
-*Live agent* chooses the voice, its language (Automatic follows whatever
-language is spoken, constrained to the languages the user names) and the
+*Live agent* chooses the voice and the
 navigator's instructions — role, style and operating rules in one editable
-text, so no behavioral rule is hardcoded. *Notifications* enrolls the device
+text, so no behavioral rule is hardcoded; the spoken language follows the
+user automatically, constrained to the languages they name. *Notifications* enrolls the device
 for Web Push, so due reminders ring it directly. *Notion integration* connects the app to
 any board from the UI: paste the integration secret and the database ID — a
 visual guide shows exactly where in the board's URL the ID lives — and Save

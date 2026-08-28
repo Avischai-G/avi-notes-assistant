@@ -474,17 +474,30 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
     assert.equal(await page.locator("#input").inputValue(), "\n");
     await page.locator("#input").fill("");
 
-    // An automation runs from its own ⋯ menu, reached by keyboard.
+    // An automation runs from its own ⋯ menu, reached by keyboard — in the
+    // background: the view stays put and a toast reports the outcome.
     await openDrawer(page);
     await page.locator("#channel-chat").focus();
     assert.match(await tabUntil(page, /^Organize tasks options$/), /^Organize tasks options$/);
     await page.keyboard.press("Enter");
     assert.match(await tabUntil(page, /^Run now$/), /^Run now$/);
     await page.keyboard.press("Enter");
-    await closedDrawer(page);
-    // The organiser reports on the board and changes nothing.
     await page.waitForFunction(
-      () => /open task|Board is tidy/.test(document.querySelector("#transcript")?.textContent || ""),
+      () => /Organize tasks ran/.test(document.querySelector("#toast")?.textContent || ""),
+    );
+    await page.keyboard.press("Escape");
+    await closedDrawer(page);
+    assert.equal(
+      await page.evaluate(() => document.body.classList.contains("automation-view")),
+      false,
+      "running an automation must not move the user to its channel",
+    );
+    // Visiting the channel afterwards shows the answer that landed there.
+    await openDrawer(page);
+    await page.locator("#automation-channels a").first().click();
+    await closedDrawer(page);
+    await page.waitForFunction(
+      () => /Added Print the contract/.test(document.querySelector("#transcript")?.textContent || ""),
     );
     await page.screenshot({ path: path.join(evidenceDirectory, `${theme}-${mobile ? "mobile" : "desktop"}-automation.png`) });
 

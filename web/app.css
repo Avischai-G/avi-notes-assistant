@@ -184,7 +184,37 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   transition: transform var(--motion-smooth);
 }
 .drawer[open] { display: flex; transform: none; }
-.drawer-close { flex: none; align-self: flex-start; margin: 0 0 2px 2px; }
+.drawer-head {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.drawer-head .back-button { justify-self: start; }
+.drawer-head .icon-button { justify-self: end; }
+.head-title { margin: 0; font-size: var(--type-emphasis); font-weight: 600; }
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px 8px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--type-body);
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+.back-button:hover { background: var(--panel-hover); color: var(--text); }
+.back-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* Title centered between the buttons, all on one vertical axis. */
+.editor-head.centered-head { display: grid; grid-template-columns: 1fr auto 1fr; }
+.editor-head.centered-head h2 { margin: 0; }
+.editor-head.centered-head .back-button { justify-self: start; }
+.editor-head.centered-head .icon-button:last-child { justify-self: end; }
 @starting-style { .drawer[open] { transform: translateX(-100%); } }
 .drawer::backdrop { background: rgb(0 0 0 / 0.45); }
 
