@@ -972,13 +972,18 @@ settingsHub.addEventListener("click", (event) => {
   showSettingsSection(button.dataset.section);
   openLayer("settings-section", () => showSettingsSection(null));
 });
+// Go back walks one level at a time: section -> hub -> Options drawer.
+function backToOptions() {
+  settingsEditor.close();
+  drawer.showModal();
+  openLayer("drawer", () => drawer.close());
+}
 settingsBack.addEventListener("click", () => {
-  // In a section, Go back returns to the hub; on the hub it leaves Settings.
   if (settingsHub.hidden) {
     showSettingsSection(null);
     dropLayer("settings-section");
   } else {
-    settingsEditor.close();
+    backToOptions();
   }
 });
 settingsEditor.addEventListener("close", () => {
@@ -1013,7 +1018,7 @@ $("#open-settings").addEventListener("click", async () => {
   drawer.close();
   settingsEditor.classList.add("loading");
   settingsEditor.showModal();
-  openLayer("settings", () => settingsEditor.close());
+  openLayer("settings", () => backToOptions());
   try {
     const settings = await apiJSON("/api/settings");
     settingsVoice.replaceChildren(
