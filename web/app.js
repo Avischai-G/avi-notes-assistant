@@ -156,9 +156,11 @@ async function apiJSON(url, options = {}) {
 
 function resize() {
   // Up to three lines the text sits between the buttons; past that it takes
-  // the full width above them. The line count is always measured at the
-  // narrow width, so widening the box can never flip the layout back.
+  // the full width above them and stays there until the text is back down
+  // to a single line. The line count is always measured at the narrow
+  // width, so widening the box can never flip the layout by itself.
   const grid = $("#composer-grid");
+  const wasTall = grid.classList.contains("tall");
   input.style.height = "";
   grid.classList.remove("tall");
   const styles = getComputedStyle(input);
@@ -166,7 +168,7 @@ function resize() {
   const lines = input.value
     ? Math.round((input.scrollHeight - padding) / parseFloat(styles.lineHeight))
     : 1;
-  grid.classList.toggle("tall", lines > 3);
+  grid.classList.toggle("tall", wasTall ? lines > 1 : lines > 3);
   const scrollHeight = input.value ? input.scrollHeight : 0;
   if (input.value) input.style.height = `${Math.min(scrollHeight, 180)}px`;
   input.classList.toggle("capped", scrollHeight > 180);
