@@ -834,11 +834,13 @@ liveToggle.addEventListener("click", async () => {
 /* Settings: the evaluator's Gemini API key plus the live voice and accent. */
 const settingsEditor = $("#settings-editor");
 
-/* A modal that is not full screen closes on a backdrop click; Esc already
-   comes free with <dialog>. A click on the dialog element itself can only
-   be the backdrop — every visible pixel inside belongs to a child. */
+/* On desktop the dialog floats over a dimmed backdrop, and clicking that
+   backdrop closes it; Esc already comes free with <dialog>. On mobile the
+   dialog IS the whole screen, so a stray tap on empty space must never
+   close the page — only the buttons do. */
 for (const modal of [editor, settingsEditor]) {
   modal.addEventListener("click", (event) => {
+    if (matchMedia("(max-width: 759px)").matches) return;
     if (event.target === modal) modal.close();
   });
 }
@@ -958,7 +960,6 @@ function showSettingsSection(name) {
     section.hidden = section.dataset.section !== name;
   }
   settingsTitle.textContent = name ? SETTINGS_SECTIONS[name] : "Settings";
-  settingsBack.hidden = !name;
   // Notifications has nothing to save: its buttons act immediately.
   settingsFoot.hidden = !name || name === "notifications";
   // Remove key lives with the key: Model setup only, and only when one is stored.
@@ -972,8 +973,13 @@ settingsHub.addEventListener("click", (event) => {
   openLayer("settings-section", () => showSettingsSection(null));
 });
 settingsBack.addEventListener("click", () => {
-  showSettingsSection(null);
-  dropLayer("settings-section");
+  // In a section, Go back returns to the hub; on the hub it leaves Settings.
+  if (settingsHub.hidden) {
+    showSettingsSection(null);
+    dropLayer("settings-section");
+  } else {
+    settingsEditor.close();
+  }
 });
 settingsEditor.addEventListener("close", () => {
   dropLayer("settings-section");
