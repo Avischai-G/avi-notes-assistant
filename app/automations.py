@@ -10,10 +10,9 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 import time
 
-from app.channel_store import Message
 from zoneinfo import ZoneInfo
 
-from app.task_planning import JERUSALEM, BoardReview, describe_trigger, next_trigger
+from app.task_planning import JERUSALEM, describe_trigger, next_trigger
 
 
 RETIRED_AUTOMATION_IDS = ("knowledge-cleanup", "nightly-plan")
@@ -161,18 +160,9 @@ class FirestoreAutomationStore(AutomationStore):
 
 
 class AutomationRunner:
-    def __init__(
-        self,
-        store,
-        channel_store,
-        task_store,
-        agent,
-        clock=time.time,
-        review: BoardReview | None = None,
-    ):
+    def __init__(self, store, channel_store, task_store, agent, clock=time.time):
         self.store, self.channel_store, self.task_store = store, channel_store, task_store
         self.agent, self.clock = agent, clock
-        self.review = review or BoardReview(task_store)
 
     def _due(self, a: Automation, now: float, force: bool) -> bool:
         """One rule for every automation: its own trigger says when it is due."""
@@ -190,23 +180,6 @@ class AutomationRunner:
         now = self.clock()
         if not self._due(a, now, force):
             return {"status": "not-due", "automation_id": a.id, "channel_id": a.channel_id}
-
-        # Organising is deterministic, so it costs no model call and never
-        # mutates the board: it reports, and the user decides.
-        if a.id == ORGANIZE_TASKS.id:
-            report = self.review.build()
-            a.last_run_at, a.next_run_at = now, a.next_run(now)
-            self.store.save(a)
-            self.channel_store.append_message(
-                a.channel_id, Message("assistant", report["text"], now)
-            )
-            return {
-                "status": "ran",
-                "automation_id": a.id,
-                "channel_id": a.channel_id,
-                "model_called": False,
-                **report,
-            }
 
         chunks = []
         async for chunk in self.agent.chat(a.prompt, self.channel_store, self.task_store, a.channel_id):

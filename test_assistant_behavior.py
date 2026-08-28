@@ -13,7 +13,7 @@ from pydantic import PrivateAttr
 from app.automations import AutomationRunner, LocalAutomationStore, ORGANIZE_TASKS
 from app.channel_store import LocalChannelStore
 from app.organizer import SYSTEM_PROMPT, TaskOrganizerAgent
-from app.task_planning import BoardReview, infer_when, next_trigger
+from app.task_planning import infer_when, next_trigger
 from app.task_store import FakeTaskStore
 
 
@@ -251,50 +251,28 @@ def _review_store():
     return tasks
 
 
-def test_the_organiser_reports_what_to_change_and_changes_nothing():
-    """Guidance on task hygiene is unanimous that a duplicate is merged by the
-    person who knows which copy is the keeper, so this only ever proposes."""
-    tasks = _review_store()
-    before = [(task.id, task.title, task.status, task.when) for task in tasks.list_tasks()]
-
-    report = BoardReview(tasks, clock=_fixed_now).build()
-
-    assert report["open"] == 5
-    assert report["counts"] == {"duplicates": 1, "overdue": 1, "vague": 1, "crowded": 1}
-    assert "Book the dentist appointment / Book a dentist appointment" in report["text"]
-    assert "Renew the passport" in report["text"]
-    assert "Invoices" in report["text"]
-    assert "Buy milk and call the plumber" in report["text"]
-    assert [(t.id, t.title, t.status, t.when) for t in tasks.list_tasks()] == before
-
-
-def test_a_tidy_board_gets_one_line_not_a_report():
-    tasks = FakeTaskStore()
-    tasks.create_task("Draft the offsite agenda")
-    report = BoardReview(tasks, clock=_fixed_now).build()
-    assert report["text"] == "Board is tidy — 1 open task, nothing to merge or clarify."
-    assert report["counts"] == {"duplicates": 0, "overdue": 0, "vague": 0, "crowded": 0}
-
-
-def test_running_the_organiser_writes_its_report_and_calls_no_model():
+def test_running_the_organiser_goes_through_the_model_like_any_automation():
+    """The review automation has no special path: its prompt reaches the
+    model, so the report is written, not assembled from a template."""
     tasks = _review_store()
     channels = LocalChannelStore()
     channels.ensure_channel(ORGANIZE_TASKS.channel_id)
     store = LocalAutomationStore([ORGANIZE_TASKS])
 
-    class NoModel:
-        async def chat(self, *args, **kwargs):
-            raise AssertionError("organising must not reach the model")
-            yield  # pragma: no cover
+    prompts = []
+
+    class EchoAgent:
+        async def chat(self, message, channel_store, task_store, channel_id):
+            prompts.append((message, channel_id))
+            yield "Two dentist tasks look like duplicates."
 
     result = asyncio.run(
-        AutomationRunner(store, channels, tasks, NoModel(), review=BoardReview(tasks, clock=_fixed_now)).run(
-            ORGANIZE_TASKS.id
-        )
+        AutomationRunner(store, channels, tasks, EchoAgent()).run(ORGANIZE_TASKS.id)
     )
 
-    assert result["model_called"] is False
-    assert channels.get_channel(ORGANIZE_TASKS.channel_id)[-1].content == result["text"]
+    assert result["model_called"] is True
+    assert result["chunks"] == ["Two dentist tasks look like duplicates."]
+    assert prompts == [(ORGANIZE_TASKS.prompt, ORGANIZE_TASKS.channel_id)]
 
 
 def test_avi_can_list_and_run_an_automation_by_name_from_the_chat():
@@ -306,13 +284,13 @@ def test_avi_can_list_and_run_an_automation_by_name_from_the_chat():
         llm=ScriptedToolLlm(model="gemini-3.5-flash"),
         clock=_fixed_now,
     )
+    class EchoAgent:
+        async def chat(self, message, channel_store, task_store, channel_id):
+            yield "Reviewed the board: possible duplicates found."
+
     agent.configure_automations(
         AutomationRunner(
-            LocalAutomationStore([ORGANIZE_TASKS]),
-            channels,
-            tasks,
-            None,
-            review=BoardReview(tasks, clock=_fixed_now),
+            LocalAutomationStore([ORGANIZE_TASKS]), channels, tasks, EchoAgent()
         )
     )
     tools = {tool.__name__: tool for tool in agent.agent.tools}

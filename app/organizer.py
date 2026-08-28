@@ -397,7 +397,8 @@ class TaskOrganizerAgent:
                     }
                 match = partial[0]
             result = await self.automations.run(match.id)
-            return {"ran": True, "name": match.name, "text": result.get("text", "")}
+            text = "".join(result.get("chunks") or [])
+            return {"ran": True, "name": match.name, "text": text}
 
         def set_task_reminder(task_id: str, at: str) -> dict:
             """Set a reminder: at that time a ⏰ comment lands on the task and

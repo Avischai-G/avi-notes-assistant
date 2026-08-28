@@ -272,6 +272,8 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 .row-menu button:hover { background: var(--panel-hover); color: var(--text); }
+/* Destructive reads red at rest too — touch screens have no hover. */
+.row-menu button[data-action="delete"] { color: #f87171; }
 .row-menu button[data-action="delete"]:hover { color: #f87171; }
 
 /* ── Panes ───────────────────────────────────────────────────────────── */
@@ -766,7 +768,6 @@ textarea.field {
      buttons keep the exact spot they have on the one-line composer. */
   .composer-input { min-height: 40px; padding: 8px 4px; }
   .attach-button, .live-toggle { width: 36px; height: 36px; margin-bottom: 2px; }
-  .composer-row.tall .attach-button, .composer-row.tall .live-toggle { margin-bottom: 0; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
   .message-bubble, .assistant-stack { max-width: 92%; }
@@ -794,6 +795,22 @@ body.automation-view {
   --panel-hover: #d9cba6;
   --composer-bg: #d3c49a;
   --line: rgb(146 100 13 / 0.18);
+}
+/* Only the automation chat wears amber: dialogs float above it and keep the
+   neutral palette (values mirror the base themes at the top of this file). */
+body.automation-view :is(.editor, .drawer) {
+  --panel-bg: #121212;
+  --surface-card: #1d1d1d;
+  --panel-hover: #242424;
+  --composer-bg: #2d2d2d;
+  --line: rgb(255 255 255 / 0.08);
+}
+[data-theme="light"] body.automation-view :is(.editor, .drawer) {
+  --panel-bg: #ededed;
+  --surface-card: #dcdcdc;
+  --panel-hover: #d0d0d0;
+  --composer-bg: #c9c9c9;
+  --line: rgb(0 0 0 / 0.08);
 }
 
 /* ── Sent files show as chips above the words in a user bubble. ───────── */

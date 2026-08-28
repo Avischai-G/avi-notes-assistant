@@ -184,12 +184,12 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   await page.keyboard.press("Escape");
   await closedEditor(page);
 
-  // An automation carries a prompt and a trigger, and the built-in has no delete.
+  // An automation carries a prompt and a trigger; every one can be deleted.
   await openDrawer(page);
   await page.locator('[data-menu="organize-tasks"]').click();
   assert.deepEqual(
     await page.locator('.row-menu[data-menu-for="organize-tasks"] button').allInnerTexts(),
-    ["Run now", "Edit"],
+    ["Run now", "Edit", "Delete"],
   );
   await page.locator('[data-action="edit"][data-id="organize-tasks"]').click();
   await openEditor(page);
@@ -199,7 +199,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   assert.equal(await page.locator("#editor-time").isVisible(), true);
   assert.equal(await page.locator("#editor-weekday").isVisible(), true);
   assert.equal(await page.locator("#editor-minute").isVisible(), false);
-  assert.equal(await page.locator("#editor-delete").isVisible(), false);
+  assert.equal(await page.locator("#editor-delete").isVisible(), true);
   assert.equal(await page.locator("#editor-save").isDisabled(), false);
   const layout = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -265,7 +265,7 @@ async function exerciseEditorSurface(page, theme, mobile, functional) {
   assert.equal(saved.schedule, "Weekly on Wednesday at 18:15");
   assert.equal(saved.prompt, "Summarise the day.");
 
-  // Its ⋯ offers Delete, which the built-in does not.
+  // Its ⋯ offers the same three actions as every automation.
   await openDrawer(page);
   await page.locator(`[data-menu="${saved.id}"]`).click();
   assert.deepEqual(
@@ -403,9 +403,9 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   assert.ok(styles.shellWidth <= 1060.01);
   assert.equal(styles.inputFontSize, "16px");
   assert.equal(styles.inputLineHeight, "22.4px");
-  assert.equal(styles.inputMinHeight, "48px");
+  assert.equal(styles.inputMinHeight, mobile ? "40px" : "48px");
   assert.equal(styles.inputMaxHeight, "180px");
-  assert.equal(styles.inputPadding, "12px 4px 10px");
+  assert.equal(styles.inputPadding, mobile ? "8px 4px" : "12px 4px 10px");
   assert.deepEqual(styles.attach, mobile ? [36, 36] : [44, 44]);
   assert.deepEqual(styles.send, mobile ? [40, 40] : [48, 48]);
   assert.ok(styles.scrollWidth <= styles.viewport[0], "task page overflows horizontally");
@@ -449,9 +449,22 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   assert.ok(grown.height > 48, "the text box did not grow");
   assert.ok(grown.height <= 180.01);
   assert.equal(grown.overflowY, "auto");
-  assert.deepEqual(await corners(), oneLine, "composer buttons moved when the message wrapped");
+  // Past three lines the text takes its own full-width row above the buttons;
+  // the buttons themselves keep their corner positions throughout.
+  const wrapped = await corners();
+  assert.deepEqual(
+    { attach: wrapped.attach, live: wrapped.live, send: wrapped.send },
+    { attach: oneLine.attach, live: oneLine.live, send: oneLine.send },
+    "composer buttons moved when the message wrapped",
+  );
+  assert.equal(
+    await page.locator("#composer-grid").evaluate((el) => el.classList.contains("tall")),
+    true,
+    "a long message should lift the text above the buttons",
+  );
+  assert.ok(wrapped.inputBottom > oneLine.inputBottom, "the wrapped text box should sit above the buttons");
   await page.locator("#input").fill("");
-  assert.deepEqual(await corners(), oneLine);
+  assert.deepEqual(await corners(), oneLine, "emptying the composer should restore the one-line layout");
 
   if (functional) {
     await page.locator("#input").focus();
@@ -575,6 +588,7 @@ async function main() {
       const context = await browser.newContext({ viewport: entry.viewport, locale: "en-US", timezoneId: "Asia/Jerusalem" });
       await context.addInitScript((theme) => localStorage.setItem("agentonomy-theme", theme), entry.theme);
       const page = await context.newPage();
+      page.on("dialog", (dialog) => dialog.accept());
       page.on("console", (message) => {
         if (message.type() === "error") diagnostics.push(`console:${message.text()}`);
       });

@@ -324,7 +324,7 @@ function renderChannels() {
     menu.hidden = true;
     menu.innerHTML = `<button type="button" data-action="run" data-id="${id}">Run now</button>`
       + `<button type="button" data-action="edit" data-id="${id}">Edit</button>`
-      + (automation.built_in ? "" : `<button type="button" data-action="delete" data-id="${id}">Delete</button>`);
+      + `<button type="button" data-action="delete" data-id="${id}">Delete</button>`;
     automationChannels.append(row, menu);
   }
   setActiveChannel(location.hash || "#chat");
@@ -427,6 +427,8 @@ async function clearChat() {
 }
 
 async function deleteAutomation(automation) {
+  // One mis-tap must not destroy an automation and its prompt for good.
+  if (!confirm(`Delete "${automation.name}"? Its prompt and schedule are gone for good.`)) return;
   try {
     await apiJSON(`/api/automations/${encodeURIComponent(automation.id)}`, { method: "DELETE" });
     const wasOpen = activeAutomation?.id === automation.id;
@@ -540,7 +542,7 @@ function openAutomationEditor(automation) {
     ? `${twoDigits(local.hour)}:${twoDigits(local.minute)}`
     : `${twoDigits(automation.hour ?? 9)}:${twoDigits(automation.minute)}`;
   editorMinute.value = String(local ? local.minute : (automation.minute ?? 0));
-  editorDelete.hidden = Boolean(automation.built_in);
+  editorDelete.hidden = false;
   const origin = scheduleOrigin(automation);
   editorNext.textContent = scheduleLabel(automation) + (origin ? ` — ${origin}` : "");
   syncEditor();

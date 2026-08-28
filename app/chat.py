@@ -43,7 +43,7 @@ from app.notion_task_store import NotionTaskStore
 from app.knowledge import OrganizerKnowledge, build_organizer_knowledge, knowledge_root
 from datetime import datetime
 
-from app.task_planning import BoardReview, FREQUENCIES, JERUSALEM
+from app.task_planning import FREQUENCIES, JERUSALEM
 from app.task_store import FakeTaskStore
 from app.organizer import MEMORY_WORD_CAP, TaskOrganizerAgent, _eligible_model
 from app.life import LIFE_PROMPT, LifeAgent
@@ -166,9 +166,13 @@ def init_chat_stores(
         if _automation_store.get(retired) is not None:
             _automation_store.delete(retired)
 
-    for definition in DEFAULT_AUTOMATIONS:
-        if _automation_store.get(definition.id) is None:
-            _automation_store.save(deepcopy(definition))
+    # Defaults are seeded exactly once, so deleting one is a decision that
+    # sticks — a restart must not resurrect it.
+    if not _settings_store.get_value("defaults_seeded"):
+        for definition in DEFAULT_AUTOMATIONS:
+            if _automation_store.get(definition.id) is None:
+                _automation_store.save(deepcopy(definition))
+        _settings_store.set_value("defaults_seeded", True)
 
     reconcile_triggers(_automation_store, time.time())
     for automation in _automation_store.list():
@@ -548,11 +552,7 @@ def _build_agents() -> None:
 
     _agent, _live_voice_agent = _make_agents(_SERVER_API_KEY or None)
     _automation_runner = AutomationRunner(
-        _automation_store,
-        _channel_store,
-        _task_store,
-        _agent,
-        review=BoardReview(_task_store),
+        _automation_store, _channel_store, _task_store, _agent
     )
     # The user can ask the chat to run an automation by name.
     _agent.configure_automations(_automation_runner)
@@ -628,7 +628,6 @@ def _automation_payload(automation) -> dict:
         "timezone": automation.timezone,
         "next_run_at": automation.next_run_at,
         "channel_id": automation.channel_id,
-        "built_in": automation.id in {d.id for d in DEFAULT_AUTOMATIONS},
     }
 
 
@@ -1113,9 +1112,6 @@ def register_chat_routes(app: FastAPI) -> None:
 
     @app.delete("/api/automations/{automation_id}")
     def delete_automation(automation_id: str):
-        # The built-in is referenced by id from the planning path.
-        if automation_id in {definition.id for definition in DEFAULT_AUTOMATIONS}:
-            raise HTTPException(409, "built-in automations cannot be deleted")
         if _automation_store.get(automation_id) is None:
             raise HTTPException(404, "automation not found")
         _automation_store.delete(automation_id)

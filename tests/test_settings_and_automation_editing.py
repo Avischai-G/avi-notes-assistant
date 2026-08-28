@@ -38,7 +38,6 @@ def test_the_board_ships_with_one_organising_automation(client):
     listed = client.get("/api/automations").json()["automations"]
     assert [a["id"] for a in listed] == ["organize-tasks"]
     assert listed[0]["name"] == "Organize tasks"
-    assert listed[0]["built_in"] is True
     # A review is a weekly habit, not a nightly one.
     assert listed[0]["schedule"] == "Weekly on Sunday at 09:00"
     for retired in ("knowledge-cleanup", "nightly-plan"):
@@ -53,7 +52,6 @@ def test_an_automation_carries_a_frequency_and_a_when(client):
     ).json()
     assert created["id"] == "morning-brief"
     assert created["channel_id"] == "automation-morning-brief"
-    assert created["built_in"] is False
     assert created["schedule"] == "Daily at 07:30"
 
     weekly = client.patch(
@@ -72,8 +70,10 @@ def test_an_automation_carries_a_frequency_and_a_when(client):
 
     assert client.delete("/api/automations/morning-brief").status_code == 200
     assert client.delete("/api/automations/morning-brief").status_code == 404
-    # The planning path looks the built-in up by id, so it stays.
-    assert client.delete("/api/automations/organize-tasks").status_code == 409
+    # Nothing is protected: even the shipped default can be deleted for good.
+    assert client.delete("/api/automations/organize-tasks").status_code == 200
+    remaining = client.get("/api/automations").json()["automations"]
+    assert "organize-tasks" not in [a["id"] for a in remaining]
     assert client.patch("/api/automations/nope", json={}).status_code == 404
 
 

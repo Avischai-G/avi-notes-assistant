@@ -173,25 +173,6 @@ class TaskFieldWriter:
         return task
 
 
-DUPLICATE_SIMILARITY = 0.5  # knob: lower catches more pairs and nags more
-_SPLIT_MARKERS = (" and ", " & ", " + ", ", ")
-_FILLER = frozenset(
-    "a an the my his her our to for of in on at with into from do go get make "
-    "some any this that it is be".split()
-)
-
-
-def _content_words(title: str) -> set[str]:
-    words = re.findall(r"[a-z0-9]+", title.casefold())
-    return {word for word in words if word not in _FILLER}
-
-
-def _similarity(left: set[str], right: set[str]) -> float:
-    if not left or not right:
-        return 0.0
-    return len(left & right) / len(left | right)
-
-
 def recent_places(task_store: TaskStore, limit: int = 30) -> list[str]:
     """Place values already on the board, newest first, for the prompt hint."""
     seen: list[str] = []
@@ -201,82 +182,6 @@ def recent_places(task_store: TaskStore, limit: int = 30) -> list[str]:
         if place and place not in seen:
             seen.append(place)
     return seen
-
-
-class BoardReview:
-    """A read-only organising pass over the board.
-
-    Guidance on task hygiene converges on the same few failure modes — near
-    duplicates, overdue leftovers, titles too vague to act on, and titles
-    hiding more than one action — and on proposing rather than deleting: only
-    the person who wrote them knows which copy of a duplicate is the keeper.
-    So this reports and never writes.
-    """
-
-    def __init__(self, task_store: TaskStore, *, clock: Callable[[], datetime] | None = None):
-        self.task_store = task_store
-        self.clock = clock
-
-    def _open(self) -> list[Task]:
-        return [task for task in self.task_store.list_tasks() if task.status != DONE]
-
-    def findings(self) -> dict[str, list]:
-        tasks = self._open()
-        today = local_now(self.clock).date()
-        words = {task.id: _content_words(task.title) for task in tasks}
-
-        duplicates = []
-        for index, task in enumerate(tasks):
-            for other in tasks[index + 1:]:
-                if _similarity(words[task.id], words[other.id]) >= DUPLICATE_SIMILARITY:
-                    duplicates.append((task, other))
-
-        overdue = []
-        for task in tasks:
-            raw = task.when.get("start") if isinstance(task.when, dict) else task.when
-            if isinstance(raw, str) and raw[:10] < today.isoformat():
-                overdue.append(task)
-
-        vague = [task for task in tasks if len(words[task.id]) <= 1]
-        crowded = [
-            task
-            for task in tasks
-            if any(marker in f" {task.title.casefold()} " for marker in _SPLIT_MARKERS)
-        ]
-        return {
-            "open": tasks,
-            "duplicates": duplicates,
-            "overdue": overdue,
-            "vague": vague,
-            "crowded": crowded,
-        }
-
-    def build(self) -> dict:
-        found = self.findings()
-        lines: list[str] = []
-        if found["duplicates"]:
-            lines.append("**Possible duplicates** — keep one, fold the rest into it:")
-            lines += [f"- {a.title} / {b.title}" for a, b in found["duplicates"]]
-        if found["overdue"]:
-            lines.append("**Past their date** — do, redate, or drop:")
-            lines += [f"- {task.title}" for task in found["overdue"]]
-        if found["vague"]:
-            lines.append("**Too vague to act on** — name the outcome:")
-            lines += [f"- {task.title}" for task in found["vague"]]
-        if found["crowded"]:
-            lines.append("**More than one action** — worth splitting:")
-            lines += [f"- {task.title}" for task in found["crowded"]]
-
-        total = len(found["open"])
-        if not lines:
-            text = f"Board is tidy — {total} open task{'' if total == 1 else 's'}, nothing to merge or clarify."
-        else:
-            text = "\n".join([f"{total} open tasks.", ""] + lines + ["", "Tell me which to change."])
-        return {
-            "text": text,
-            "open": total,
-            "counts": {key: len(found[key]) for key in ("duplicates", "overdue", "vague", "crowded")},
-        }
 
 
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -295,7 +200,7 @@ def next_trigger(
     """The next moment a trigger fires, in the trigger's own local zone,
     strictly after `epoch`.
 
-    ponytail: wall-clock arithmetic, so the one run that straddles a DST change
+    Note: wall-clock arithmetic, so the one run that straddles a DST change
     keeps its stated hour and lands an hour off in absolute terms. That is the
     right trade for a once-a-year shift on a personal board.
     """
