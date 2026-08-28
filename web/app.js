@@ -883,10 +883,16 @@ function showSettingsSection(name) {
   }
   settingsTitle.textContent = name ? SETTINGS_SECTIONS[name] : "Settings";
   settingsBack.hidden = !name;
-  settingsFoot.hidden = !name;
+  // Notifications has nothing to save: its buttons act immediately.
+  settingsFoot.hidden = !name || name === "notifications";
   // Remove key lives with the key: Model setup only, and only when one is stored.
   settingsRemoveKey.hidden = name !== "model" || !deviceKey();
 }
+
+$("#push-system").addEventListener("click", () => {
+  const hint = $("#push-system-hint");
+  hint.hidden = !hint.hidden;
+});
 
 settingsHub.addEventListener("click", (event) => {
   const button = event.target.closest("[data-section]");
