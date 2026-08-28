@@ -461,6 +461,11 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   align-items: end;
   gap: 8px;
 }
+/* Past three lines the text spans the whole width, above the buttons. */
+.composer-row.tall .composer-input { grid-column: 1 / -1; grid-row: 1; }
+.composer-row.tall .attach-button { grid-column: 1; grid-row: 2; }
+.composer-row.tall .live-toggle { grid-column: 3; grid-row: 2; }
+.composer-row.tall .send-button { grid-column: 4; grid-row: 2; }
 .composer-input {
   width: 100%;
   min-width: 0;
@@ -759,6 +764,7 @@ textarea.field {
      buttons keep the exact spot they have on the one-line composer. */
   .composer-input { min-height: 40px; padding: 8px 4px; }
   .attach-button, .live-toggle { width: 36px; height: 36px; margin-bottom: 2px; }
+  .composer-row.tall .attach-button, .composer-row.tall .live-toggle { margin-bottom: 0; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
   .message-bubble, .assistant-stack { max-width: 92%; }

@@ -155,9 +155,18 @@ async function apiJSON(url, options = {}) {
 }
 
 function resize() {
-  // Only the text box grows, and it grows upward: attach, mic and send stay
-  // pinned to the bottom corners however many lines are typed.
+  // Up to three lines the text sits between the buttons; past that it takes
+  // the full width above them. The line count is always measured at the
+  // narrow width, so widening the box can never flip the layout back.
+  const grid = $("#composer-grid");
   input.style.height = "";
+  grid.classList.remove("tall");
+  const styles = getComputedStyle(input);
+  const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+  const lines = input.value
+    ? Math.round((input.scrollHeight - padding) / parseFloat(styles.lineHeight))
+    : 1;
+  grid.classList.toggle("tall", lines > 3);
   const scrollHeight = input.value ? input.scrollHeight : 0;
   if (input.value) input.style.height = `${Math.min(scrollHeight, 180)}px`;
   input.classList.toggle("capped", scrollHeight > 180);
