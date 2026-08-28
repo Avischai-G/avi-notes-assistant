@@ -15,10 +15,11 @@ To connect your own Notion board from scratch, see [docs/SETUP-NOTION-FROM-SCRAT
 - Nothing is invented: a task gets `Not started` and whatever the user actually
   said. No date, place or duration is guessed, and free text goes on the task's
   own page rather than into a property they cannot sort or filter on.
-- `Organize tasks` reviews the board weekly for duplicates, items past their
-  date, titles too vague to act on, and titles hiding more than one action. It
-  reports and changes nothing: only the user knows which copy of a duplicate
-  to keep.
+- `Organize tasks` ships as a ready-made weekly automation: its prompt asks
+  the model to review the board for duplicates, items past their date, titles
+  too vague to act on, and titles hiding more than one action — proposing
+  changes, never making them. Nothing about it is special: edit its prompt,
+  reschedule it, or delete it for good like any automation.
 - "Remind me about X at 10" names the task X and sets a reminder: the moment
   lands in the board's optional `Reminder` date column (page text on boards
   without one). When the time arrives the app pushes a Web Push notification
@@ -87,7 +88,7 @@ The suite requires:
 - a running server at `UI_BASE_URL` (defaults to `http://127.0.0.1:8764`)
 - system Google Chrome at a macOS path (set via `CHROME_PATH` env var, defaults to `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`)
 
-Automations are automatically registered when the server starts. The suite verifies the built-in "Organize tasks" automation channel and the new-automation flow.
+Automations are automatically registered when the server starts. The suite verifies the shipped "Organize tasks" automation channel and the new-automation flow.
 
 ## Local authenticated setup
 

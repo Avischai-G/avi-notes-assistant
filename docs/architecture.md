@@ -44,7 +44,8 @@ The model uses its language understanding to distinguish tasks from ordinary
 chat; there is no regex pre-router. Its board tools are create, rename, change
 fields/Status, list, search, read/write details pages, tick checkboxes,
 attach files, set reminders, delete/restore, and comments — fourteen in all — plus `web_search`, a nested
-Google-Search-grounded model call for general questions, `remember` and
+Google-Search-grounded model call for general questions, `notify` for an
+immediate Web Push to the user's enrolled devices, `remember` and
 `clear_memory` for one word-capped user memory stored in settings, and
 `list_automations` and `run_automation`. The adapter beneath them compiles to exactly ten MCP
 operations: `create_page`, `set_page_title`, `set_page_property`,

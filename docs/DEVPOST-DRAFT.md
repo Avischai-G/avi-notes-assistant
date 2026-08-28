@@ -33,13 +33,14 @@ column, so the board shows only what is still pending. General questions — fac
 weather — get Google-Search-grounded answers with sources, and both agents
 answer in whatever language they are addressed in.
 
-**Weekly deterministic board review.** The built-in `Organize tasks`
-automation runs a weekly `BoardReview`: pure deterministic code that scans
-open tasks for near duplicates, items past their date, titles too vague to
-act on, and titles hiding more than one action. It reports and changes
-nothing — only the person who wrote a duplicate knows which copy is the
-keeper. The chat can also list automations and run any of them on demand by
-name.
+**A weekly board review you own.** The shipped `Organize tasks` automation
+asks the model once a week for near duplicates, items past their date,
+titles too vague to act on, and titles hiding more than one action — and
+proposes rather than changes, because only the person who wrote a duplicate
+knows which copy is the keeper. Nothing about it is special-cased: like any
+automation you create, its prompt can be reworded, its schedule moved, or
+the whole thing deleted for good. The chat can also list automations and
+run any of them on demand by name.
 
 **Structured automation triggers.** Automations can be created and edited in
 the app, each with its own prompt and a structured trigger — frequency, hour,
@@ -152,8 +153,9 @@ clean tree, and run the test suites before every deploy.
 - A deliberately narrow surface: one gated tool set, one ten-operation MCP
   allowlist, one database, and a gate that fails closed on unknown channels
   and stops automations from triggering each other.
-- A deterministic weekly review that earns trust by proposing and never
-  writing.
+- A review automation that earns trust by proposing and never writing — and
+  no behavior hardcoded: every automation, the shipped one included, is an
+  editable prompt the user can reword, reschedule, or delete.
 - Hands-free operation: the voice navigator hands work to the task assistant,
   reads quick answers back, and never claims to have done the work itself.
 - A device-local key model that lets any phone fund its own model calls
@@ -168,14 +170,13 @@ clean tree, and run the test suites before every deploy.
 ## What we learned
 
 The strongest assistant behavior comes from narrow deterministic tools around
-the model: defaults, review heuristics, trigger arithmetic, and channel
-permissions stay in code, while the model handles the genuinely linguistic
-work of telling a task from conversation. Structured trigger data beats
+the model: defaults, trigger arithmetic, and channel permissions stay in
+code, while the model handles the genuinely linguistic work of telling a
+task from conversation. Structured trigger data beats
 free-text schedules — a derived display sentence can never disagree with when
 the automation actually fires. Saying less is a feature: a one-line reply is
-what makes capture feel instant. And read-only is sometimes the right power
-level: a review that only reports is one the user can safely leave running
-forever.
+what makes capture feel instant. And a review that only proposes is one
+the user can safely leave running forever.
 
 ## What's next
 
