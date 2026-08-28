@@ -848,9 +848,44 @@ async function subscribeToPush() {
   });
 }
 
-$("#enable-push").addEventListener("click", async () => {
+// The one button is a truthful toggle: it reads "Enable" until a
+// subscription really exists, then turns into the red off switch.
+const enablePush = $("#enable-push");
+const PUSH_OFF_KEY = "agentonomy-push-off";
+
+function pushUI(on) {
+  enablePush.textContent = on ? "Turn off on this device" : "Enable on this device";
+  enablePush.classList.toggle("primary", !on);
+  enablePush.classList.toggle("danger", on);
+  enablePush.dataset.on = on ? "1" : "";
+  pushState.textContent = on
+    ? "On: due reminders notify this device."
+    : "When a reminder is due, this device gets a notification from the app itself — even when it is closed.";
+}
+
+enablePush.addEventListener("click", async () => {
   if (!("Notification" in window) || !("serviceWorker" in navigator)) {
     pushState.textContent = "This browser does not support notifications.";
+    return;
+  }
+  if (enablePush.dataset.on) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await apiJSON("/api/push/unsubscribe", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        await subscription.unsubscribe();
+      }
+      localStorage.setItem(PUSH_OFF_KEY, "1");
+      pushUI(false);
+      flash("Notifications off on this device");
+    } catch (error) {
+      pushState.textContent = `Could not turn off: ${error.message}`;
+    }
     return;
   }
   try {
@@ -860,7 +895,8 @@ $("#enable-push").addEventListener("click", async () => {
       return;
     }
     await subscribeToPush();
-    pushState.textContent = "On: due reminders notify this device.";
+    localStorage.removeItem(PUSH_OFF_KEY);
+    pushUI(true);
     flash("Reminder notifications enabled");
   } catch (error) {
     pushState.textContent = `Could not enable: ${error.message}`;
@@ -868,11 +904,13 @@ $("#enable-push").addEventListener("click", async () => {
 });
 
 // A device that already granted permission quietly renews its subscription,
-// so a new deployment or an expired subscription never loses the channel.
-// "On" is only claimed once the renewal actually succeeded.
-if ("Notification" in window && Notification.permission === "granted") {
+// so a new deployment or an expired subscription never loses the channel —
+// unless the user turned this device off, which stays off. "On" is only
+// claimed once the renewal actually succeeded.
+if ("Notification" in window && Notification.permission === "granted"
+    && !localStorage.getItem(PUSH_OFF_KEY)) {
   subscribeToPush()
-    .then(() => { pushState.textContent = "On: due reminders notify this device."; })
+    .then(() => pushUI(true))
     .catch(() => { pushState.textContent = "Could not renew notifications — tap Enable again."; });
 }
 

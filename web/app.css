@@ -699,6 +699,8 @@ textarea.field {
 }
 .danger[hidden] { display: none; }
 .danger:hover { background: rgb(248 113 113 / 0.1); border-color: rgb(248 113 113 / 0.4); }
+/* The notifications toggle keeps its full width in both of its states. */
+#enable-push.danger { align-self: stretch; padding: 9px 18px; font-weight: 600; }
 
 .key-row { display: flex; gap: 8px; }
 .key-row .field { flex: 1; min-width: 0; }

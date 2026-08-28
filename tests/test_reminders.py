@@ -186,3 +186,11 @@ def test_push_subscriptions_register_and_validate(client):
     assert client.post(
         "/api/push/subscribe", json={"endpoint": "https://x", "keys": {}}
     ).status_code == 400
+
+    # Turning a device off forgets exactly that endpoint.
+    off = client.post(
+        "/api/push/unsubscribe", json={"endpoint": "https://push.example/abc"}
+    )
+    assert off.json() == {"subscribed": False, "devices": 0}
+    assert chat._push_subscriptions() == []
+    assert client.post("/api/push/unsubscribe", json={}).status_code == 400

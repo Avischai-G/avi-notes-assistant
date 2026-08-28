@@ -910,6 +910,20 @@ def register_chat_routes(app: FastAPI) -> None:
         )
         return {"subscribed": True, "devices": len(others) + 1}
 
+    @app.post("/api/push/unsubscribe")
+    async def push_unsubscribe(request: Request):
+        """Forget this browser: reminders stop notifying it."""
+        body = await _body(request)
+        endpoint = str(body.get("endpoint") or "")
+        if not endpoint:
+            raise HTTPException(400, "An endpoint is required")
+        remaining = [
+            item for item in _push_subscriptions()
+            if item.get("endpoint") != endpoint
+        ]
+        _settings_store.set_value("push_subscriptions", remaining)
+        return {"subscribed": False, "devices": len(remaining)}
+
     @app.post("/api/key-check")
     async def key_check(request: Request):
         """One tiny Gemini API call with the supplied key and model: works or
