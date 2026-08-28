@@ -286,9 +286,13 @@ def _push_to_devices(title: str, body: str) -> int:
     subscriptions = _push_subscriptions()
     if not subscriptions:
         return 0
+    from py_vapid import Vapid
     from pywebpush import WebPushException, webpush
 
     pem, _ = _vapid_keys()
+    # pywebpush's string form expects a raw base64url key, not PEM text, so
+    # the stored PEM must be loaded into a Vapid instance first.
+    vapid = Vapid.from_pem(pem.encode())
     alive: list[dict] = []
     sent = 0
     for subscription in subscriptions:
@@ -296,7 +300,7 @@ def _push_to_devices(title: str, body: str) -> int:
             webpush(
                 subscription_info=subscription,
                 data=json.dumps({"title": title, "body": body}),
-                vapid_private_key=pem,
+                vapid_private_key=vapid,
                 vapid_claims={"sub": "mailto:reminders@agentonomy.app"},
             )
             alive.append(subscription)
@@ -305,8 +309,10 @@ def _push_to_devices(title: str, body: str) -> int:
             status = getattr(getattr(exc, "response", None), "status_code", None)
             if status not in (404, 410):
                 alive.append(subscription)  # transient: keep and retry next fire
-        except Exception:
+                print(f"push failed ({status}): {exc}", flush=True)
+        except Exception as exc:
             alive.append(subscription)
+            print(f"push failed: {exc}", flush=True)
     if alive != subscriptions:
         _settings_store.set_value("push_subscriptions", alive)
     return sent
@@ -352,8 +358,9 @@ def _fire_due_reminders() -> list[dict]:
             pass
         try:
             _push_to_devices("⏰ " + title, "The reminder you set is due now.")
-        except Exception:
-            pass  # a push failure must never wedge the tick
+        except Exception as exc:
+            # A push failure must never wedge the tick, but it must be seen.
+            print(f"reminder push failed: {exc}", flush=True)
         fired.append(entry)
     if fired:
         _settings_store.set_value("reminders", keep)

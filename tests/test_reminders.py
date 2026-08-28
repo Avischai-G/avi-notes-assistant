@@ -150,6 +150,27 @@ def test_a_fired_reminder_clears_its_column_and_pushes(client, monkeypatch):
     assert comment["text"] == "⏰ Reminder: Water the flowers"
 
 
+def test_the_stored_pem_reaches_pywebpush_as_a_loaded_vapid_key(client, monkeypatch):
+    # pywebpush reads a str key as a file path or raw base64 — handing it the
+    # stored PEM text fails before any network call, silently killing every
+    # push. The PEM must arrive pre-loaded as a Vapid instance.
+    import pywebpush
+    from py_vapid import Vapid01
+
+    client.post("/api/push/subscribe", json={
+        "endpoint": "https://push.example/abc",
+        "keys": {"p256dh": "pk", "auth": "au"},
+    })
+    captured = {}
+
+    def fake_webpush(subscription_info, data, vapid_private_key, vapid_claims):
+        captured["key"] = vapid_private_key
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    assert chat._push_to_devices("⏰ Test", "due") == 1
+    assert isinstance(captured["key"], Vapid01)
+
+
 def test_push_subscriptions_register_and_validate(client):
     assert "key" in client.get("/api/push/key").json()
 

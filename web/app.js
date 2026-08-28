@@ -869,9 +869,11 @@ $("#enable-push").addEventListener("click", async () => {
 
 // A device that already granted permission quietly renews its subscription,
 // so a new deployment or an expired subscription never loses the channel.
+// "On" is only claimed once the renewal actually succeeded.
 if ("Notification" in window && Notification.permission === "granted") {
-  pushState.textContent = "On: due reminders notify this device.";
-  subscribeToPush().catch(() => {});
+  subscribeToPush()
+    .then(() => { pushState.textContent = "On: due reminders notify this device."; })
+    .catch(() => { pushState.textContent = "Could not renew notifications — tap Enable again."; });
 }
 
 function showSettingsSection(name) {
