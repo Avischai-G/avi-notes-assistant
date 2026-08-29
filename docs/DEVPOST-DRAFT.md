@@ -5,6 +5,29 @@
 Say the messy thought. Get one short line back — and a Notion board that
 stays in order without ever being guessed at.
 
+## Why it should win
+
+- **Genuinely agentic, not a chat loop.** Two Google ADK agents cooperate:
+  a live voice navigator hands work to the task organizer mid-conversation,
+  watches the chat play it out — instruction bubble, thinking ball, answer —
+  and speaks the result back, while scheduled automations work the same
+  board in the background through the very same gated tools.
+- **Runs without anyone watching.** Cloud Scheduler ticks the service;
+  automations fire on their own structured triggers, and due reminders ring
+  every enrolled phone by Web Push — app closed or not — with Snooze/Done
+  actions, then file a ⏰ comment as the durable record.
+- **Nothing hardcoded.** Every behavior — both agents' instructions, each
+  automation's prompt and schedule, the user memory, even which Notion board
+  the app writes to — is editable from the phone, live, with no redeploy.
+- **Security as a feature.** One database, a compiled ten-operation MCP
+  allowlist that fails closed on drift, a permanent isolation regression,
+  channel-gated tools, write-only secrets, and a device-local API key model
+  where the server never stores a user's key.
+- **Product-grade polish.** Installable PWA, dark/light/system themes,
+  device-timezone truth for every displayed time, any-language answers in
+  text and speech, and 165 unit tests plus a browser matrix across both
+  themes and both viewports.
+
 ## Inspiration
 
 Most task systems make capture feel like form-filling: choose a status, date,
@@ -28,8 +51,10 @@ message can be attached straight onto a task's page; and "remind me about X
 at 10" sets a timed reminder, stored in the board's optional `Reminder`
 date column. When it fires, the app itself pushes a notification to every
 enrolled device — Web Push through the PWA's service worker, phone closed or
-not — leaves a ⏰ comment on the task as the durable record, and clears the
-column, so the board shows only what is still pending. General questions — facts, news,
+not — with Snooze 10 min and Done buttons, groups several due reminders into
+one listed notification, leaves a ⏰ comment on the task as the durable
+record, and clears the column, so the board shows only what is still
+pending. General questions — facts, news,
 weather — get Google-Search-grounded answers with sources, and both agents
 answer in whatever language they are addressed in.
 
@@ -56,16 +81,18 @@ automation can never start another automation.
 
 **Live voice navigator.** A hands-free voice session on
 `gemini-live-2.5-flash` streams microphone audio over a WebSocket and answers
-in speech. The navigator drives the app through three action tools —
-`send_task_to_chat` (hand an instruction or question to the task assistant,
-waiting a beat so quick answers are read straight back), `navigate` (jump to
-the chat, an automation channel, or Settings), and `run_automation` — plus
-read-only board lookups so it can answer "what's on my board?" directly. It
-can never change the board itself; every request it hands over lands in the
-visible chat with its answer, so nothing happens behind your back.
+in speech. The navigator hands board work to the task assistant with
+`send_task_to_chat` — the open chat renders the instruction and thinking
+animation the moment it lands, exactly as if typed, and quick answers are
+read straight back — while `navigate` and `run_automation` drive the app
+itself. Its own tools read the board, answer any question about the world
+through Google-Search-grounded `web_search`, and read and write the same
+capped user memory the chat uses. It can never change the board directly;
+everything it hands over plays out in the visible chat, so nothing happens
+behind your back.
 
-**Personal memory.** Say "remember that I answer in short sentences" and the
-agent stores it — one plain-text memory with a hard word cap, injected into
+**Personal memory.** Say "remember that I answer in short sentences" — to
+either agent, typed or spoken — and it is stored — one plain-text memory with a hard word cap, injected into
 the system prompt only when non-empty, so personalization never bloats the
 context. The agent rewrites the whole memory on each change (the cap forces
 it to condense, not accumulate), and "forget everything" wipes it — a clean

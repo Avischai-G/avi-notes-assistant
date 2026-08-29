@@ -12,8 +12,8 @@ flowchart LR
     API[Cloud Run · us-central1\nFastAPI service]
     A[Task organizer\nGoogle ADK LlmAgent]
     L[Voice navigator\nGoogle ADK LlmAgent]
-    V[Vertex AI · global\ngemini-3.7-flash\ngemini-live-2.5-flash]
-    T[Fourteen gated board tools\n+ memory · automations]
+    V[Vertex AI · global\ngemini-3.7-flash\ngemini-live-2.5-flash\nGoogle Search grounding]
+    T[Fourteen gated board tools\n+ memory · automations\n+ web search · notify]
     M[Local stdio Notion MCP\nexactly ten operations]
     N[(One existing\nNotion database)]
     F[(Firestore\nchannels · automations\nsettings)]
@@ -27,7 +27,7 @@ flowchart LR
     S -->|secret references| API
     API --> A
     API --> L
-    L -->|send_task_to_chat| A
+    L -->|send_task_to_chat\nshared memory · search| A
     A --> V
     L --> V
     A --> T
