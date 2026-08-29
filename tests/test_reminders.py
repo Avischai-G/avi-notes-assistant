@@ -135,7 +135,10 @@ def test_a_fired_reminder_clears_its_column_and_pushes(client, monkeypatch):
     _, task_store, _ = chat.get_stores()
     task = task_store.create_task("Water the flowers", "Not started")
     pushed = []
-    monkeypatch.setattr(chat, "_push_to_devices", lambda title, body: pushed.append(title))
+    monkeypatch.setattr(
+        chat, "_push_to_devices",
+        lambda title, body, **kw: (pushed.append((title, kw)), 1)[1],
+    )
 
     past = (datetime.now(JERUSALEM) - timedelta(minutes=1)).isoformat()
     chat._add_reminder({"task_id": task.id, "at": past, "title": "Water the flowers"})
@@ -145,7 +148,11 @@ def test_a_fired_reminder_clears_its_column_and_pushes(client, monkeypatch):
 
     assert ticked["reminders_fired"] == 1
     assert task.id not in task_store.reminders  # the column shows only pending
-    assert pushed == ["⏰ Water the flowers"]
+    [(pushed_title, extras)] = pushed
+    assert pushed_title == "⏰ Water the flowers"
+    # The notification carries its buttons and enough data to snooze itself.
+    assert [a["title"] for a in extras["actions"]] == ["Snooze 10 min", "Done"]
+    assert extras["data"] == {"task_id": task.id, "title": "Water the flowers"}
     [comment] = task_store.list_comments(task.id)
     assert comment["text"] == "⏰ Reminder: Water the flowers"
 
@@ -242,3 +249,47 @@ def test_push_subscriptions_register_and_validate(client):
     assert off.json() == {"subscribed": False, "devices": 0}
     assert chat._push_subscriptions() == []
     assert client.post("/api/push/unsubscribe", json={}).status_code == 400
+
+
+def test_several_due_reminders_ring_as_one_list(client, monkeypatch):
+    _, task_store, _ = chat.get_stores()
+    first = task_store.create_task("Water the plants", "Not started")
+    second = task_store.create_task("Call the bank", "Not started")
+    pushed = []
+    monkeypatch.setattr(
+        chat, "_push_to_devices",
+        lambda title, body, **kw: (pushed.append((title, body, kw)), 1)[1],
+    )
+
+    past = (datetime.now(JERUSALEM) - timedelta(minutes=1)).isoformat()
+    chat._add_reminder({"task_id": first.id, "at": past, "title": "Water the plants"})
+    chat._add_reminder({"task_id": second.id, "at": past, "title": "Call the bank"})
+
+    assert client.post("/api/automations/tick").json()["reminders_fired"] == 2
+    [(title, body, extras)] = pushed
+    assert title == "⏰ 2 reminders are due"
+    assert body == "• Water the plants\n• Call the bank"
+    assert "actions" not in extras or not extras["actions"]
+
+
+def test_the_snooze_endpoint_rearms_a_reminder(client):
+    _, task_store, _ = chat.get_stores()
+    task = task_store.create_task("Water the flowers", "Not started")
+
+    result = client.post("/api/reminders/snooze", json={
+        "task_id": task.id, "title": "Water the flowers", "minutes": 10,
+    }).json()
+
+    assert result["snoozed"] is True
+    [entry] = chat._reminders()
+    assert entry["task_id"] == task.id
+    rearmed = datetime.fromisoformat(entry["at"])
+    minutes_out = (rearmed - datetime.now(JERUSALEM)).total_seconds() / 60
+    assert 9 <= minutes_out <= 10.1
+    # The board's Reminder column shows the pending snooze again.
+    assert task_store.reminders[task.id] == entry["at"]
+
+    assert client.post("/api/reminders/snooze", json={"task_id": ""}).status_code == 400
+    assert client.post(
+        "/api/reminders/snooze", json={"task_id": "x", "minutes": 0}
+    ).status_code == 400

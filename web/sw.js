@@ -41,17 +41,34 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let payload = { title: "⏰ Reminder", body: "" };
   try { payload = { ...payload, ...event.data.json() }; } catch {}
-  event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-    }),
-  );
+  const options = {
+    body: payload.body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    vibrate: [200, 100, 200],
+    // A repeat of the same reminder replaces its notification and re-alerts
+    // instead of stacking duplicates.
+    renotify: Boolean(payload.tag),
+  };
+  if (payload.tag) options.tag = payload.tag;
+  if (payload.data) options.data = payload.data;
+  if (payload.actions) options.actions = payload.actions;
+  event.waitUntil(self.registration.showNotification(payload.title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "done") return; // acknowledged: nothing else to do
+  if (event.action === "snooze") {
+    const data = event.notification.data || {};
+    event.waitUntil(fetch("/api/reminders/snooze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: data.task_id, title: data.title, minutes: 10 }),
+    }).catch(() => {}));
+    return;
+  }
+  // A plain press on the reminder itself just opens the app.
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
       const open = windows.find((w) => "focus" in w);

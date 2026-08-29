@@ -285,7 +285,14 @@ def _push_subscriptions() -> list[dict]:
     return list(_settings_store.get_value("push_subscriptions") or [])
 
 
-def _push_to_devices(title: str, body: str) -> int:
+def _push_to_devices(
+    title: str,
+    body: str,
+    *,
+    tag: str | None = None,
+    data: dict | None = None,
+    actions: list[dict] | None = None,
+) -> int:
     """Send one notification to every subscribed device; prune dead ones."""
     subscriptions = _push_subscriptions()
     if not subscriptions:
@@ -297,13 +304,20 @@ def _push_to_devices(title: str, body: str) -> int:
     # pywebpush's string form expects a raw base64url key, not PEM text, so
     # the stored PEM must be loaded into a Vapid instance first.
     vapid = Vapid.from_pem(pem.encode())
+    payload = {"title": title, "body": body}
+    if tag:
+        payload["tag"] = tag
+    if data:
+        payload["data"] = data
+    if actions:
+        payload["actions"] = actions
     alive: list[dict] = []
     sent = 0
     for subscription in subscriptions:
         try:
             webpush(
                 subscription_info=subscription,
-                data=json.dumps({"title": title, "body": body}),
+                data=json.dumps(payload),
                 vapid_private_key=vapid,
                 vapid_claims={"sub": "mailto:reminders@agentonomy.app"},
             )
@@ -360,19 +374,45 @@ def _fire_due_reminders() -> list[dict]:
                 set_reminder(task_id, None)
         except Exception:
             pass
-        try:
-            # Short title, full text in the expandable body.
-            short = title if len(title) <= 40 else title[:40].rsplit(" ", 1)[0] + "…"
-            _push_to_devices(
-                "⏰ " + short, f"{title} — the reminder you set is due now."
-            )
-        except Exception as exc:
-            # A push failure must never wedge the tick, but it must be seen.
-            print(f"reminder push failed: {exc}", flush=True)
         fired.append(entry)
     if fired:
         _settings_store.set_value("reminders", keep)
+        try:
+            _push_reminders(fired)
+        except Exception as exc:
+            # A push failure must never wedge the tick, but it must be seen.
+            print(f"reminder push failed: {exc}", flush=True)
     return fired
+
+
+# The notification's two buttons: research-standard names for reminders.
+_REMINDER_ACTIONS = [
+    {"action": "snooze", "title": "Snooze 10 min"},
+    {"action": "done", "title": "Done"},
+]
+
+
+def _push_reminders(fired: list[dict]) -> None:
+    """One due reminder rings with Snooze/Done; several ring as one list."""
+    if len(fired) == 1:
+        entry = fired[0]
+        title = str(entry.get("title") or "").strip() or "this task"
+        # Short title, full text in the expandable body.
+        short = title if len(title) <= 40 else title[:40].rsplit(" ", 1)[0] + "…"
+        _push_to_devices(
+            "⏰ " + short,
+            f"{title} — the reminder you set is due now.",
+            tag=f"reminder-{entry.get('task_id', '')}",
+            data={"task_id": str(entry.get("task_id", "")), "title": title},
+            actions=_REMINDER_ACTIONS,
+        )
+        return
+    titles = [str(e.get("title") or "").strip() or "this task" for e in fired]
+    _push_to_devices(
+        f"⏰ {len(fired)} reminders are due",
+        "\n".join(f"• {t}" for t in titles),
+        tag="reminders",
+    )
 
 
 def _memory() -> str:
@@ -916,6 +956,32 @@ def register_chat_routes(app: FastAPI) -> None:
             "push_subscriptions", (others + [subscription])[-5:]
         )
         return {"subscribed": True, "devices": len(others) + 1}
+
+    @app.post("/api/reminders/snooze")
+    async def snooze_reminder(request: Request):
+        """Re-arm a fired reminder a few minutes out — the notification's
+        Snooze button lands here from the service worker."""
+        body = await _body(request)
+        task_id = str(body.get("task_id") or "")
+        title = str(body.get("title") or "").strip() or "this task"
+        try:
+            minutes = int(body.get("minutes", 10))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "minutes must be a number")
+        if not task_id or not 1 <= minutes <= 24 * 60:
+            raise HTTPException(400, "task_id and minutes (1–1440) are required")
+        from datetime import timedelta
+
+        moment = datetime.now(JERUSALEM) + timedelta(minutes=minutes)
+        _add_reminder({"task_id": task_id, "at": moment.isoformat(), "title": title})
+        try:
+            # The board shows the pending snooze again where supported.
+            set_reminder = getattr(_task_store, "set_reminder", None)
+            if set_reminder:
+                set_reminder(task_id, moment.isoformat())
+        except Exception:
+            pass
+        return {"snoozed": True, "at": moment.isoformat()}
 
     @app.post("/api/push/unsubscribe")
     async def push_unsubscribe(request: Request):
