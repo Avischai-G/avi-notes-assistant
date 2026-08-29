@@ -804,8 +804,21 @@ liveToggle.addEventListener("click", async () => {
     await window.LiveSession.start(liveChannelId, {
       apiKey: deviceKey() || undefined,
       model: deviceModel() || undefined,
+      onChatUser: (text) => {
+        // The voice agent handed an instruction to the chat: an open chat
+        // shows it at once, exactly as if the user had typed it.
+        if (channelId !== liveChannelId) return;
+        $(".empty-state")?.remove();
+        addMessage("user", text, { animate: true });
+        const bar = document.createElement("div");
+        bar.className = "working-bar";
+        bar.innerHTML = "<span class=\"ball\"></span><span>Working</span>";
+        transcript.append(bar);
+        bottom();
+      },
       onChatUpdated: async () => {
-        // The voice agent dropped a task into the chat; refresh if visible.
+        // The answer is in: reload replaces the transcript (and the bar)
+        // with the canonical exchange.
         if (channelId === liveChannelId) await loadChannel(liveChannelId);
       },
       onNavigate: (target) => {

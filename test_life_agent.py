@@ -226,9 +226,13 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
     )
     live = LifeAgent(llm=ScriptedLifeLlm(model="gemini-live-2.5-flash"))
     notified = []
+    frames = []
 
     async def notify():
         notified.append(True)
+
+    async def send_frame(frame):
+        frames.append(frame)
 
     tool = next(
         t for t in live.agent.tools if getattr(t, "__name__", "") == "send_task_to_chat"
@@ -242,6 +246,7 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
                 "channel_store": channels,
                 "channel_id": "home",
                 "notify": notify,
+                "send": send_frame,
             }
         )
         try:
@@ -268,8 +273,10 @@ def test_send_task_to_chat_hands_the_instruction_to_the_organizer():
     messages = channels.get_channel("home")
     assert [m.role for m in messages] == ["user", "assistant"]
     assert messages[0].content == "Add a task to call the accountant"
-    # Notified twice: when the instruction lands, and with the answer.
-    assert notified == [True, True]
+    # The open chat is told to render the instruction the moment the turn
+    # starts, and notified once more when the answer is in.
+    assert frames == [{"type": "chat_user", "text": "Add a task to call the accountant"}]
+    assert notified == [True]
 
 
 def test_settings_roundtrip_voice_accent_and_api_key(monkeypatch, tmp_path):

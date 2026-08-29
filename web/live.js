@@ -146,6 +146,7 @@
     socket.onmessage = (event) => {
       const frame = JSON.parse(event.data);
       if (frame.type === "audio") playChunk(fromBase64(frame.data));
+      else if (frame.type === "chat_user") handlers.onChatUser?.(frame.text);
       else if (frame.type === "chat_updated") handlers.onChatUpdated?.();
       else if (frame.type === "navigate") handlers.onNavigate?.(frame.target);
       else if (frame.type === "interrupted") { stopPlayback(); handlers.onInterrupted?.(); }

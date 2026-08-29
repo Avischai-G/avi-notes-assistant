@@ -353,9 +353,12 @@ class LifeAgent:
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
             bridge["last_handoff"] = (task, outcome)
-            # The turn has started and persisted the instruction: show it now.
+            # The turn has started: an open chat renders the instruction and a
+            # working ball at once, exactly as if the user had typed it.
             await asyncio.sleep(0)
-            await bridge["notify"]()
+            send = bridge.get("send")
+            if send:
+                await send({"type": "chat_user", "text": instruction})
             try:
                 # A short beat: quick answers get read back to the user directly.
                 await asyncio.wait_for(asyncio.shield(task), timeout=QUICK_WAIT_SECONDS)
