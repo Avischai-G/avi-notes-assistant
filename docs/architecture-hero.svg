@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1080" viewBox="0 0 1640 1080" font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#7c83e8"/>
+    </marker>
+    <marker id="arrb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3b82f6"/>
+    </marker>
+  </defs>
+  <style>
+    .box { fill: #f0f1fb; stroke: #c7cbf2; stroke-width: 2; }
+    .boxstrong { fill: #ced2f7; stroke: #8b93ec; stroke-width: 2.5; }
+    .t { fill: #23233d; font-size: 20px; font-weight: 700; }
+    .s { fill: #55566e; font-size: 14.5px; }
+    .lbl { fill: #6055c8; font-size: 14px; font-weight: 600; paint-order: stroke; stroke: #f6f6fb; stroke-width: 5px; }
+    .lblb { fill: #2f6fdc; font-size: 14px; font-weight: 600; paint-order: stroke; stroke: #f6f6fb; stroke-width: 5px; }
+    .edge { stroke: #7c83e8; stroke-width: 2.5; fill: none; }
+    .edgeb { stroke: #3b82f6; stroke-width: 2.5; fill: none; }
+    .dash { stroke-dasharray: 7 6; }
+  </style>
+
+  <rect width="1640" height="1080" fill="#f6f6fb"/>
+
+  <!-- ── Phone / frontend ─────────────────────────────── -->
+  <rect x="58" y="205" width="286" height="660" rx="42" fill="#1d1d24"/>
+  <rect x="74" y="221" width="254" height="628" rx="28" fill="#fbfbfe"/>
+  <rect x="160" y="234" width="82" height="18" rx="9" fill="#1d1d24"/>
+  <!-- chat bubble icon -->
+  <rect x="164" y="286" width="74" height="58" rx="16" fill="none" stroke="#7c83e8" stroke-width="4"/>
+  <path d="M186 344 l-6 18 20 -18" fill="#fbfbfe" stroke="#7c83e8" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="186" cy="315" r="4" fill="#7c83e8"/><circle cx="201" cy="315" r="4" fill="#7c83e8"/><circle cx="216" cy="315" r="4" fill="#7c83e8"/>
+  <text x="201" y="404" text-anchor="middle" class="t" font-size="22">Browser PWA</text>
+  <text x="201" y="428" text-anchor="middle" class="s">Chat · Automations · Voice</text>
+  <g>
+    <rect x="100" y="456" width="202" height="52" rx="12" class="box"/>
+    <text x="126" y="488" class="s" font-size="16" font-weight="600" fill="#23233d">💬  Chat</text>
+    <rect x="100" y="522" width="202" height="52" rx="12" class="box"/>
+    <text x="126" y="554" class="s" font-size="16" font-weight="600" fill="#23233d">⚡  Automations</text>
+    <rect x="100" y="588" width="202" height="52" rx="12" class="box"/>
+    <text x="126" y="620" class="s" font-size="16" font-weight="600" fill="#23233d">🎙  Voice</text>
+  </g>
+  <text x="201" y="700" text-anchor="middle" class="s">installable · offline shell</text>
+  <text x="201" y="722" text-anchor="middle" class="s">dark / light / system</text>
+
+  <!-- ── Scheduler + Secret Manager ────────────────────── -->
+  <rect x="410" y="58" width="250" height="84" rx="14" class="box"/>
+  <text x="432" y="94" class="t" font-size="18">🕒 Cloud Scheduler</text>
+  <text x="432" y="118" class="s">POST /api/automations/tick</text>
+  <rect x="410" y="160" width="250" height="84" rx="14" class="box"/>
+  <text x="432" y="196" class="t" font-size="18">🔐 Secret Manager</text>
+  <text x="432" y="220" class="s">Notion secrets by reference</text>
+  <path class="edge dash" d="M660 100 H 800 V 246" marker-end="url(#arr)"/>
+  <path class="edge dash" d="M660 202 H 720 V 246" marker-end="url(#arr)"/>
+
+  <!-- ── Cloud Run ─────────────────────────────────────── -->
+  <rect x="640" y="250" width="360" height="96" rx="16" class="boxstrong"/>
+  <text x="820" y="290" text-anchor="middle" class="t" font-size="22">☁️ Cloud Run · us-central1</text>
+  <text x="820" y="318" text-anchor="middle" class="s" font-size="16">FastAPI service</text>
+
+  <!-- phone ↔ backend edges -->
+  <path class="edge" d="M352 282 H 632" marker-end="url(#arr)" marker-start="url(#arr)"/>
+  <text x="492" y="272" text-anchor="middle" class="lbl">HTTPS / SSE</text>
+  <path class="edgeb" d="M352 330 H 632" marker-end="url(#arrb)" marker-start="url(#arrb)"/>
+  <text x="492" y="352" text-anchor="middle" class="lblb">WebSocket PCM audio</text>
+  <path class="edge dash" d="M648 356 C 520 420, 430 430, 356 440" marker-end="url(#arr)"/>
+  <text x="492" y="416" text-anchor="middle" class="lbl">Web Push reminders</text>
+
+  <!-- ── Agents ────────────────────────────────────────── -->
+  <rect x="540" y="440" width="235" height="104" rx="14" class="box"/>
+  <text x="657" y="478" text-anchor="middle" class="t" font-size="18">✦ Task organizer</text>
+  <text x="657" y="502" text-anchor="middle" class="s">Google ADK LlmAgent</text>
+  <text x="657" y="524" text-anchor="middle" class="s">Gemini 3.7 Flash</text>
+
+  <rect x="865" y="440" width="235" height="104" rx="14" class="box"/>
+  <text x="982" y="478" text-anchor="middle" class="t" font-size="18">🎙 Voice navigator</text>
+  <text x="982" y="502" text-anchor="middle" class="s">Google ADK LlmAgent</text>
+  <text x="982" y="524" text-anchor="middle" class="s">Gemini Live 2.5 Flash</text>
+
+  <path class="edge" d="M760 346 L 690 432" marker-end="url(#arr)"/>
+  <path class="edge" d="M880 346 L 950 432" marker-end="url(#arr)"/>
+  <path class="edge" d="M865 492 H 783" marker-end="url(#arr)"/>
+  <text x="822" y="566" text-anchor="middle" class="lbl">send_task_to_chat</text>
+  <text x="822" y="586" text-anchor="middle" class="lbl">shared memory · web search</text>
+
+  <!-- ── Vertex ────────────────────────────────────────── -->
+  <rect x="640" y="640" width="360" height="110" rx="14" class="box"/>
+  <text x="820" y="678" text-anchor="middle" class="t" font-size="19">🔎 Vertex AI · global</text>
+  <text x="820" y="702" text-anchor="middle" class="s">gemini-3.7-flash · gemini-live-2.5-flash</text>
+  <text x="820" y="724" text-anchor="middle" class="s">Google Search grounding</text>
+  <path class="edge" d="M660 544 L 730 632" marker-end="url(#arr)"/>
+  <path class="edge" d="M978 544 L 908 632" marker-end="url(#arr)"/>
+
+  <!-- ── Firestore ─────────────────────────────────────── -->
+  <g>
+    <path d="M420 830 v96 a95 22 0 0 0 190 0 v-96" fill="#e4e6f9" stroke="#8b93ec" stroke-width="2.5"/>
+    <ellipse cx="515" cy="830" rx="95" ry="22" fill="#ced2f7" stroke="#8b93ec" stroke-width="2.5"/>
+    <text x="515" y="882" text-anchor="middle" class="t" font-size="17">Firestore</text>
+    <text x="515" y="906" text-anchor="middle" class="s" font-size="13.5">channels · automations · settings</text>
+  </g>
+  <path class="edge" d="M672 346 C 560 480, 520 640, 514 800" marker-end="url(#arr)"/>
+
+  <!-- ── Notion chain ─────────────────────────────────── -->
+  <rect x="1180" y="250" width="300" height="120" rx="14" class="box"/>
+  <text x="1330" y="288" text-anchor="middle" class="t" font-size="18">🛠 Fourteen gated board tools</text>
+  <text x="1330" y="314" text-anchor="middle" class="s">+ memory · automations</text>
+  <text x="1330" y="336" text-anchor="middle" class="s">+ web search · notify</text>
+  <path class="edge" d="M775 452 C 950 380, 1050 340, 1172 316" marker-end="url(#arr)"/>
+  <text x="985" y="386" text-anchor="middle" class="lbl">channel-gated tool calls</text>
+
+  <rect x="1180" y="450" width="300" height="96" rx="14" class="box"/>
+  <text x="1330" y="488" text-anchor="middle" class="t" font-size="18">Local stdio Notion MCP</text>
+  <text x="1330" y="514" text-anchor="middle" class="s">exactly ten operations</text>
+  <path class="edge" d="M1330 370 V 442" marker-end="url(#arr)"/>
+
+  <g>
+    <path d="M1240 660 v100 a90 22 0 0 0 180 0 v-100" fill="#efe9f8" stroke="#a793d8" stroke-width="2.5"/>
+    <ellipse cx="1330" cy="660" rx="90" ry="22" fill="#e2d9f3" stroke="#a793d8" stroke-width="2.5"/>
+    <text x="1330" y="716" text-anchor="middle" class="t" font-size="17">One existing</text>
+    <text x="1330" y="740" text-anchor="middle" class="t" font-size="17">Notion database</text>
+  </g>
+  <path class="edge" d="M1330 546 V 630" marker-end="url(#arr)"/>
+  <text x="1330" y="600" text-anchor="middle" class="lbl">one board, nothing else</text>
+
+  <!-- caption -->
+  <text x="60" y="1020" class="t" font-size="18">Agentonomy Tasks — deployed architecture</text>
+  <text x="60" y="1046" class="s">Cloud Run · Vertex AI · Firestore · Cloud Scheduler · Secret Manager · Notion MCP · Web Push PWA</text>
+</svg>
