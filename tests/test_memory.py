@@ -90,6 +90,13 @@ def test_settings_edit_the_memory_with_the_same_cap(client):
     assert chat._settings_store.get_value("memory") is None
 
 
+def test_the_voice_session_instructions_carry_the_memory(client):
+    # The live navigator reads the same memory the chat writes.
+    assert "Stored memory" not in chat._app_map()
+    client.put("/api/settings", json={"memory": "Prefers tea."})
+    assert chat._app_map().endswith("Stored memory about the user:\nPrefers tea.")
+
+
 def test_switching_the_board_is_refused_offline_and_validates_the_id(client):
     # The offline fake store cannot point at Notion.
     refused = client.put(

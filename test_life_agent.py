@@ -50,6 +50,30 @@ def _tool_names(agent):
     ]
 
 
+def test_the_voice_agent_reads_and_writes_the_shared_memory():
+    agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
+    tools = {t.__name__: t for t in agent.agent.tools}
+    # Outside a live session the tools fail honestly instead of crashing.
+    assert tools["remember"](memory="tea drinker")["stored"] is False
+
+    stored = []
+
+    class FakeOrganizer:
+        memory_sink = staticmethod(lambda text: stored.append(text))
+
+    token = agent._bridge.set({"organizer": FakeOrganizer()})
+    try:
+        assert tools["remember"](memory="Prefers tea.") == {"stored": True, "words": 2}
+        oversized = "word " * 200
+        refused = tools["remember"](memory=oversized)
+        assert refused["stored"] is False and "Condense" in refused["reason"]
+        assert tools["clear_memory"]() == {"cleared": True}
+    finally:
+        agent._bridge.reset(token)
+    # The same sink the chat writes through: one memory, shared by both.
+    assert stored == ["Prefers tea.", ""]
+
+
 def test_the_voice_agent_searches_the_web_through_the_organizer():
     agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
     tool = next(t for t in agent.agent.tools if t.__name__ == "web_search")
@@ -76,6 +100,8 @@ def test_life_agent_reads_the_board_and_navigates_but_never_writes():
         "read_task_details",
         "read_task_comments",
         "web_search",
+        "remember",
+        "clear_memory",
         "send_task_to_chat",
         "wait_for_chat_answer",
         "navigate",

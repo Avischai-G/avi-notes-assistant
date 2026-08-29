@@ -434,6 +434,9 @@ def _app_map() -> str:
         '- Settings dialog — navigate target "settings" '
         "(voice, accent, API key, these instructions)."
     )
+    memory = _memory()
+    if memory:
+        lines += ["", "Stored memory about the user:", memory]
     return "\n".join(lines)
 
 
