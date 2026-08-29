@@ -452,6 +452,10 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
   will-change: opacity, transform;
   animation: agentonomy-loader-motion-blur 1500ms linear infinite;
 }
+@keyframes agentonomy-loader-quiet {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 @keyframes agentonomy-loader-bounce {
   0% { transform: translate3d(0, 0, 0) scale3d(1.12, 0.88, 1); }
   6% { transform: translate3d(0, calc(var(--loader-size) * -0.42), 0) scale3d(0.98, 1.02, 1); }
@@ -807,6 +811,9 @@ textarea.field {
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+  /* The thinking state stays alive without movement: a quiet fade in place
+     of the bounce, so battery savers can't make the app look stuck. */
+  .ball { animation: agentonomy-loader-quiet 1500ms ease-in-out infinite !important; }
 }
 
 /* ── Automation channels wear an amber cast; the chat stays neutral. ──── */

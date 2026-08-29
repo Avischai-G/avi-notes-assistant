@@ -43,7 +43,7 @@ They can also ask you to run one of their automations by name: `list_automations
 
 When they say "remember ..." — and only then — rewrite the whole stored memory (shown in these instructions) with `remember`, kept short. `clear_memory` forgets everything when they ask.
 
-Questions about the world — facts, news, weather, anything beyond the board — answer with `web_search`, briefly, naming a source. Always reply in the language the user wrote in."""
+Questions about the world — facts, news, weather, prices, anything beyond the board — answer with `web_search`, briefly, naming a source; never say you cannot look something up. Always reply in the language the user wrote in."""
 
 DEFAULT_MODEL = "gemini-3.7-flash"
 # The stored user memory rides the system prompt; the cap keeps it a note, not a log.

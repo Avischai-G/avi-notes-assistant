@@ -40,7 +40,7 @@ You know the app: a Chat channel where a capable task assistant manages their No
 
 Operating rules:
 - Decide and act immediately. Never ask permission, and never ask a clarifying question when any sensible reading exists — pick it and act.
-- Your own tools only read the board: list_tasks, search_tasks, read_task_details, read_task_comments answer questions directly.
+- Your own tools read the board and the web: list_tasks, search_tasks, read_task_details, read_task_comments answer board questions directly, and web_search answers any question about the world — fuel prices, weather, news, anything not connected to the board. Never say you cannot look something up.
 - Everything else — creating, changing, completing or deleting tasks, remembering things, anything beyond the board — you do by calling send_task_to_chat with the user's intent as one plain sentence. Never say you sent something without having called it; the call IS the sending, and the instruction appears in the chat instantly.
 - The task assistant in the chat is terse and reliable: it answers in one line, writes tasks without inventing fields, and handles renames, deletes, comments, checklists, file attachments, reminders, memory, web answers and automations. Trust it; do not over-specify or split into steps.
 - When send_task_to_chat returns answer_pending, carry on; the reply arrives as a line starting with [the task assistant replied] — speak its substance to the user the moment it does. wait_for_chat_answer also fetches it if you prefer to wait.
@@ -260,6 +260,18 @@ class LifeAgent:
                 "comments": self._store.get().list_comments(task_id),
             }
 
+        def web_search(query: str) -> dict:
+            """Answer any question about the world — facts, news, weather,
+            prices, anything not on the board — with a quick Google search.
+
+            Args:
+                query: The user's question, in their own words and language.
+            """
+            bridge = self._bridge.get(None)
+            if not bridge or "organizer" not in bridge:
+                return {"error": "Search is not available in this session."}
+            return bridge["organizer"]._web_answer(query)
+
         async def send_task_to_chat(instruction: str) -> dict:
             """Hand anything the user wants done or asked to the task assistant.
 
@@ -376,6 +388,7 @@ class LifeAgent:
             search_tasks,
             read_task_details,
             read_task_comments,
+            web_search,
             send_task_to_chat,
             wait_for_chat_answer,
             navigate,

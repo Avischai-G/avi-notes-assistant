@@ -50,6 +50,24 @@ def _tool_names(agent):
     ]
 
 
+def test_the_voice_agent_searches_the_web_through_the_organizer():
+    agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
+    tool = next(t for t in agent.agent.tools if t.__name__ == "web_search")
+    # Outside a live session the tool fails honestly instead of crashing.
+    assert "error" in tool(query="fuel prices")
+
+    class FakeOrganizer:
+        def _web_answer(self, query):
+            return {"answer": f"grounded: {query}", "sources": []}
+
+    token = agent._bridge.set({"organizer": FakeOrganizer()})
+    try:
+        result = tool(query="fuel prices near me")
+    finally:
+        agent._bridge.reset(token)
+    assert result == {"answer": "grounded: fuel prices near me", "sources": []}
+
+
 def test_life_agent_reads_the_board_and_navigates_but_never_writes():
     agent = LifeAgent(llm=ScriptedLifeLlm(model="gemini-3.7-flash"))
     assert _tool_names(agent) == [
@@ -57,6 +75,7 @@ def test_life_agent_reads_the_board_and_navigates_but_never_writes():
         "search_tasks",
         "read_task_details",
         "read_task_comments",
+        "web_search",
         "send_task_to_chat",
         "wait_for_chat_answer",
         "navigate",
