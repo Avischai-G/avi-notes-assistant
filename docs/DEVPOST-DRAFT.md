@@ -216,5 +216,5 @@ trigger model.
 
 - Repository: https://github.com/Avischai-G/avi-notes-assistant
 - Live app: https://agentonomy-tasks-295057934762.us-central1.run.app
-- Demo video: `[to be added]`
+- Demo video: https://youtu.be/oVdRfKNFpmY
 - Architecture diagram for the gallery: `docs/architecture-hero.png`
