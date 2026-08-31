@@ -111,10 +111,46 @@ function attachmentChips(names) {
   return rowEl;
 }
 
-function buildMessage(role, content) {
+// WhatsApp-style times: HH:MM under each bubble, day lines between dates.
+function timeLabel(ts) {
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function dayLabel(ts) {
+  const date = new Date(ts * 1000);
+  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOf(new Date()) - startOf(date)) / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return date.toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" });
+}
+function dayDivider(ts) {
+  const el = document.createElement("div");
+  el.className = "day-divider";
+  el.innerHTML = "<span></span>";
+  el.firstChild.textContent = dayLabel(ts);
+  return el;
+}
+let lastDayKey = null;
+function maybeAppendDivider(ts) {
+  if (!ts) return;
+  const key = new Date(ts * 1000).toDateString();
+  if (key !== lastDayKey) {
+    transcript.append(dayDivider(ts));
+    lastDayKey = key;
+  }
+}
+
+function buildMessage(role, content, timestamp) {
   const row = document.createElement("div");
   row.className = `message-row ${role}`;
-  const parent = role === "assistant" ? assistantStack(row) : row;
+  let parent;
+  if (role === "assistant") {
+    parent = assistantStack(row);
+  } else {
+    parent = document.createElement("div");
+    parent.className = "user-stack";
+    row.append(parent);
+  }
   const bubble = document.createElement("div");
   bubble.className = "message-bubble";
   if (role === "assistant") {
@@ -136,11 +172,18 @@ function buildMessage(role, content) {
     }
   }
   parent.append(bubble);
+  if (timestamp) {
+    const time = document.createElement("div");
+    time.className = "msg-time";
+    time.textContent = timeLabel(timestamp);
+    parent.append(time);
+  }
   return { row, bubble, parent };
 }
 
-function addMessage(role, content, { animate = false } = {}) {
-  const built = buildMessage(role, content);
+function addMessage(role, content, { animate = false, timestamp = null } = {}) {
+  if (timestamp) maybeAppendDivider(timestamp);
+  const built = buildMessage(role, content, timestamp);
   if (animate) built.row.classList.add("entering");
   transcript.append(built.row);
   bottom();
@@ -247,7 +290,7 @@ async function loadEarlier() {
     nextBefore = data.start || 0;
     const anchor = transcript.querySelector(".load-more-row");
     const previousHeight = transcript.scrollHeight;
-    const rows = (data.messages || []).map((message) => buildMessage(message.role, message.content).row);
+    const rows = (data.messages || []).map((message) => buildMessage(message.role, message.content, message.timestamp).row);
     anchor.after(...rows);
     syncLoadMore();
     transcript.scrollTop += transcript.scrollHeight - previousHeight;
@@ -263,8 +306,11 @@ async function loadChannel(id) {
   channelId = id;
   const data = await apiJSON(`/api/channels/${encodeURIComponent(id)}?limit=${PAGE}`);
   transcript.replaceChildren();
+  lastDayKey = null;
   nextBefore = data.start || 0;
-  for (const message of data.messages || []) addMessage(message.role, message.content);
+  for (const message of data.messages || []) {
+    addMessage(message.role, message.content, { timestamp: message.timestamp });
+  }
   if (!(data.messages || []).length) {
     transcript.innerHTML = emptyState();
   } else {
@@ -673,7 +719,7 @@ async function sendMessage() {
   if (attachments.length) {
     submitted += `\n[Attached: ${attachments.map((file) => file.name).join(", ")}]`;
   }
-  addMessage("user", submitted, { animate: true });
+  addMessage("user", submitted, { animate: true, timestamp: Date.now() / 1000 });
   input.value = "";
   resize();
 
@@ -809,7 +855,7 @@ liveToggle.addEventListener("click", async () => {
         // shows it at once, exactly as if the user had typed it.
         if (channelId !== liveChannelId) return;
         $(".empty-state")?.remove();
-        addMessage("user", text, { animate: true });
+        addMessage("user", text, { animate: true, timestamp: Date.now() / 1000 });
         const bar = document.createElement("div");
         bar.className = "working-bar";
         bar.innerHTML = "<span class=\"ball\"></span><span>Working</span>";

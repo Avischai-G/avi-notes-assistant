@@ -378,6 +378,18 @@ html[data-theme-mode="system"] #theme .mode-system { display: block; }
 .message-row.assistant .message-bubble { background: transparent; border: 0; border-color: transparent; padding: 0; }
 .assistant-stack { max-width: 88%; display: flex; flex-direction: column; gap: 12px; }
 .assistant-stack .message-bubble { max-width: 100%; }
+.user-stack { max-width: 88%; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; }
+.user-stack .message-bubble { max-width: 100%; }
+/* WhatsApp-style chat times and day lines. */
+.msg-time { margin-top: 3px; padding: 0 2px; font-size: var(--type-caption); color: var(--quiet); }
+.day-divider { display: flex; justify-content: center; margin: 6px 0; }
+.day-divider span {
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  color: var(--muted);
+  font-size: var(--type-small);
+}
 
 .markdown { line-height: var(--leading-prose); }
 .markdown p { margin: 0 0 10px; }
@@ -804,7 +816,7 @@ textarea.field {
   .attach-button, .live-toggle { width: 36px; height: 36px; margin-bottom: 2px; }
   .send-button { width: 40px; height: 40px; }
   .working-bar { top: -16px; }
-  .message-bubble, .assistant-stack { max-width: 92%; }
+  .message-bubble, .assistant-stack, .user-stack { max-width: 92%; }
   .editor { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; }
   .editor-body { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
 }
