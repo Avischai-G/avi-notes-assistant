@@ -313,14 +313,16 @@ def _push_to_devices(
         payload["actions"] = actions
     alive: list[dict] = []
     sent = 0
+    results: list[dict] = []
     for subscription in subscriptions:
+        endpoint = str(subscription.get("endpoint") or "")
         try:
             # pywebpush defaults to TTL 0 — deliver this instant or drop.
             # A phone whose push connection is dozing (battery savers, OEM
             # power management) silently loses such messages; a day-long TTL
             # with high urgency makes the push service hold it and wake the
             # device instead.
-            webpush(
+            response = webpush(
                 subscription_info=subscription,
                 data=json.dumps(payload),
                 vapid_private_key=vapid,
@@ -330,16 +332,29 @@ def _push_to_devices(
             )
             alive.append(subscription)
             sent += 1
+            results.append({
+                "endpoint": endpoint,
+                "ok": True,
+                "status": getattr(response, "status_code", None),
+            })
         except WebPushException as exc:
             status = getattr(getattr(exc, "response", None), "status_code", None)
+            results.append({"endpoint": endpoint, "ok": False, "status": status})
             if status not in (404, 410):
                 alive.append(subscription)  # transient: keep and retry next fire
                 print(f"push failed ({status}): {exc}", flush=True)
         except Exception as exc:
             alive.append(subscription)
+            results.append({"endpoint": endpoint, "ok": False, "status": None})
             print(f"push failed: {exc}", flush=True)
     if alive != subscriptions:
         _settings_store.set_value("push_subscriptions", alive)
+    # The report answers "did my phone's send leave the building?" from the
+    # Settings page, separating a server-side failure from a device that got
+    # the message and never showed it.
+    _settings_store.set_value(
+        "push_last_send", {"at": time.time(), "title": title, "results": results}
+    )
     return sent
 
 
@@ -1003,6 +1018,15 @@ def register_chat_routes(app: FastAPI) -> None:
         ]
         _settings_store.set_value("push_subscriptions", remaining)
         return {"subscribed": False, "devices": len(remaining)}
+
+    @app.get("/api/push/status")
+    def push_status() -> dict:
+        """Enrolled devices plus what the push service said on the last
+        send, so Settings can show the delivery chain per device."""
+        return {
+            "devices": len(_push_subscriptions()),
+            "last_send": _settings_store.get_value("push_last_send") or None,
+        }
 
     @app.post("/api/push/test")
     def push_test() -> dict:

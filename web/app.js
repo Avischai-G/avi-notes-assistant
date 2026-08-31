@@ -1005,6 +1005,45 @@ enablePush.addEventListener("click", async () => {
 });
 
 const pushTest = $("#push-test");
+const pushReport = $("#push-report");
+
+// What the push service said, per device, for the most recent notification —
+// so "accepted here but nothing appeared" clearly points at the phone's own
+// background limits rather than the app.
+async function refreshPushReport() {
+  try {
+    const status = await apiJSON("/api/push/status");
+    let own = null;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      own = (await registration.pushManager.getSubscription())?.endpoint || null;
+    } catch { /* no worker yet: report without the "this device" label */ }
+    const lines = [`${status.devices} device${status.devices === 1 ? "" : "s"} enrolled.`];
+    const last = status.last_send;
+    if (last && Array.isArray(last.results) && last.results.length) {
+      const at = new Date(last.at * 1000)
+        .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      let others = 0;
+      let ownAccepted = false;
+      for (const result of last.results) {
+        const outcome = result.ok ? "accepted" : `failed (${result.status ?? "error"})`;
+        if (own && result.endpoint === own) {
+          lines.push(`Last notification at ${at}: this device ${outcome}.`);
+          ownAccepted = result.ok;
+        } else {
+          others += 1;
+          lines.push(`Other device ${others}: ${outcome}.`);
+        }
+      }
+      if (ownAccepted) {
+        lines.push("Accepted means the push service took it for this device. If nothing appeared here, the phone is limiting the browser in the background — allow it unrestricted battery use (and in Brave, turn on Google services for push messaging).");
+      }
+    }
+    pushReport.textContent = lines.join(" ");
+    pushReport.hidden = false;
+  } catch { /* the report is best-effort; the toggle still works without it */ }
+}
+
 pushTest.addEventListener("click", async () => {
   try {
     // Renew first so the test always targets this device's live subscription.
@@ -1013,6 +1052,7 @@ pushTest.addEventListener("click", async () => {
     flash(result.devices
       ? `Test sent to ${result.devices} device${result.devices === 1 ? "" : "s"}`
       : "No device is enrolled");
+    await refreshPushReport();
   } catch (error) {
     pushState.textContent = `Test failed: ${error.message}`;
   }
@@ -1046,6 +1086,7 @@ settingsHub.addEventListener("click", (event) => {
   if (!button) return;
   showSettingsSection(button.dataset.section);
   openLayer("settings-section", () => showSettingsSection(null));
+  if (button.dataset.section === "notifications") refreshPushReport();
 });
 // Go back walks one level at a time: section -> hub -> Options drawer.
 function backToOptions() {

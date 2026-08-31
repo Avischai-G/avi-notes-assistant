@@ -247,6 +247,25 @@ def test_the_settings_test_button_rings_enrolled_devices(client, monkeypatch):
     assert len(sent) == 1
 
 
+def test_every_send_leaves_a_per_device_delivery_report(client, monkeypatch):
+    import pywebpush
+
+    client.post("/api/push/subscribe", json={
+        "endpoint": "https://push.example/mine",
+        "keys": {"p256dh": "pk", "auth": "au"},
+    })
+    monkeypatch.setattr(pywebpush, "webpush", lambda **kw: None)
+    assert chat._push_to_devices("🔔 Hello", "world") == 1
+
+    status = client.get("/api/push/status").json()
+    assert status["devices"] == 1
+    report = status["last_send"]
+    assert report["title"] == "🔔 Hello"
+    assert report["results"] == [
+        {"endpoint": "https://push.example/mine", "ok": True, "status": None}
+    ]
+
+
 def test_push_subscriptions_register_and_validate(client):
     assert "key" in client.get("/api/push/key").json()
 
