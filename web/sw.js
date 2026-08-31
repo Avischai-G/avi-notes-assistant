@@ -23,19 +23,29 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
-  event.respondWith(
-    // cache: "no-cache" forces revalidation past the browser's heuristic
-    // HTTP cache, so a deploy really wins on the next load.
-    fetch(event.request.url, { cache: "no-cache", credentials: "same-origin" })
-      .then((response) => {
-        if (response.ok && url.origin === location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request, { ignoreSearch: url.pathname === "/" })),
-  );
+  // cache: "no-cache" forces revalidation past the browser's heuristic
+  // HTTP cache, so a deploy really wins on the next load.
+  const network = fetch(event.request.url, { cache: "no-cache", credentials: "same-origin" })
+    .then((response) => {
+      if (response.ok && url.origin === location.origin) {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+      }
+      return response;
+    });
+  const cached = () => caches.match(event.request, { ignoreSearch: url.pathname === "/" });
+  event.respondWith((async () => {
+    // On a slow connection the shell must not hang behind the revalidating
+    // fetch: after 3s of network silence the cached copy answers, while the
+    // fetch keeps running above to refresh the cache for the next load.
+    const timer = new Promise((resolve) => setTimeout(resolve, 3000));
+    const first = await Promise.race([network.catch(() => null), timer]);
+    if (first instanceof Response) return first;
+    const hit = await cached();
+    if (hit) return hit;
+    return network; // nothing cached yet: the network is the only answer
+  })());
+  event.waitUntil(network.catch(() => {}));
 });
 
 self.addEventListener("push", (event) => {

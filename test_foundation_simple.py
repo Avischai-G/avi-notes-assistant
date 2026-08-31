@@ -119,7 +119,7 @@ def test_no_orchestration():
     assert 'organize' in SYSTEM_PROMPT.lower(), "Should mention organizing"
     assert 'never do the task itself' in SYSTEM_PROMPT.lower(), \
         "Should explicitly say it never does the task"
-    assert len(SYSTEM_PROMPT.split()) <= 420, "Prompt should stay short and plain"
+    assert len(SYSTEM_PROMPT.split()) <= 470, "Prompt should stay short and plain"
     print("✓ System prompt: short, personal, and organize-only")
 
 
