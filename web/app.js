@@ -172,7 +172,8 @@ function buildMessage(role, content, timestamp) {
     }
   }
   parent.append(bubble);
-  if (timestamp) {
+  // Only the user's bubbles wear a time; replies stay clean.
+  if (timestamp && role === "user") {
     const time = document.createElement("div");
     time.className = "msg-time";
     time.textContent = timeLabel(timestamp);
