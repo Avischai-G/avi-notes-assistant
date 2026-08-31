@@ -218,12 +218,33 @@ def test_the_stored_pem_reaches_pywebpush_as_a_loaded_vapid_key(client, monkeypa
     })
     captured = {}
 
-    def fake_webpush(subscription_info, data, vapid_private_key, vapid_claims):
+    def fake_webpush(subscription_info, data, vapid_private_key, vapid_claims, **kw):
         captured["key"] = vapid_private_key
+        captured["kw"] = kw
 
     monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
     assert chat._push_to_devices("⏰ Test", "due") == 1
     assert isinstance(captured["key"], Vapid01)
+    # TTL 0 is pywebpush's default and means now-or-never: a dozing phone
+    # silently loses the message. The push service must hold and wake.
+    assert captured["kw"].get("ttl", 0) > 0
+    assert captured["kw"].get("headers", {}).get("Urgency") == "high"
+
+
+def test_the_settings_test_button_rings_enrolled_devices(client, monkeypatch):
+    import pywebpush
+
+    client.post("/api/push/subscribe", json={
+        "endpoint": "https://push.example/test-me",
+        "keys": {"p256dh": "pk", "auth": "au"},
+    })
+    sent = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda **kw: sent.append(kw) or None
+    )
+    response = client.post("/api/push/test")
+    assert response.json() == {"devices": 1}
+    assert len(sent) == 1
 
 
 def test_push_subscriptions_register_and_validate(client):

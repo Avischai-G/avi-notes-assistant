@@ -958,6 +958,7 @@ function pushUI(on) {
   enablePush.classList.toggle("primary", !on);
   enablePush.classList.toggle("danger", on);
   enablePush.dataset.on = on ? "1" : "";
+  pushTest.hidden = !on;
   pushState.textContent = on
     ? "On: due reminders notify this device."
     : "When a reminder is due, this device gets a notification from the app itself — even when it is closed.";
@@ -1000,6 +1001,20 @@ enablePush.addEventListener("click", async () => {
     flash("Reminder notifications enabled");
   } catch (error) {
     pushState.textContent = `Could not enable: ${error.message}`;
+  }
+});
+
+const pushTest = $("#push-test");
+pushTest.addEventListener("click", async () => {
+  try {
+    // Renew first so the test always targets this device's live subscription.
+    await subscribeToPush();
+    const result = await apiJSON("/api/push/test", { method: "POST" });
+    flash(result.devices
+      ? `Test sent to ${result.devices} device${result.devices === 1 ? "" : "s"}`
+      : "No device is enrolled");
+  } catch (error) {
+    pushState.textContent = `Test failed: ${error.message}`;
   }
 });
 

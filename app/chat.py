@@ -315,11 +315,18 @@ def _push_to_devices(
     sent = 0
     for subscription in subscriptions:
         try:
+            # pywebpush defaults to TTL 0 — deliver this instant or drop.
+            # A phone whose push connection is dozing (battery savers, OEM
+            # power management) silently loses such messages; a day-long TTL
+            # with high urgency makes the push service hold it and wake the
+            # device instead.
             webpush(
                 subscription_info=subscription,
                 data=json.dumps(payload),
                 vapid_private_key=vapid,
                 vapid_claims={"sub": "mailto:reminders@agentonomy.app"},
+                ttl=86400,
+                headers={"Urgency": "high"},
             )
             alive.append(subscription)
             sent += 1
@@ -996,6 +1003,16 @@ def register_chat_routes(app: FastAPI) -> None:
         ]
         _settings_store.set_value("push_subscriptions", remaining)
         return {"subscribed": False, "devices": len(remaining)}
+
+    @app.post("/api/push/test")
+    def push_test() -> dict:
+        """Ring every enrolled device right now, so a user can verify the
+        whole delivery chain from their own Settings page."""
+        devices = _push_to_devices(
+            "🔔 Test notification",
+            "If you can read this, notifications reach this device.",
+        )
+        return {"devices": devices}
 
     @app.post("/api/key-check")
     async def key_check(request: Request):
