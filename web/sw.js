@@ -3,8 +3,8 @@
    caching already bit this app once); the cache only answers when the network
    is unreachable, giving the installed app a working shell offline. API and
    WebSocket traffic is never cached. */
-const CACHE = "agentonomy-shell-v2";
-const SHELL = ["/", "/app.css", "/app.js", "/live.js", "/live-fx.js", "/icon-192.png", "/icon-512.png", "/manifest.json"];
+const CACHE = "agentonomy-shell-v3";
+const SHELL = ["/", "/app.css", "/app.js", "/live.js", "/live-fx.js", "/icon-192.png", "/icon-512.png", "/icon-192-maskable.png", "/icon-512-maskable.png", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
