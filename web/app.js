@@ -1018,6 +1018,11 @@ async function refreshPushReport() {
       const registration = await navigator.serviceWorker.ready;
       own = (await registration.pushManager.getSubscription())?.endpoint || null;
     } catch { /* no worker yet: report without the "this device" label */ }
+    let received = null;
+    try {
+      const hit = await (await caches.open("agentonomy-push-log")).match("/push-log");
+      if (hit) received = await hit.json();
+    } catch { /* no cache access: skip the received line */ }
     const lines = [`${status.devices} device${status.devices === 1 ? "" : "s"} enrolled.`];
     const last = status.last_send;
     if (last && Array.isArray(last.results) && last.results.length) {
@@ -1035,8 +1040,15 @@ async function refreshPushReport() {
           lines.push(`Other device ${others}: ${outcome}.`);
         }
       }
-      if (ownAccepted) {
-        lines.push("Accepted means the push service took it for this device. If nothing appeared here, the phone is limiting the browser in the background — allow it unrestricted battery use (and in Brave, turn on Google services for push messaging).");
+      if (received) {
+        const receivedAt = new Date(received.at)
+          .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        lines.push(`This device last received a push at ${receivedAt}.`);
+      } else {
+        lines.push("This device has not received any push yet.");
+      }
+      if (ownAccepted && (!received || received.at < (last.at * 1000) - 60000)) {
+        lines.push("Accepted but not received here means the phone is cutting the browser's push connection in the background — give the browser unrestricted battery use and autostart permission, and fully closing and reopening the app should make held notifications arrive.");
       }
     }
     pushReport.textContent = lines.join(" ");

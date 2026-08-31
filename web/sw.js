@@ -12,10 +12,14 @@ self.addEventListener("install", (event) => {
   );
 });
 
+const PUSH_LOG = "agentonomy-push-log"; // survives versions: it is evidence
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE && key !== PUSH_LOG).map((key) => caches.delete(key)),
+      ))
       .then(() => self.clients.claim()),
   );
 });
@@ -63,7 +67,17 @@ self.addEventListener("push", (event) => {
   if (payload.tag) options.tag = payload.tag;
   if (payload.data) options.data = payload.data;
   if (payload.actions) options.actions = payload.actions;
-  event.waitUntil(self.registration.showNotification(payload.title, options));
+  // Record the arrival before showing anything: the Settings report reads
+  // this to tell "the push service accepted it" apart from "this device
+  // actually received it".
+  const log = caches.open(PUSH_LOG).then((cache) => cache.put(
+    "/push-log",
+    new Response(JSON.stringify({ at: Date.now(), title: payload.title })),
+  )).catch(() => {});
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(payload.title, options),
+    log,
+  ]));
 });
 
 self.addEventListener("notificationclick", (event) => {
