@@ -1216,4 +1216,7 @@ applyTheme(localStorage.getItem("agentonomy-theme") || "system");
     showLoadError(error);
   }
   resize();
+  // The startup screen leaves only once the first screen is fully loaded
+  // (or its error state is on screen — never trap the user behind it).
+  if (window.dismissSplash) window.dismissSplash();
 })();

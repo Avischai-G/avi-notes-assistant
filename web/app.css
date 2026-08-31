@@ -113,12 +113,35 @@ button { border: 0; color: inherit; }
   transition: background-color 200ms ease;
 }
 .wordmark {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
   color: var(--text);
   font-size: var(--type-emphasis);
   font-weight: 600;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  overflow: hidden;
+}
+/* The brand A stands in for the letter, tucked slightly over the text —
+   same construction as the Agentonomy wordmark. */
+.wordmark-a {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  width: 1.2em;
+  height: 1.16em;
+  flex: none;
+  background: var(--accent);
+  mask: url("a-mark.svg") center / contain no-repeat;
+  -webkit-mask: url("a-mark.svg") center / contain no-repeat;
+  transform: translateY(0.08em);
+}
+.wordmark-text {
+  position: relative;
+  z-index: 0;
+  margin-left: -0.22em;
   overflow: hidden;
   text-overflow: ellipsis;
 }

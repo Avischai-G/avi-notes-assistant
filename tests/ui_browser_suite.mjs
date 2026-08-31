@@ -360,7 +360,11 @@ async function exerciseTaskSurface(page, theme, mobile, functional) {
   await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   await page.waitForSelector(".empty-state");
   assert.equal(await page.locator("html").getAttribute("data-theme"), theme);
-  assert.equal((await page.locator(".wordmark").innerText()).trim(), "Agentonomy Tasks");
+  // The brand A mark stands in for the letter A; the startup screen must be
+  // gone once the first screen has loaded.
+  assert.equal((await page.locator(".wordmark").innerText()).trim(), "gentonomy Tasks");
+  assert.equal(await page.locator(".wordmark-a").count(), 1);
+  await page.waitForSelector("#splash", { state: "detached" });
   assert.equal(await page.getByText("Recent chats", { exact: false }).count(), 0);
 
   // The only permanent chrome is the top bar; channels live behind the menu.

@@ -35,3 +35,14 @@ def test_page_wires_manifest_and_shell_worker():
     # and the fetch revalidates past the browser's heuristic HTTP cache.
     assert 'fetch(event.request.url, { cache: "no-cache"' in worker
     assert '.startsWith("/api/")' in worker
+
+
+def test_startup_screen_holds_until_first_load():
+    markup = (WEB / "index.html").read_text(encoding="utf-8")
+    script = (WEB / "app.js").read_text(encoding="utf-8")
+    # The startup screen is styled inline (visible before app.css arrives)
+    # and only app.js may dismiss it, once the first screen has loaded.
+    assert 'id="splash"' in markup
+    assert "window.dismissSplash" in markup
+    assert "window.dismissSplash()" in script
+    assert (WEB / "a-mark.svg").read_text(encoding="utf-8").lstrip().startswith("<svg")
